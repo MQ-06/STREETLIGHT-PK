@@ -1,0 +1,152 @@
+# ============================================
+# PYTHON / BACKEND
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Environment & Secrets
+.env
+.env.local
+.env.production
+secret.py
+*.key
+*.pem
+
+# Python packages
+*.egg-info/
+dist/
+build/
+pip-log.txt
+
+# ============================================
+# FLUTTER / FRONTEND
+# ============================================
+# Dart/Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Flutter specific
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.flutter-plugins-dependencies
+
+# Android related
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+local.properties
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/.gradle/
+/android/captures/
+/android/.idea
+
+# iOS related
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+
+# ============================================
+# AI/ML MODELS & DATA
+# ============================================
+# Large model files (use Git LFS for these)
+*.h5
+*.pkl
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.weights
+
+# Training data (usually too large)
+**/training/data/raw_images/**
+**/training/data/processed/**
+**/training/checkpoints/**
+**/training/logs/**
+
+# Exceptions - keep structure
+!**/training/data/raw_images/README.md
+!**/training/data/processed/.gitkeep
+
+# Test images (optional - uncomment if needed)
+# **/test_images/
+
+# ============================================
+# IDE & EDITOR
+# ============================================
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.atom/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ============================================
+# LOGS & DATABASES
+# ============================================
+*.log
+logs/
+*.sqlite
+*.sqlite3
+*.db
+
+# ============================================
+# DOCUMENTATION (PDFs - optional)
+# ============================================
+# Uncomment if PDFs are too large
+# documentations/*.pdf
+
+streetlight_layers/
+
+# ============================================
+# NODE MODULES (if any)
+# ============================================
+node_modules/
+package-lock.json
