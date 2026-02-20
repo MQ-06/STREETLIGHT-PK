@@ -4,7 +4,7 @@
 
 #  STREETLIGHT
 
-### *AI-Powered Civic Reporting Platform with GPS Verification*
+### *AI-Powered, Blockchain-Secured Civic Management Platform*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.129.0-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
 [![Flutter](https://img.shields.io/badge/Flutter-3.10.8-02569B.svg?style=flat&logo=Flutter&logoColor=white)](https://flutter.dev)
@@ -12,9 +12,9 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C.svg?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![License](https://img.shields.io/badge/License-Academic-blue.svg)](LICENSE)
 
-**Combat fraudulent civic reports using AI-powered image classification and GPS verification**
+**"No civic hazard should remain in dark"**
 
-[Features](#-key-features) • [Demo](#-demo) • [Installation](#-quick-start) • [Architecture](#-system-architecture) • [Team](#-team)
+[Features](#-key-features) • [Installation](#-quick-start) • [Technology Stack](#-technology-stack) • [Team](#-team)
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 🌟 What is StreetLight?
 
-**StreetLight** is an intelligent civic engagement platform that revolutionizes how citizens report infrastructure issues. Using cutting-edge AI and GPS verification technology, we ensure every report is authentic—**preventing fraud and saving government resources**.
+**StreetLight** is an AI-powered, blockchain-secured civic management platform that bridges the gap between citizens and municipal authorities in Pakistan's rapidly urbanizing cities. Built under the motto *"No civic hazard should remain in dark,"* it transforms how everyday infrastructure problems potholes, garbage accumulation, broken streetlights, sewerage failures are reported, verified, and resolved.
 
 ### 🎯 The Challenge We're Solving
 
@@ -127,24 +127,6 @@ In traditional civic reporting systems:
 
 ---
 
-
----
-
-## 🏗️ System Architecture
-
-<div align="center">
-
-
-
-</div>
-
-
-
-
-    # 1. Extract GPS from photo EXIF 
-
----
-
 ## 🚀 Technology Stack
 
 <div align="center">
@@ -223,7 +205,6 @@ flutter run
 
 ---
 
-
 ## 👥 Team
 
 <div align="center">
@@ -234,21 +215,19 @@ flutter run
   <tr>
     <td align="center" width="25%">
       <img src="https://ui-avatars.com/api/?name=Mariam+Qadeem&size=100&background=02569B&color=fff" width="100" style="border-radius: 50%"/><br>
-      <b>Mariam Qadeem</b><br>NO    
+      <b>Mariam Qadeem</b>
     </td>
     <td align="center" width="25%">
       <img src="https://ui-avatars.com/api/?name=Areeba+Tahir&size=100&background=009688&color=fff" width="100" style="border-radius: 50%"/><br>
-      <b>Areeba Tahir</b><br>
-  
+      <b>Areeba Tahir</b>
     </td>
     <td align="center" width="25%">
       <img src="https://ui-avatars.com/api/?name=Kinz+ul+Eman&size=100&background=EE4C2C&color=fff" width="100" style="border-radius: 50%"/><br>
-      <b>Kinz-ul-Eman</b><br>
-
+      <b>Kinz-ul-Eman</b>
     </td>
     <td align="center" width="25%">
       <img src="https://ui-avatars.com/api/?name=Shezonia&size=100&background=3776AB&color=fff" width="100" style="border-radius: 50%"/><br>
-      <b>Shezonia</b><br>
+      <b>Shezonia</b>
     </td>
   </tr>
 </table>
@@ -280,15 +259,6 @@ Faculty of Computing & Information Technology
 
 ---
 
-
-## 📄 License
-
-This project is developed for **academic purposes** as part of a university capstone project.
-
-**© 2024 StreetLight Team - Punjab University**
-
----
-
 ## 🙏 Acknowledgments
 
 Special thanks to:
@@ -302,6 +272,14 @@ Special thanks to:
 
 ---
 
+## 📄 License
+
+This project is developed for **academic purposes** as part of a university capstone project.
+
+**© 2026 StreetLight Team - Punjab University**
+
+---
+
 ## 📞 Contact & Support
 
 <div align="center">
@@ -312,18 +290,15 @@ Special thanks to:
 🏛️ **Institution:** University of the Punjab, Lahore  
 🏢 **Department:** Information Technology (IT-OC)
 
-### Connect With Us
-
-[![GitHub](https://img.shields.io/badge/GitHub-StreetLight-181717?style=for-the-badge&logo=github)](https://github.com/yourusername/streetlight)
-[![Documentation](https://img.shields.io/badge/Docs-Read%20More-blue?style=for-the-badge&logo=readthedocs)](docs/)
-
 </div>
 
 ---
 
-
 <div align="center">
 
+**Made with ❤️ by PUCIT Students**
+
+*"No civic hazard should remain in dark"*
 
 [⬆ Back to Top](#-streetlight)
 
