@@ -184,12 +184,12 @@ class ApiService {
     }
   }
 
-  /// POST /reports/create
-  /// Image is NOT sent — only text fields. Image stays local on device.
+  /// POST /reports/create (WITH AI VALIDATION)
+
   static Future<Map<String, dynamic>> createReport({
+    required String imagePath,  // REQUIRED: Image file path for AI processing
     required String title,
     required String description,
-    required String category,
     required String locationAddress,
     String? locationCity,
     double? locationLat,
@@ -199,31 +199,56 @@ class ApiService {
       final token = await getToken();
       if (token == null) return {'success': false, 'error': 'Not authenticated.'};
 
-      // Using multipart even without image — FastAPI Form() requires this
+      // Create multipart request with image
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseURL/reports/create'),
       );
+      
       request.headers['Authorization'] = 'Bearer $token';
+      
+      // Add image file (REQUIRED for AI processing)
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      
+      // Add form fields (category is auto-detected by AI)
       request.fields['title'] = title;
       request.fields['description'] = description;
-      request.fields['category'] = category.toUpperCase();
       request.fields['location_address'] = locationAddress;
       if (locationCity != null) request.fields['location_city'] = locationCity;
       if (locationLat != null) request.fields['location_lat'] = locationLat.toString();
       if (locationLng != null) request.fields['location_lng'] = locationLng.toString();
-      // No image field — image stays on device until AI processing later
 
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      // Longer timeout for AI processing (60 seconds)
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamed);
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       }
+      
+      // Handle AI validation errors (400)
+      if (response.statusCode == 400) {
+        // Check if detailed error structure from AI Agent
+        if (data['detail'] is Map) {
+          return {
+            'success': false,
+            'error': data['detail']['message'] ?? 'Validation failed',
+            'errors': data['detail']['errors'] ?? [],
+            'validation_failed': true,
+            'agent_reason': data['detail']['agent_reason']
+          };
+        } else if (data['detail'] is String) {
+          return {'success': false, 'error': data['detail']};
+        }
+      }
+      
       return {'success': false, 'error': data['detail'] ?? 'Failed to submit report'};
+      
+    } on TimeoutException {
+      return {'success': false, 'error': 'Request timed out. AI processing may be slow, please try again.'};
     } catch (e) {
-      return {'success': false, 'error': 'Cannot connect to server.'};
+      return {'success': false, 'error': 'Cannot connect to server: $e'};
     }
   }
 

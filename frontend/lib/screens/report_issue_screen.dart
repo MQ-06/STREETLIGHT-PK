@@ -36,7 +36,6 @@ class ReportIssueScreen extends StatefulWidget {
 class _ReportIssueScreenState extends State<ReportIssueScreen> {
   File? _selectedImage;
   LocationData? _currentLocation;
-  IssueCategory? _selectedCategory;
   final TextEditingController _descriptionController = TextEditingController();
 
   bool _isLoadingLocation = false;
@@ -283,10 +282,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       _showError('Please enable location access');
       return;
     }
-    if (_selectedCategory == null) {
-      _showError('Please select an issue category');
-      return;
-    }
     if (_descriptionController.text.trim().isEmpty) {
       _showError('Please provide a description');
       return;
@@ -294,16 +289,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
     setState(() => _isSubmitting = true);
 
-    // Auto-generate title from category + city
-    final category = _selectedCategory!.name; // 'POTHOLE' or 'TRASH'
+    // Auto-generate title from city (AI will detect category)
     final city = _currentLocation!.city;
-    final autoTitle = '$category in $city';
+    final autoTitle = 'Civic Issue in $city';
 
-    // Call API — image NOT sent, stays on device for now
+    // Call API WITH IMAGE — AI Agent will process it and detect category
     final result = await ApiService.createReport(
+      imagePath: _selectedImage!.path,  // AI will automatically detect pothole or garbage
       title: autoTitle,
       description: _descriptionController.text.trim(),
-      category: category,
       locationAddress: _currentLocation!.address,
       locationCity: _currentLocation!.city,
       locationLat: _currentLocation!.latitude,
@@ -316,6 +310,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     if (result['success'] == true) {
       await UserSession.incrementTotalReported();
 
+      // Simple success message (AI scores are for backend only)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('✓ Report Submitted Successfully',
@@ -333,7 +328,40 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       await Future.delayed(const Duration(milliseconds: 1200));
       if (mounted) Navigator.pop(context, true);
     } else {
-      _showError(result['error'] ?? 'Failed to submit. Please try again.');
+      // Show "Invalid Report" with basic error message
+      String errorMsg = 'Invalid Report';
+      
+      // Get the basic reason from AI Agent
+      if (result['errors'] != null && result['errors'].isNotEmpty) {
+        // Extract simple reason from AI error
+        String aiError = result['errors'][0];
+        
+        // Simplify common AI errors for users
+        if (aiError.contains('blurry') || aiError.contains('blur')) {
+          errorMsg = 'Invalid Report: Image is too blurry';
+        } else if (aiError.contains('dark') || aiError.contains('brightness')) {
+          errorMsg = 'Invalid Report: Image is too dark';
+        } else if (aiError.contains('bright')) {
+          errorMsg = 'Invalid Report: Image is too bright';
+        } else if (aiError.contains('resolution') || aiError.contains('Resolution')) {
+          errorMsg = 'Invalid Report: Image quality is too low';
+        } else if (aiError.contains('GPS') || aiError.contains('location')) {
+          errorMsg = 'Invalid Report: GPS location issue';
+        } else {
+          errorMsg = 'Invalid Report: Please check image quality';
+        }
+      } else if (result['error'] != null) {
+        String error = result['error'].toString();
+        if (error.contains('confidence') || error.contains('not clearly visible')) {
+          errorMsg = 'Invalid Report: Issue not clearly visible';
+        } else if (error.contains('not a civic issue')) {
+          errorMsg = 'Invalid Report: Not a valid civic issue';
+        } else {
+          errorMsg = 'Invalid Report: $error';
+        }
+      }
+      
+      _showError(errorMsg);
     }
   }
 
@@ -362,8 +390,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     _buildImageUploadSection(),
                     const SizedBox(height: 24),
                     _buildLocationSection(),
-                    const SizedBox(height: 24),
-                    _buildCategorySection(),
                     const SizedBox(height: 24),
                     _buildDescriptionSection(),
                     const SizedBox(height: 24),
@@ -454,7 +480,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     if (_selectedImage != null && _currentLocation != null) filled = 2;
     if (_selectedImage != null &&
         _currentLocation != null &&
-        _selectedCategory != null &&
         _descriptionController.text.trim().isNotEmpty) filled = 3;
 
     return Padding(
@@ -777,76 +802,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('ISSUE CATEGORY',
-            style: GoogleFonts.roboto(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: ReportIssueColors.textPrimary,
-                letterSpacing: 0.5)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildCategoryButton(
-                  category: IssueCategory.POTHOLE,
-                  icon: Icons.build,
-                  label: 'POTHOLE'),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildCategoryButton(
-                  category: IssueCategory.TRASH,
-                  icon: Icons.delete_outline,
-                  label: 'TRASH'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryButton({
-    required IssueCategory category,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedCategory == category;
-    final color =
-        isSelected ? ReportIssueColors.primaryOrange : ReportIssueColors.textSecondary;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = category),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? ReportIssueColors.primaryOrange.withOpacity(0.08)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: isSelected
-                  ? ReportIssueColors.primaryOrange
-                  : ReportIssueColors.borderTan,
-              width: 2),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(label,
-                style: GoogleFonts.roboto(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                    letterSpacing: 0.5)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDescriptionSection() {
     return Column(
