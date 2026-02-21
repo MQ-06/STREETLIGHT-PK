@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime,
+    Column, Integer, String, Float, DateTime, Boolean,
     ForeignKey, Text, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
@@ -49,6 +49,27 @@ class Report(Base):
     support_count = Column(Integer, default=0)
     verify_count = Column(Integer, default=0)
     views = Column(Integer, default=0)
+
+    # ==========================================
+    # AI AGENT RESULTS (NEW)
+    # ==========================================
+    
+    # Layer 0: Validation Results
+    validation_score = Column(Float, nullable=True, comment="Image quality score (0-100)")
+    validation_status = Column(String(20), nullable=True, comment="passed or failed")
+    validation_warnings = Column(Text, nullable=True, comment="JSON array of warnings")
+    
+    # Layer 1: AI Classification Results
+    ai_confidence = Column(Float, nullable=True, comment="AI confidence score (0-100)")
+    ai_predicted_class = Column(String(50), nullable=True, comment="pothole or garbage")
+    ai_severity = Column(String(20), nullable=True, comment="small, medium, or large")
+    final_score = Column(Float, nullable=True, comment="Combined AI + GPS score (0-100)")
+    
+    # GPS Verification Results
+    gps_verified = Column(Boolean, default=False, comment="Location verified with landmarks")
+    gps_has_photo_location = Column(Boolean, default=False, comment="Photo contained GPS in EXIF")
+    gps_distance_km = Column(Float, nullable=True, comment="Distance between photo & submitted GPS")
+    gps_spoofing_detected = Column(Boolean, default=False, comment="Large GPS mismatch detected")
 
     created_at = Column(
         DateTime(timezone=True),
