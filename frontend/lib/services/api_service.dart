@@ -1,13 +1,32 @@
 // lib/services/api_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Change to your laptop's IP(mariam zonia kinza!!!!) when testing on real device
-  // Use 10.0.2.2 for Android emulator
-  static const String baseURL = 'http://192.168.100.13:8000'; //ye mera IP ha
+  
+  
+  // For Web (Chrome/Edge) - Use localhost
+  static const String _webURL = 'http://localhost:8000';
+  
+  // For Android/iOS Real Device - Use laptop IP (same WiFi required)
+  static const String _mobileURL = 'http://192.168.100.13:8000'; //ye mera IP ha
+  
+  // For Android Emulator - Use special emulator IP
+  static const String _emulatorURL = 'http://10.0.2.2:8000';
+
+  // 🚀 Smart URL Selection - Auto-detects platform
+  static String get baseURL {
+    if (kIsWeb) {
+      // Running on Web (Chrome, Edge, etc.)
+      return _webURL;
+    } else {
+      // Running on Mobile (Android/iOS)
+      return _mobileURL;
+    }
+  }
 
   static const String _tokenKey = 'auth_token';
 

@@ -1,4 +1,4 @@
-# backendMain/main.py
+#main.py
 from fastapi import FastAPI
 from routers import signup, login, forget_password, reset_password
 from routers.flutter import mobile_auth
