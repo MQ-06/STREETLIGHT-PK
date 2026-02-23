@@ -243,60 +243,8 @@ flutter run
 
 ---
 
-## 🎓 Academic Context
-
 <div align="center">
 
-**🏛️ Final Year Project (FYP) / Capstone Project**
-
-**Department of Information Technology**  
-Faculty of Computing & Information Technology  
-**University of the Punjab, Lahore**
-
-*Session: 2022-2026*
-
-</div>
-
----
-
-## 🙏 Acknowledgments
-
-Special thanks to:
-
-- 🏛️ **Punjab University College of Information Technology (PUCIT)** - For academic support and resources
-- 👨‍🏫 **Adeel Nisar** - For exceptional guidance and mentorship
-- 🗺️ **OpenStreetMap Community** - For free geocoding and mapping APIs
-- 🤖 **PyTorch Community** - For the ResNet18 model and framework
-- 🚀 **FastAPI & Flutter Teams** - For amazing frameworks
-- 💻 **Open Source Community** - For invaluable tools and libraries
-
----
-
-## 📄 License
-
-This project is developed for **academic purposes** as part of a university capstone project.
-
-**© 2026 StreetLight Team - Punjab University**
-
----
-
-## 📞 Contact & Support
-
-<div align="center">
-
-### Get in Touch
-
-📧 **Email:** adeel.nisar@pucit.edu.pk  
-🏛️ **Institution:** University of the Punjab, Lahore  
-🏢 **Department:** Information Technology (IT-OC)
-
-</div>
-
----
-
-<div align="center">
-
-**Made with ❤️ by PUCIT Students**
 
 *"No civic hazard should remain in dark"*
 
