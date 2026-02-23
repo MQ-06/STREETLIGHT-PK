@@ -10,6 +10,8 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.10.8-02569B.svg?style=flat&logo=Flutter&logoColor=white)](https://flutter.dev)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C.svg?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8+-363636.svg?style=flat&logo=solidity&logoColor=white)](https://soliditylang.org)
+[![Ethereum](https://img.shields.io/badge/Ethereum-Blockchain-3C3C3D.svg?style=flat&logo=ethereum&logoColor=white)](https://ethereum.org)
 [![License](https://img.shields.io/badge/License-Academic-blue.svg)](LICENSE)
 
 **"No civic hazard should remain in dark"**
@@ -59,6 +61,12 @@ In traditional civic reporting systems:
 - 🎯 **Dynamic Scoring System**  
   +10 bonus for verified, -50 penalty for fraud
 
+- 🔐 **SHA-256 Hashing**  
+  Unique hash generated for every report
+
+- ⛓️ **Blockchain Immutability**  
+  Hash stored on Ethereum as proof
+  
 </td>
 <td width="50%">
 
@@ -147,6 +155,11 @@ In traditional civic reporting systems:
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)
 ![ResNet](https://img.shields.io/badge/ResNet18-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
+
+### Blockchain
+![Solidity](https://img.shields.io/badge/Solidity-363636?style=for-the-badge&logo=solidity&logoColor=white)
+![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=for-the-badge&logo=ethereum&logoColor=white)
+![MetaMask](https://img.shields.io/badge/MetaMask-F6851B?style=for-the-badge&logo=metamask&logoColor=white)
 
 ### External APIs
 ![OpenStreetMap](https://img.shields.io/badge/OpenStreetMap-7EBC6F?style=for-the-badge&logo=openstreetmap&logoColor=white)
