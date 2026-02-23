@@ -240,7 +240,7 @@ flutter run
     </td>
     <td align="center" width="25%">
       <img src="https://ui-avatars.com/api/?name=Shezonia&size=100&background=3776AB&color=fff" width="100" style="border-radius: 50%"/><br>
-      <b>Shezonia</b>
+      <b>Shezonia Idrees</b>
     </td>
   </tr>
 </table>
