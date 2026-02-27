@@ -76,7 +76,7 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
 async def create_report(
     image: UploadFile = File(...),  # REQUIRED: Image file for AI processing
     title: str = Form(...),
-    description: str = Form(...),
+    description: Optional[str] = Form(None),
     location_address: str = Form(...),
     location_city: Optional[str] = Form(None),
     location_lat: Optional[float] = Form(None),
@@ -186,7 +186,7 @@ async def create_report(
         report = Report(
             user_id=current_user.id,
             title=updated_title.strip(),
-            description=description.strip(),
+            description=(description or "").strip(),
             category=issue_category,
             location_address=location_address.strip(),
             location_city=location_city,
