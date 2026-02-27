@@ -207,21 +207,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadProfileImage() async {
-    final permission = await Permission.photos.request();
-
-    if (permission.isDenied) {
-      _showPermissionDialog('Gallery access required to upload profile photo');
-      return;
-    }
-
-    if (permission.isPermanentlyDenied) {
-      _showPermissionDialog(
-        'Gallery access is permanently denied. Please enable it in settings.',
-      );
-      return;
-    }
-
     try {
+      // Try picker first - image_picker handles permissions; permission_handler
+      // can incorrectly report "denied" on some devices when permission is granted.
       final pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
@@ -241,24 +229,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             duration: const Duration(seconds: 2));
       }
     } catch (e) {
-      showAppToast(context,
-          message: 'Error uploading photo: $e', isError: true);
+      final err = e.toString().toLowerCase();
+      if (err.contains('permission') || err.contains('denied') ||
+          err.contains('access') || err.contains('photo')) {
+        _showGalleryPermissionDialog();
+      } else {
+        showAppToast(context,
+            message: 'Error uploading photo: $e', isError: true);
+      }
     }
   }
 
-  void _showPermissionDialog(String message) {
+  void _showGalleryPermissionDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Permission Required',
+          'Gallery Access Required',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
-        content: Text(message, style: GoogleFonts.roboto()),
+        content: Text(
+          'Gallery permission was denied. Open settings to enable it?',
+          style: GoogleFonts.roboto(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: ProfileColors.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -266,7 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               openAppSettings();
             },
             child: Text(
-              'Settings',
+              'Open Settings',
               style: TextStyle(color: ProfileColors.accentOrange),
             ),
           ),
@@ -936,7 +933,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   top: Radius.circular(16),
                 ),
                 child: CachedNetworkImage(
-                  imageUrl: report.imageUrl,
+                  imageUrl: ApiService.imageUrl(report.imageUrl),
                   height: 160,
                   width: double.infinity,
                   fit: BoxFit.cover,

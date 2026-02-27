@@ -20,6 +20,14 @@ class ApiService {
     return ApiConfig.mobileUrl;
   }
 
+  /// Build full URL for images (backend returns relative paths like "reports/2026/02/27/uuid.jpg")
+  static String imageUrl(String path) {
+    if (path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final p = path.startsWith('/') ? path : '/uploads/$path';
+    return '$baseURL$p';
+  }
+
   static const String _tokenKey = 'auth_token';
 
 

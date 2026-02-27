@@ -227,22 +227,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     Navigator.pop(context);
     setState(() => _isLoadingImage = true);
     try {
-      PermissionStatus status;
-      if (source == ImageSource.camera) {
-        status = await Permission.camera.request();
-      } else {
-        status = await Permission.photos.request();
-      }
-      if (status.isDenied) {
-        _showError(
-            '${source == ImageSource.camera ? 'Camera' : 'Photo'} permission denied');
-        return;
-      }
-      if (status.isPermanentlyDenied) {
-        _showError('Permission permanently denied. Please enable in settings.');
-        await openAppSettings();
-        return;
-      }
+      // Try picker first - image_picker handles permissions; permission_handler
+      // can incorrectly report "denied" on some devices when permission is granted.
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
         maxWidth: 1920,
@@ -253,7 +239,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         setState(() => _selectedImage = File(pickedFile.path));
       }
     } catch (e) {
-      _showError('Failed to pick image: $e');
+      final err = e.toString().toLowerCase();
+      if (err.contains('permission') || err.contains('denied') ||
+          err.contains('access') || err.contains('photo')) {
+        _showPermissionDeniedDialog(
+          source == ImageSource.camera ? 'Camera' : 'Gallery',
+        );
+      } else {
+        _showError('Failed to pick image: $e');
+      }
     } finally {
       setState(() => _isLoadingImage = false);
     }
@@ -262,6 +256,37 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   void _showError(String message) {
     if (!mounted) return;
     showAppToast(context, message: message, isError: true);
+  }
+
+  void _showPermissionDeniedDialog(String permissionName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$permissionName Access Required',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: Text(
+          '$permissionName permission was denied. The app cannot show the '
+          'picker without it. Open settings to enable?',
+          style: GoogleFonts.roboto(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: ReportIssueColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: Text('Open Settings',
+                style: TextStyle(
+                    color: ReportIssueColors.primaryOrange,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────
