@@ -136,7 +136,7 @@ class _LandingScreenState extends State<LandingScreen>
         const SizedBox(height: 12),
         // Subtitle
         Text(
-          '"no civic hazard should remain in the dark"',
+          '"No civic hazard should remain in the dark"',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 14,

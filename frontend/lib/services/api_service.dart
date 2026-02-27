@@ -1,31 +1,23 @@
 // lib/services/api_service.dart
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ApiService {
-  
-  
-  // For Web (Chrome/Edge) - Use localhost
-  static const String _webURL = 'http://localhost:8000';
-  
-  // For Android/iOS Real Device - Use laptop IP (same WiFi required)
-  static const String _mobileURL = 'http://192.168.100.13:8000'; //ye mera IP ha
-  
-  // For Android Emulator - Use special emulator IP
-  static const String _emulatorURL = 'http://10.0.2.2:8000';
+import '../config/api_config.dart';
 
-  // 🚀 Smart URL Selection - Auto-detects platform
+class ApiService {
+  // Set to true when running on Android Emulator
+  static const bool _useEmulator = false;
+
+  /// Timeout for auth requests (login/signup). Use 25s on WiFi for slow networks.
+  static const Duration _authTimeout = Duration(seconds: 25);
+
   static String get baseURL {
-    if (kIsWeb) {
-      // Running on Web (Chrome, Edge, etc.)
-      return _webURL;
-    } else {
-      // Running on Mobile (Android/iOS)
-      return _mobileURL;
-    }
+    if (kIsWeb) return ApiConfig.webUrl;
+    if (_useEmulator) return ApiConfig.emulatorUrl;
+    return ApiConfig.mobileUrl;
   }
 
   static const String _tokenKey = 'auth_token';
@@ -74,14 +66,24 @@ class ApiService {
           'email': email,
           'password': password,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(_authTimeout);
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': data};
       }
       return {'success': false, 'error': data['detail'] ?? 'Registration failed'};
     } catch (e) {
-      return {'success': false, 'error': 'Cannot connect to server.'};
+      if (kDebugMode) {
+        print('Signup error: $e');
+        print('Trying to reach: $baseURL');
+      }
+      final isTimeout = e is TimeoutException;
+      return {
+        'success': false,
+        'error': isTimeout
+            ? 'Connection timed out. Check that backend is running and phone/PC are on same WiFi.'
+            : 'Cannot connect to server.',
+      };
     }
   }
 
@@ -94,7 +96,7 @@ class ApiService {
         Uri.parse('$baseURL/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(_authTimeout);
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         await saveToken(data['access_token']);
@@ -102,7 +104,17 @@ class ApiService {
       }
       return {'success': false, 'error': data['detail'] ?? 'Login failed'};
     } catch (e) {
-      return {'success': false, 'error': 'Cannot connect to server.'};
+      if (kDebugMode) {
+        print('Login error: $e');
+        print('Trying to reach: $baseURL');
+      }
+      final isTimeout = e is TimeoutException;
+      return {
+        'success': false,
+        'error': isTimeout
+            ? 'Connection timed out. Check that backend is running and phone/PC are on same WiFi.'
+            : 'Cannot connect to server.',
+      };
     }
   }
 

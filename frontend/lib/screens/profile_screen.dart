@@ -1,4 +1,5 @@
 //screens/profile_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,7 @@ import '../models/civic_report.dart';
 import '../services/user_session.dart';
 import 'report_issue_screen.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 /// Color palette for Profile screen
 class ProfileColors {
@@ -141,24 +143,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (permission == LocationPermission.deniedForever) {
         setState(() {
-          _userLocation = 'Enable location in settings';
+          _userLocation = 'Opening app settings...';
           _isLoadingLocation = false;
         });
+        await openAppSettings();
         return;
       }
 
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
-          _userLocation = 'Please enable location services';
+          _userLocation = 'Opening location settings...';
+          _isLoadingLocation = false;
+        });
+        await Geolocator.openLocationSettings();
+        return;
+      }
+
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } on TimeoutException {
+        setState(() {
+          _userLocation = 'Timed out. Try outdoors or near a window.';
+          _isLoadingLocation = false;
+        });
+        return;
+      } catch (e) {
+        setState(() {
+          _userLocation = 'Location error: $e';
           _isLoadingLocation = false;
         });
         return;
       }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
 
       try {
         final placemarks = await placemarkFromCoordinates(
@@ -215,25 +235,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         setState(() => _profileImagePath = localPath);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✓ Profile photo updated',
-              style: GoogleFonts.roboto(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: ProfileColors.successGreen,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showAppToast(context,
+            message: 'Profile photo updated',
+            isError: false,
+            duration: const Duration(seconds: 2));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error uploading photo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppToast(context,
+          message: 'Error uploading photo: $e', isError: true);
     }
   }
 

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -44,12 +45,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           },
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Failed to send token'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        showAppToast(context,
+            message: result['error'] ?? 'Failed to send token', isError: true);
       }
     }
   }

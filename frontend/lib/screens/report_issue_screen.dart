@@ -1,4 +1,5 @@
 // lib/screens/report_issue_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:http/http.dart' as http;
 import '../models/report_issue_data.dart';
 import '../services/api_service.dart';
 import '../services/user_session.dart';
+import '../widgets/app_toast.dart';
 
 class ReportIssueColors {
   static const backgroundColor = Color(0xFFFFF8E7);
@@ -40,9 +42,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   bool _isLoadingLocation = false;
   bool _isLoadingImage = false;
-  bool _isSubmitting = false;       // ← NEW: tracks API call in progress
-  String? _errorMessage;
-  String? _successMessage;
+  bool _isSubmitting = false;
   int _currentNavIndex = 3;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -101,11 +101,23 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       }
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showError('Please enable location services');
+        _showError('Location is off. Opening settings...');
+        await Geolocator.openLocationSettings();
         return;
       }
-      final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } on TimeoutException {
+        _showError('Location timed out. Try again outdoors or near a window.');
+        return;
+      } catch (e) {
+        _showError('Location error: $e');
+        return;
+      }
       try {
         final placemarks = await placemarkFromCoordinates(
             position.latitude, position.longitude);
@@ -247,25 +259,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // MESSAGES
-  // ─────────────────────────────────────────────
-
   void _showError(String message) {
-    setState(() {
-      _errorMessage = message;
-      _successMessage = null;
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _errorMessage = null);
-    });
-  }
-
-  void _showSuccess(String message) {
-    setState(() {
-      _successMessage = message;
-      _errorMessage = null;
-    });
+    if (!mounted) return;
+    showAppToast(context, message: message, isError: true);
   }
 
   // ─────────────────────────────────────────────
@@ -280,10 +276,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
     if (_currentLocation == null) {
       _showError('Please enable location access');
-      return;
-    }
-    if (_descriptionController.text.trim().isEmpty) {
-      _showError('Please provide a description');
       return;
     }
 
@@ -310,19 +302,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     if (result['success'] == true) {
       await UserSession.incrementTotalReported();
 
-      // Simple success message (AI scores are for backend only)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✓ Report Submitted Successfully',
-              style: GoogleFonts.roboto(fontWeight: FontWeight.w500)),
-          backgroundColor: ReportIssueColors.successGreen,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      showAppToast(context,
+          message: 'Report submitted successfully!',
+          isError: false,
+          duration: const Duration(seconds: 2));
 
       // Wait a beat then pop back — pass true so HomeScreen refreshes feed
       await Future.delayed(const Duration(milliseconds: 1200));
@@ -378,8 +361,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           children: [
             _buildHeader(),
             _buildProgressIndicator(),
-            if (_errorMessage != null) _buildErrorBanner(),
-            if (_successMessage != null) _buildSuccessBanner(),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -450,7 +431,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       '1. Upload a photo of the issue\n'
                       '2. Tap the map to get your location\n'
                       '3. Select the issue category\n'
-                      '4. Describe the problem\n\n'
+                      '4. Describe the problem (optional)\n\n'
                       'Then tap Submit.',
                       style: GoogleFonts.roboto(),
                     ),
@@ -478,9 +459,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     int filled = 0;
     if (_selectedImage != null) filled = 1;
     if (_selectedImage != null && _currentLocation != null) filled = 2;
-    if (_selectedImage != null &&
-        _currentLocation != null &&
-        _descriptionController.text.trim().isNotEmpty) filled = 3;
+    if (_selectedImage != null && _currentLocation != null) filled = 3;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 120, vertical: 8),
@@ -503,58 +482,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  Widget _buildErrorBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ReportIssueColors.errorRed.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReportIssueColors.errorRed.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline,
-              color: ReportIssueColors.errorRed, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(_errorMessage!,
-                style: GoogleFonts.roboto(
-                    color: ReportIssueColors.errorRed, fontSize: 14)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuccessBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ReportIssueColors.successGreen.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: ReportIssueColors.successGreen.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle_outline,
-              color: ReportIssueColors.successGreen, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(_successMessage!,
-                style: GoogleFonts.roboto(
-                    color: ReportIssueColors.successGreen,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Image upload section — completely unchanged from your original
+  // Image upload section
   Widget _buildImageUploadSection() {
     return GestureDetector(
       onTap: _isLoadingImage ? null : _pickImage,
@@ -826,7 +754,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
             style: GoogleFonts.roboto(
                 fontSize: 14, color: ReportIssueColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Provide specific details about the issue...',
+              hintText: 'Provide specific details (optional)...',
               hintStyle: GoogleFonts.roboto(
                   fontSize: 14,
                   color: ReportIssueColors.textSecondary.withOpacity(0.6)),
