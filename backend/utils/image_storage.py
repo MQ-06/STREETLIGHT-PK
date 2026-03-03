@@ -1,14 +1,18 @@
 """
-Image Storage Manager - Handles temporary and permanent local storage
+Image Storage Manager - Handles temporary storage + Cloudinary upload
 """
 import os
 import uuid
 import logging
-import shutil
+import cloudinary
+import cloudinary.uploader
 from pathlib import Path
 from typing import Optional
 from fastapi import UploadFile
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +21,35 @@ class ImageStorage:
     """
     Manages image storage throughout the validation pipeline:
     1. Temporary storage (during AI processing)
-    2. Permanent local storage (after validation passes)
+    2. Cloudinary upload (after validation passes)
     3. Cleanup (delete temp files)
     """
     
     def __init__(self):
-        """Initialize storage manager with temp and permanent directories"""
+        """Initialize storage manager with temp directory and Cloudinary config"""
         # Temp directory for processing
         self.temp_dir = Path(__file__).parent.parent / "temp"
         self.temp_dir.mkdir(exist_ok=True)
         logger.info(f"📁 Temp directory: {self.temp_dir}")
         
-        # Permanent storage directory (local)
-        self.uploads_dir = Path(__file__).parent.parent / "uploads" / "reports"
-        self.uploads_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"📁 Permanent storage directory: {self.uploads_dir}")
+        # Configure Cloudinary
+        cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+        api_key = os.getenv("CLOUDINARY_API_KEY")
+        api_secret = os.getenv("CLOUDINARY_API_SECRET")
+        
+        if not all([cloud_name, api_key, api_secret]):
+            raise ValueError(
+                "Cloudinary credentials missing! Please set CLOUDINARY_CLOUD_NAME, "
+                "CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file."
+            )
+        
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+        logger.info(f"☁️ Cloudinary configured: cloud_name={cloud_name}")
     
     def save_temp(self, file: UploadFile) -> str:
         """
@@ -73,52 +91,50 @@ class ImageStorage:
         logger.info(f"✓ Temp file saved: {file_size_mb:.2f} MB")
         return str(temp_path)
     
-    def save_permanent(self, temp_file_path: str) -> str:
+    def upload_to_cloudinary(self, temp_file_path: str, category: str = "other") -> str:
         """
-        Move validated image from temp to permanent local storage
-        
+        Upload validated image to Cloudinary cloud storage.
+
         Only called AFTER image passes all AI validation checks.
-        
+
         Args:
             temp_file_path: Path to temporary file
-            
+            category:       Cloudinary root folder name — "pothole_img" or "garbage_img"
+
         Returns:
-            Relative path to permanent file (for storing in database)
-            
+            Full Cloudinary HTTPS URL (stored in database)
+
         Raises:
-            Exception: If save fails
+            Exception: If upload fails
         """
-        logger.info(f"💾 Moving to permanent storage: {Path(temp_file_path).name}")
-        
+        logger.info(f"☁️ Uploading to Cloudinary: {Path(temp_file_path).name} → folder: {category}")
+
         try:
-            # Generate unique filename with date organization
-            temp_path = Path(temp_file_path)
-            file_ext = temp_path.suffix
-            
-            # Organize by date: uploads/reports/2026/02/21/uuid.jpg
+            # Organise by AI category then date: e.g. pothole_img/2026/03/01/
             now = datetime.now()
-            date_dir = self.uploads_dir / str(now.year) / f"{now.month:02d}" / f"{now.day:02d}"
-            date_dir.mkdir(parents=True, exist_ok=True)
+            folder = f"{category}/{now.year}/{now.month:02d}/{now.day:02d}"
             
-            # Generate unique filename
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
-            permanent_path = date_dir / unique_filename
+            # Upload to Cloudinary
+            result = cloudinary.uploader.upload(
+                temp_file_path,
+                folder=folder,
+                resource_type="image",
+                unique_filename=True,
+                overwrite=False,
+            )
             
-            # Move file from temp to permanent
-            shutil.move(str(temp_path), str(permanent_path))
+            # Get the secure HTTPS URL
+            cloudinary_url = result["secure_url"]
             
-            file_size_kb = permanent_path.stat().st_size / 1024
-            logger.info(f"✓ Saved to permanent storage: {file_size_kb:.1f} KB")
+            file_size_kb = result.get("bytes", 0) / 1024
+            logger.info(f"✓ Uploaded to Cloudinary: {file_size_kb:.1f} KB")
+            logger.info(f"  URL: {cloudinary_url}")
             
-            # Return relative path for database storage
-            relative_path = permanent_path.relative_to(self.uploads_dir.parent)
-            logger.info(f"Relative path: {relative_path}")
-            
-            return str(relative_path).replace("\\", "/")  # Use forward slashes for consistency
+            return cloudinary_url
             
         except Exception as e:
-            logger.error(f"Permanent save failed: {str(e)}")
-            raise Exception(f"Failed to save image to permanent storage: {str(e)}")
+            logger.error(f"Cloudinary upload failed: {str(e)}")
+            raise Exception(f"Failed to upload image to Cloudinary: {str(e)}")
     
     def cleanup_temp(self, temp_file_path: str):
         """
@@ -160,4 +176,3 @@ class ImageStorage:
             logger.info(f"✓ Cleaned up {cleaned_count} old temp file(s)")
         
         return cleaned_count
-

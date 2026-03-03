@@ -36,13 +36,21 @@ class LayerOrchestrator:
         
         # Layer 1: AI Engine
         logger.info("Loading Layer 1: AI Classification Engine...")
-        model_path = Path(__file__).parent.parent / "ai_layers" / "layer1_ai_engine" / "models" / "best_model.pth"
+        
+        # Robust path resolution using absolute backend root
+        backend_root = Path(__file__).resolve().parent.parent
+        model_path = backend_root / "ai_layers" / "layer1_ai_engine" / "models" / "best_model.pth"
         
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"AI model not found at {model_path}. "
-                f"Please ensure best_model.pth is copied to ai_layers/layer1_ai_engine/models/"
-            )
+            # Fallback for specific environment setups
+            alt_path = Path(r"C:\Users\HP\Documents\fyp\STREETLIGHT-PK\backend") / "ai_layers" / "layer1_ai_engine" / "models" / "best_model.pth"
+            if alt_path.exists():
+                model_path = alt_path
+            else:
+                raise FileNotFoundError(
+                    f"AI model not found at {model_path}. "
+                    f"Please ensure best_model.pth is copied to ai_layers/layer1_ai_engine/models/"
+                )
         
         self.ai_engine = AIEngine(model_path, confidence_threshold=0.5)
         logger.info("✓ Layer 1 (AI Engine) initialized")

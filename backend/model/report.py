@@ -71,6 +71,27 @@ class Report(Base):
     gps_distance_km = Column(Float, nullable=True, comment="Distance between photo & submitted GPS")
     gps_spoofing_detected = Column(Boolean, default=False, comment="Large GPS mismatch detected")
 
+    # ==========================================
+    # LAYER 2: FRAUD DETECTION RESULTS (NEW)
+    # ==========================================
+
+    # Check 3: Spam pattern — soft flag; report is saved but queued for admin review
+    is_flagged_for_spam = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="User exceeded submission rate limit; flagged for admin review"
+    )
+
+    # Duplicate linkage — normally duplicates are blocked, but this FK is available
+    # if a near-duplicate ever needs to be saved and linked to its original
+    duplicate_of_id = Column(
+        Integer,
+        ForeignKey("reports.id"),
+        nullable=True,
+        comment="Self-referential FK pointing to the original report (duplicates are usually blocked)"
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -87,6 +108,12 @@ class Report(Base):
         "ReportInteraction",
         back_populates="report",
         cascade="all, delete"
+    )
+    # Self-referential: the original report this one was flagged as a duplicate of
+    duplicate_of = relationship(
+        "Report",
+        remote_side="Report.id",
+        foreign_keys="[Report.duplicate_of_id]",
     )
 
 
