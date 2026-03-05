@@ -1,16 +1,17 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   FileText, ClipboardList, Map, Users, BarChart2,
   Bell, Plus, Search, ChevronDown, MoreHorizontal,
-  Zap, CheckCircle, UserCircle, TrendingUp
+  Zap, CheckCircle, UserCircle
 } from 'lucide-react'
 
 const SIDEBAR_LINKS = [
-  { label: 'Overview',        icon: BarChart2,     active: true },
-  { label: 'All Complaints',  icon: ClipboardList, active: false },
-  { label: 'Live Map',        icon: Map,           active: false },
-  { label: 'Department',      icon: Users,         active: false },
-  { label: 'Impact Reports',  icon: FileText,      active: false },
+  { label: 'Overview',       icon: BarChart2,     path: '/dashboard' },
+  { label: 'All Complaints', icon: ClipboardList, path: '/complaint-management' },
+  { label: 'Live Map',       icon: Map,           path: '/hotspot-map' },
+  { label: 'Department',     icon: Users,         path: '/departments' },
+  { label: 'Impact Reports', icon: FileText,      path: '/analytics' },
 ]
 
 const STATS = [
@@ -116,7 +117,8 @@ const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const BAR_HEIGHTS = [40, 65, 50, 80, 55, 70, 45]
 
 export default function Dashboard() {
-  const [activeLink, setActiveLink] = useState('Overview')
+  const navigate = useNavigate()
+  const location = useLocation()
   const [period, setPeriod] = useState('Last 7 days')
 
   return (
@@ -126,7 +128,10 @@ export default function Dashboard() {
       <aside className="w-60 shrink-0 flex flex-col" style={{ backgroundColor: '#f7f6e8', borderRight: '1px solid #ede8dc' }}>
 
         {/* Logo */}
-        <div className="flex items-center gap-2 px-5 py-5">
+        <div
+          className="flex items-center gap-2 px-5 py-5 cursor-pointer"
+          onClick={() => navigate('/dashboard')}
+        >
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#b85c2a' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <rect x="2"  y="10" width="3" height="11" rx="0.5" fill="#fff" />
@@ -140,14 +145,14 @@ export default function Dashboard() {
 
         {/* Nav links */}
         <nav className="flex-1 px-3 flex flex-col gap-1 mt-2">
-          {SIDEBAR_LINKS.map(({ label, icon: Icon }) => (
+          {SIDEBAR_LINKS.map(({ label, icon: Icon, path }) => (
             <button
               key={label}
-              onClick={() => setActiveLink(label)}
+              onClick={() => navigate(path)}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all w-full text-left"
               style={{
-                backgroundColor: activeLink === label ? '#b85c2a' : 'transparent',
-                color: activeLink === label ? '#fff' : '#6b7280',
+                backgroundColor: location.pathname === path ? '#b85c2a' : 'transparent',
+                color: location.pathname === path ? '#fff' : '#6b7280',
               }}
             >
               <Icon size={17} />
@@ -188,6 +193,7 @@ export default function Dashboard() {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
             </button>
             <button
+              onClick={() => navigate('/complaint-management')}
               className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
               style={{ backgroundColor: '#b85c2a' }}
             >
@@ -248,8 +254,6 @@ export default function Dashboard() {
                   {period} <ChevronDown size={13} />
                 </button>
               </div>
-
-              {/* Bar chart */}
               <div className="flex items-end justify-between gap-3 h-44 px-2">
                 {DAYS.map((day, i) => (
                   <div key={day} className="flex flex-col items-center gap-2 flex-1">
@@ -267,11 +271,21 @@ export default function Dashboard() {
             <div className="w-72 bg-white rounded-2xl p-5 shadow-sm shrink-0">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-extrabold text-gray-900">Recent Activity</h2>
-                <button className="text-xs font-bold" style={{ color: '#b85c2a' }}>View All</button>
+                <button
+                  onClick={() => navigate('/complaint-management')}
+                  className="text-xs font-bold"
+                  style={{ color: '#b85c2a' }}
+                >
+                  View All
+                </button>
               </div>
               <div className="flex flex-col gap-4">
                 {ACTIVITY.map(({ id, icon: Icon, iconBg, iconColor, title, sub, time }) => (
-                  <div key={id} className="flex gap-3">
+                  <div
+                    key={id}
+                    className="flex gap-3 cursor-pointer hover:opacity-80"
+                    onClick={() => navigate('/complaint-detail')}
+                  >
                     <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: iconBg }}>
                       <Icon size={16} style={{ color: iconColor }} />
                     </div>
@@ -300,7 +314,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Table */}
             <table className="w-full">
               <thead>
                 <tr className="text-left">
@@ -311,7 +324,12 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {COMPLAINTS.map(c => (
-                  <tr key={c.id} className="border-t" style={{ borderColor: '#f3f4f6' }}>
+                  <tr
+                    key={c.id}
+                    className="border-t cursor-pointer hover:bg-gray-50"
+                    style={{ borderColor: '#f3f4f6' }}
+                    onClick={() => navigate('/complaint-detail')}
+                  >
                     <td className="py-4 pr-4 text-sm font-bold text-gray-800">{c.id}</td>
                     <td className="py-4 pr-4">
                       <p className="text-sm font-semibold text-gray-800">{c.desc}</p>
@@ -342,7 +360,10 @@ export default function Dashboard() {
                       </div>
                     </td>
                     <td className="py-4">
-                      <button className="text-gray-400 hover:text-gray-600">
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate('/complaint-detail') }}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
                         <MoreHorizontal size={16} />
                       </button>
                     </td>

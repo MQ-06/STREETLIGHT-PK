@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, Users, ChevronDown } from 'lucide-react'
 
 function SignIn() {
   const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState('citizen')
+  const navigate = useNavigate()
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#f7f6e8' }}>
@@ -37,7 +39,7 @@ function SignIn() {
         </button>
       </header>
 
-      {/* MAIN - takes remaining space, centers content */}
+      {/* MAIN */}
       <main className="flex-1 flex flex-col items-center justify-center px-4">
 
         {/* Icon circle */}
@@ -121,6 +123,7 @@ function SignIn() {
 
           {/* Sign In Button */}
           <button
+            onClick={() => navigate('/dashboard')}
             className="w-full py-3 rounded-full text-white font-semibold text-sm tracking-wide transition hover:opacity-90 active:scale-95"
             style={{ backgroundColor: '#b85c2a' }}
           >

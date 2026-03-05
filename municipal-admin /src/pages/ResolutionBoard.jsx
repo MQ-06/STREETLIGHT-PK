@@ -1,7 +1,12 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, Plus, MoreHorizontal, Clock, TrendingUp } from 'lucide-react'
 
-const NAV_LINKS = ['DASHBOARD', 'RESOLUTION BOARD', 'IMPACT ANALYTICS']
+const NAV_LINKS = [
+  { label: 'DASHBOARD',         path: '/dashboard' },
+  { label: 'RESOLUTION BOARD',  path: '/resolution-board' },
+  { label: 'IMPACT ANALYTICS',  path: '/analytics' },
+]
 
 const COLUMNS = [
   {
@@ -116,16 +121,20 @@ const COLUMNS = [
 ]
 
 export default function ResolutionBoard() {
-  const [activeNav, setActiveNav] = useState('RESOLUTION BOARD')
+  const navigate = useNavigate()
+  const location = useLocation()
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f7f6e8' }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#f7f6e8' }}>
 
       {/* ── NAVBAR ── */}
       <header className="h-14 flex items-center justify-between px-8 bg-white shadow-sm shrink-0">
-        {/* Logo + Admin badge */}
+        {/* Logo → dashboard */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => navigate('/dashboard')}
+          >
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#ede8dc' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <rect x="2"  y="10" width="3" height="11" rx="0.5" fill="#b85c2a" />
@@ -145,29 +154,33 @@ export default function ResolutionBoard() {
 
         {/* Nav */}
         <nav className="flex items-center gap-8">
-          {NAV_LINKS.map(link => (
+          {NAV_LINKS.map(({ label, path }) => (
             <button
-              key={link}
-              onClick={() => setActiveNav(link)}
+              key={label}
+              onClick={() => navigate(path)}
               className="text-xs font-bold tracking-widest pb-1 transition-colors"
               style={{
-                color: activeNav === link ? '#b85c2a' : '#6b7280',
-                borderBottom: activeNav === link ? '2px solid #b85c2a' : '2px solid transparent',
+                color: location.pathname === path ? '#b85c2a' : '#6b7280',
+                borderBottom: location.pathname === path ? '2px solid #b85c2a' : '2px solid transparent',
               }}
             >
-              {link}
+              {label}
             </button>
           ))}
         </nav>
 
-        {/* Avatar */}
-        <div className="w-9 h-9 rounded-full overflow-hidden" style={{ backgroundColor: '#b85c2a' }}>
+        {/* Avatar → user-roles */}
+        <div
+          className="w-9 h-9 rounded-full overflow-hidden cursor-pointer"
+          style={{ backgroundColor: '#b85c2a' }}
+          onClick={() => navigate('/user-roles')}
+        >
           <img src="https://i.pravatar.cc/36?img=1" alt="admin" className="w-full h-full object-cover" />
         </div>
       </header>
 
       {/* ── PAGE HEADER ── */}
-      <div className="px-8 pt-8 pb-6 flex items-start justify-between">
+      <div className="px-8 pt-6 pb-4 flex items-start justify-between shrink-0">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900">Complaint Resolution</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -183,7 +196,9 @@ export default function ResolutionBoard() {
               className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 outline-none"
             />
           </div>
+          {/* New Report → complaint-management */}
           <button
+            onClick={() => navigate('/complaint-management')}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
             style={{ backgroundColor: '#b85c2a' }}
           >
@@ -193,8 +208,8 @@ export default function ResolutionBoard() {
       </div>
 
       {/* ── KANBAN BOARD ── */}
-      <div className="flex-1 px-8 pb-8 overflow-x-auto">
-        <div className="flex gap-4 min-w-max">
+      <div className="flex-1 px-8 pb-8 overflow-auto">
+        <div className="flex gap-4 min-w-max h-full">
           {COLUMNS.map(col => (
             <div key={col.id} className="w-72 flex flex-col gap-3">
 
@@ -215,7 +230,7 @@ export default function ResolutionBoard() {
                 </button>
               </div>
 
-              {/* Cards */}
+              {/* Cards — click → complaint-detail */}
               {col.cards.map(card => (
                 <div
                   key={card.id}
@@ -224,6 +239,7 @@ export default function ResolutionBoard() {
                     border: card.highlighted ? '2px solid #b85c2a' : '1px solid #f0ede6',
                     borderLeft: card.borderLeft ? `4px solid ${card.borderLeft}` : undefined,
                   }}
+                  onClick={() => navigate('/complaint-detail')}
                 >
                   {/* Top row: badge + SR id */}
                   <div className="flex items-center justify-between">
@@ -263,7 +279,6 @@ export default function ResolutionBoard() {
 
                   {/* Bottom row */}
                   <div className="flex items-center justify-between mt-1">
-                    {/* Avatars */}
                     <div className="flex items-center">
                       {card.avatars ? (
                         <div className="flex -space-x-2">
@@ -289,7 +304,6 @@ export default function ResolutionBoard() {
                       )}
                     </div>
 
-                    {/* Time or % done */}
                     {card.progress !== null && card.progress !== undefined ? (
                       <div className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#b85c2a' }}>
                         <TrendingUp size={12} />

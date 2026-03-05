@@ -1,11 +1,17 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Lightbulb, Paintbrush, Leaf, MoreHorizontal,
   Search, Plus, Minus, Crosshair, Layers,
   BarChart2, CheckCircle, AlertTriangle, Download
 } from 'lucide-react'
 
-const NAV_LINKS = ['Dashboard', 'Hotspot Map', 'Issues', 'Reports']
+const NAV_LINKS = [
+  { label: 'Dashboard',   path: '/dashboard' },
+  { label: 'Hotspot Map', path: '/hotspot-map' },
+  { label: 'Issues',      path: '/complaint-management' },
+  { label: 'Reports',     path: '/analytics' },
+]
 
 const CATEGORIES = [
   { label: 'LIGHTING',  icon: Lightbulb },
@@ -20,7 +26,6 @@ const LEGEND = [
   { color: '#22c55e', label: 'Operational' },
 ]
 
-// Hotspot blobs on the map
 const HOTSPOTS = [
   { id: 1, x: '42%', y: '32%', size: 180, color: 'rgba(205,100,70,0.25)', icon: '📍', iconBg: '#fff', iconColor: '#e05535', type: 'pin' },
   { id: 2, x: '68%', y: '52%', size: 140, color: 'rgba(205,100,70,0.18)', icon: '🖌',  iconBg: '#fff', iconColor: '#b85c2a', type: 'graffiti' },
@@ -28,7 +33,9 @@ const HOTSPOTS = [
 ]
 
 export default function HotspotMap() {
-  const [activeNav, setActiveNav] = useState('Hotspot Map')
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const [resolved, setResolved] = useState(false)
   const [activeCategories, setActiveCategories] = useState(['LIGHTING', 'GRAFFITI', 'WASTE', 'OTHERS'])
 
@@ -43,8 +50,11 @@ export default function HotspotMap() {
 
       {/* ── TOP NAVBAR ── */}
       <header className="h-14 flex items-center justify-between px-6 shrink-0 bg-white shadow-sm z-10">
-        {/* Logo */}
-        <div className="flex items-center gap-2 w-48">
+        {/* Logo → dashboard */}
+        <div
+          className="flex items-center gap-2 w-48 cursor-pointer"
+          onClick={() => navigate('/dashboard')}
+        >
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#ede8dc' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <rect x="2"  y="10" width="3" height="11" rx="0.5" fill="#b85c2a" />
@@ -58,17 +68,17 @@ export default function HotspotMap() {
 
         {/* Nav links */}
         <nav className="flex items-center gap-8">
-          {NAV_LINKS.map(link => (
+          {NAV_LINKS.map(({ label, path }) => (
             <button
-              key={link}
-              onClick={() => setActiveNav(link)}
+              key={label}
+              onClick={() => navigate(path)}
               className="text-sm font-medium pb-1 transition-colors"
               style={{
-                color: activeNav === link ? '#b85c2a' : '#6b7280',
-                borderBottom: activeNav === link ? '2px solid #b85c2a' : '2px solid transparent',
+                color: location.pathname === path ? '#b85c2a' : '#6b7280',
+                borderBottom: location.pathname === path ? '2px solid #b85c2a' : '2px solid transparent',
               }}
             >
-              {link}
+              {label}
             </button>
           ))}
         </nav>
@@ -78,11 +88,18 @@ export default function HotspotMap() {
           <button className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#2d2d2d', color: '#fff', fontSize: 14 }}>
             🌙
           </button>
-          <div className="text-right">
+          <div
+            className="text-right cursor-pointer"
+            onClick={() => navigate('/user-roles')}
+          >
             <div className="text-sm font-bold text-gray-900 leading-tight">Alex Johnson</div>
             <div className="text-xs text-gray-400">Official Manager</div>
           </div>
-          <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-300 flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: '#b85c2a' }}>
+          <div
+            className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold text-white cursor-pointer"
+            style={{ backgroundColor: '#b85c2a' }}
+            onClick={() => navigate('/user-roles')}
+          >
             AJ
           </div>
         </div>
@@ -114,8 +131,11 @@ export default function HotspotMap() {
           <div>
             <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Issue Severity</p>
             <div className="flex flex-col gap-2.5">
-              {/* High Priority */}
-              <div className="flex items-center justify-between">
+              {/* High Priority → complaint-management */}
+              <div
+                className="flex items-center justify-between cursor-pointer hover:opacity-70"
+                onClick={() => navigate('/complaint-management')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
                   <span className="text-sm text-gray-700">High Priority</span>
@@ -126,8 +146,12 @@ export default function HotspotMap() {
                   </svg>
                 </div>
               </div>
-              {/* In Progress */}
-              <div className="flex items-center justify-between">
+
+              {/* In Progress → resolution-board */}
+              <div
+                className="flex items-center justify-between cursor-pointer hover:opacity-70"
+                onClick={() => navigate('/resolution-board')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-orange-400 inline-block" />
                   <span className="text-sm text-gray-700">In Progress</span>
@@ -138,6 +162,7 @@ export default function HotspotMap() {
                   </svg>
                 </div>
               </div>
+
               {/* Resolved toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -186,7 +211,9 @@ export default function HotspotMap() {
             <p className="text-xs text-gray-600 leading-relaxed mb-3">
               There are <strong>12 high priority</strong> cases requiring immediate attention in the Downtown District.
             </p>
+            {/* Generate Report → analytics */}
             <button
+              onClick={() => navigate('/analytics')}
               className="w-full py-2.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: '#b85c2a' }}
             >
@@ -194,8 +221,9 @@ export default function HotspotMap() {
             </button>
           </div>
 
-          {/* Report New Issue */}
+          {/* Report New Issue → complaint-management */}
           <button
+            onClick={() => navigate('/complaint-management')}
             className="w-full py-3 rounded-full text-white text-sm font-semibold flex items-center justify-center gap-2 mt-auto"
             style={{ backgroundColor: '#b85c2a' }}
           >
@@ -216,11 +244,11 @@ export default function HotspotMap() {
             background: 'linear-gradient(135deg, rgba(255,220,180,0.6) 0%, transparent 50%, rgba(180,100,60,0.3) 100%)'
           }} />
 
-          {/* Hotspot blobs */}
+          {/* Hotspot blobs — click → complaint-detail */}
           {HOTSPOTS.map(h => (
             <div
               key={h.id}
-              className="absolute flex items-center justify-center"
+              className="absolute flex items-center justify-center cursor-pointer"
               style={{
                 left: h.x,
                 top: h.y,
@@ -230,8 +258,8 @@ export default function HotspotMap() {
                 borderRadius: '50%',
                 backgroundColor: h.color,
               }}
+              onClick={() => navigate('/complaint-detail')}
             >
-              {/* Pin icon */}
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-white"
                 style={{ backgroundColor: h.iconBg }}
@@ -269,8 +297,11 @@ export default function HotspotMap() {
 
           {/* Bottom stats bar */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-lg px-8 py-4 flex items-center gap-12" style={{ minWidth: 480 }}>
-            {/* Live Impact */}
-            <div className="flex items-center gap-3">
+            {/* Live Impact → analytics */}
+            <div
+              className="flex items-center gap-3 cursor-pointer hover:opacity-70"
+              onClick={() => navigate('/analytics')}
+            >
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#fff3eb' }}>
                 <BarChart2 size={18} style={{ color: '#b85c2a' }} />
               </div>
@@ -282,8 +313,11 @@ export default function HotspotMap() {
 
             <div className="w-px h-10 bg-gray-100" />
 
-            {/* Fixed Today */}
-            <div className="flex items-center gap-3">
+            {/* Fixed Today → resolution-board */}
+            <div
+              className="flex items-center gap-3 cursor-pointer hover:opacity-70"
+              onClick={() => navigate('/resolution-board')}
+            >
               <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: '#dcfce7' }}>
                 <CheckCircle size={18} style={{ color: '#22c55e' }} />
               </div>
@@ -295,8 +329,11 @@ export default function HotspotMap() {
 
             <div className="w-px h-10 bg-gray-100" />
 
-            {/* Unresolved */}
-            <div className="flex items-center gap-3">
+            {/* Unresolved → complaint-management */}
+            <div
+              className="flex items-center gap-3 cursor-pointer hover:opacity-70"
+              onClick={() => navigate('/complaint-management')}
+            >
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#fff1f1' }}>
                 <AlertTriangle size={18} style={{ color: '#ef4444' }} />
               </div>
@@ -307,13 +344,13 @@ export default function HotspotMap() {
             </div>
           </div>
 
-          {/* Map controls */}
+          {/* Map controls - no nav needed */}
           <div className="absolute top-5 right-5 flex flex-col gap-2">
             {[
-              { icon: <Plus size={16} />, },
-              { icon: <Minus size={16} />, },
-              { icon: <Crosshair size={16} />, },
-              { icon: <Layers size={16} />, },
+              { icon: <Plus size={16} /> },
+              { icon: <Minus size={16} /> },
+              { icon: <Crosshair size={16} /> },
+              { icon: <Layers size={16} /> },
             ].map((btn, i) => (
               <button
                 key={i}
