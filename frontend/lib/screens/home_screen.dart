@@ -548,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Image — only show if URL exists (not empty)
           if (report.imageUrl.isNotEmpty)
             CachedNetworkImage(
-              imageUrl: report.imageUrl,
+              imageUrl: ApiService.imageUrl(report.imageUrl),
               height: 180,
               width: double.infinity,
               fit: BoxFit.cover,
@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
         report.reporterAvatarUrl!.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
-          imageUrl: report.reporterAvatarUrl!,
+          imageUrl: ApiService.imageUrl(report.reporterAvatarUrl!),
           width: 40,
           height: 40,
           fit: BoxFit.cover,

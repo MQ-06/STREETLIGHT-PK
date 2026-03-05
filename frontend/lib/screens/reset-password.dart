@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -40,25 +41,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       setState(() => _isLoading = false);
 
       if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Password reset successfully! Please sign in.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        // Go back to login and clear all previous routes
+        showAppToast(context,
+            message: 'Password reset successfully! Please sign in.',
+            isError: false,
+            duration: const Duration(seconds: 2));
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/login_form',
           (route) => false,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Reset failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        showAppToast(context,
+            message: result['error'] ?? 'Reset failed', isError: true);
       }
     }
   }

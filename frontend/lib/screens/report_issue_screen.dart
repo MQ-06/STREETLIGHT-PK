@@ -1,4 +1,5 @@
 // lib/screens/report_issue_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:http/http.dart' as http;
 import '../models/report_issue_data.dart';
 import '../services/api_service.dart';
 import '../services/user_session.dart';
+import '../widgets/app_toast.dart';
 
 class ReportIssueColors {
   static const backgroundColor = Color(0xFFFFF8E7);
@@ -36,14 +38,11 @@ class ReportIssueScreen extends StatefulWidget {
 class _ReportIssueScreenState extends State<ReportIssueScreen> {
   File? _selectedImage;
   LocationData? _currentLocation;
-  IssueCategory? _selectedCategory;
   final TextEditingController _descriptionController = TextEditingController();
 
   bool _isLoadingLocation = false;
   bool _isLoadingImage = false;
-  bool _isSubmitting = false;       // ← NEW: tracks API call in progress
-  String? _errorMessage;
-  String? _successMessage;
+  bool _isSubmitting = false;
   int _currentNavIndex = 3;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -102,11 +101,23 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       }
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showError('Please enable location services');
+        _showError('Location is off. Opening settings...');
+        await Geolocator.openLocationSettings();
         return;
       }
-      final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } on TimeoutException {
+        _showError('Location timed out. Try again outdoors or near a window.');
+        return;
+      } catch (e) {
+        _showError('Location error: $e');
+        return;
+      }
       try {
         final placemarks = await placemarkFromCoordinates(
             position.latitude, position.longitude);
@@ -216,22 +227,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     Navigator.pop(context);
     setState(() => _isLoadingImage = true);
     try {
-      PermissionStatus status;
-      if (source == ImageSource.camera) {
-        status = await Permission.camera.request();
-      } else {
-        status = await Permission.photos.request();
-      }
-      if (status.isDenied) {
-        _showError(
-            '${source == ImageSource.camera ? 'Camera' : 'Photo'} permission denied');
-        return;
-      }
-      if (status.isPermanentlyDenied) {
-        _showError('Permission permanently denied. Please enable in settings.');
-        await openAppSettings();
-        return;
-      }
+      // Try picker first - image_picker handles permissions; permission_handler
+      // can incorrectly report "denied" on some devices when permission is granted.
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
         maxWidth: 1920,
@@ -242,31 +239,54 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         setState(() => _selectedImage = File(pickedFile.path));
       }
     } catch (e) {
-      _showError('Failed to pick image: $e');
+      final err = e.toString().toLowerCase();
+      if (err.contains('permission') || err.contains('denied') ||
+          err.contains('access') || err.contains('photo')) {
+        _showPermissionDeniedDialog(
+          source == ImageSource.camera ? 'Camera' : 'Gallery',
+        );
+      } else {
+        _showError('Failed to pick image: $e');
+      }
     } finally {
       setState(() => _isLoadingImage = false);
     }
   }
 
-  // ─────────────────────────────────────────────
-  // MESSAGES
-  // ─────────────────────────────────────────────
-
   void _showError(String message) {
-    setState(() {
-      _errorMessage = message;
-      _successMessage = null;
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _errorMessage = null);
-    });
+    if (!mounted) return;
+    showAppToast(context, message: message, isError: true);
   }
 
-  void _showSuccess(String message) {
-    setState(() {
-      _successMessage = message;
-      _errorMessage = null;
-    });
+  void _showPermissionDeniedDialog(String permissionName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$permissionName Access Required',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: Text(
+          '$permissionName permission was denied. The app cannot show the '
+          'picker without it. Open settings to enable?',
+          style: GoogleFonts.roboto(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: ReportIssueColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: Text('Open Settings',
+                style: TextStyle(
+                    color: ReportIssueColors.primaryOrange,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -283,27 +303,18 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       _showError('Please enable location access');
       return;
     }
-    if (_selectedCategory == null) {
-      _showError('Please select an issue category');
-      return;
-    }
-    if (_descriptionController.text.trim().isEmpty) {
-      _showError('Please provide a description');
-      return;
-    }
 
     setState(() => _isSubmitting = true);
 
-    // Auto-generate title from category + city
-    final category = _selectedCategory!.name; // 'POTHOLE' or 'TRASH'
+    // Auto-generate title from city (AI will detect category)
     final city = _currentLocation!.city;
-    final autoTitle = '$category in $city';
+    final autoTitle = 'Civic Issue in $city';
 
-    // Call API — image NOT sent, stays on device for now
+    // Call API WITH IMAGE — AI Agent will process it and detect category
     final result = await ApiService.createReport(
+      imagePath: _selectedImage!.path,  // AI will automatically detect pothole or garbage
       title: autoTitle,
       description: _descriptionController.text.trim(),
-      category: category,
       locationAddress: _currentLocation!.address,
       locationCity: _currentLocation!.city,
       locationLat: _currentLocation!.latitude,
@@ -316,24 +327,49 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     if (result['success'] == true) {
       await UserSession.incrementTotalReported();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✓ Report Submitted Successfully',
-              style: GoogleFonts.roboto(fontWeight: FontWeight.w500)),
-          backgroundColor: ReportIssueColors.successGreen,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      showAppToast(context,
+          message: 'Report submitted successfully!',
+          isError: false,
+          duration: const Duration(seconds: 2));
 
       // Wait a beat then pop back — pass true so HomeScreen refreshes feed
       await Future.delayed(const Duration(milliseconds: 1200));
       if (mounted) Navigator.pop(context, true);
     } else {
-      _showError(result['error'] ?? 'Failed to submit. Please try again.');
+      // Show "Invalid Report" with basic error message
+      String errorMsg = 'Invalid Report';
+      
+      // Get the basic reason from AI Agent
+      if (result['errors'] != null && result['errors'].isNotEmpty) {
+        // Extract simple reason from AI error
+        String aiError = result['errors'][0];
+        
+        // Simplify common AI errors for users
+        if (aiError.contains('blurry') || aiError.contains('blur')) {
+          errorMsg = 'Invalid Report: Image is too blurry';
+        } else if (aiError.contains('dark') || aiError.contains('brightness')) {
+          errorMsg = 'Invalid Report: Image is too dark';
+        } else if (aiError.contains('bright')) {
+          errorMsg = 'Invalid Report: Image is too bright';
+        } else if (aiError.contains('resolution') || aiError.contains('Resolution')) {
+          errorMsg = 'Invalid Report: Image quality is too low';
+        } else if (aiError.contains('GPS') || aiError.contains('location')) {
+          errorMsg = 'Invalid Report: GPS location issue';
+        } else {
+          errorMsg = 'Invalid Report: Please check image quality';
+        }
+      } else if (result['error'] != null) {
+        String error = result['error'].toString();
+        if (error.contains('confidence') || error.contains('not clearly visible')) {
+          errorMsg = 'Invalid Report: Issue not clearly visible';
+        } else if (error.contains('not a civic issue')) {
+          errorMsg = 'Invalid Report: Not a valid civic issue';
+        } else {
+          errorMsg = 'Invalid Report: $error';
+        }
+      }
+      
+      _showError(errorMsg);
     }
   }
 
@@ -350,8 +386,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           children: [
             _buildHeader(),
             _buildProgressIndicator(),
-            if (_errorMessage != null) _buildErrorBanner(),
-            if (_successMessage != null) _buildSuccessBanner(),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -362,8 +396,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     _buildImageUploadSection(),
                     const SizedBox(height: 24),
                     _buildLocationSection(),
-                    const SizedBox(height: 24),
-                    _buildCategorySection(),
                     const SizedBox(height: 24),
                     _buildDescriptionSection(),
                     const SizedBox(height: 24),
@@ -424,7 +456,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       '1. Upload a photo of the issue\n'
                       '2. Tap the map to get your location\n'
                       '3. Select the issue category\n'
-                      '4. Describe the problem\n\n'
+                      '4. Describe the problem (optional)\n\n'
                       'Then tap Submit.',
                       style: GoogleFonts.roboto(),
                     ),
@@ -452,10 +484,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     int filled = 0;
     if (_selectedImage != null) filled = 1;
     if (_selectedImage != null && _currentLocation != null) filled = 2;
-    if (_selectedImage != null &&
-        _currentLocation != null &&
-        _selectedCategory != null &&
-        _descriptionController.text.trim().isNotEmpty) filled = 3;
+    if (_selectedImage != null && _currentLocation != null) filled = 3;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 120, vertical: 8),
@@ -478,58 +507,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  Widget _buildErrorBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ReportIssueColors.errorRed.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReportIssueColors.errorRed.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline,
-              color: ReportIssueColors.errorRed, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(_errorMessage!,
-                style: GoogleFonts.roboto(
-                    color: ReportIssueColors.errorRed, fontSize: 14)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuccessBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ReportIssueColors.successGreen.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: ReportIssueColors.successGreen.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle_outline,
-              color: ReportIssueColors.successGreen, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(_successMessage!,
-                style: GoogleFonts.roboto(
-                    color: ReportIssueColors.successGreen,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Image upload section — completely unchanged from your original
+  // Image upload section
   Widget _buildImageUploadSection() {
     return GestureDetector(
       onTap: _isLoadingImage ? null : _pickImage,
@@ -777,76 +755,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('ISSUE CATEGORY',
-            style: GoogleFonts.roboto(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: ReportIssueColors.textPrimary,
-                letterSpacing: 0.5)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildCategoryButton(
-                  category: IssueCategory.POTHOLE,
-                  icon: Icons.build,
-                  label: 'POTHOLE'),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildCategoryButton(
-                  category: IssueCategory.TRASH,
-                  icon: Icons.delete_outline,
-                  label: 'TRASH'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryButton({
-    required IssueCategory category,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedCategory == category;
-    final color =
-        isSelected ? ReportIssueColors.primaryOrange : ReportIssueColors.textSecondary;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = category),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? ReportIssueColors.primaryOrange.withOpacity(0.08)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: isSelected
-                  ? ReportIssueColors.primaryOrange
-                  : ReportIssueColors.borderTan,
-              width: 2),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(label,
-                style: GoogleFonts.roboto(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                    letterSpacing: 0.5)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDescriptionSection() {
     return Column(
@@ -871,7 +779,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
             style: GoogleFonts.roboto(
                 fontSize: 14, color: ReportIssueColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Provide specific details about the issue...',
+              hintText: 'Provide specific details (optional)...',
               hintStyle: GoogleFonts.roboto(
                   fontSize: 14,
                   color: ReportIssueColors.textSecondary.withOpacity(0.6)),

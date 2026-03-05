@@ -1,4 +1,5 @@
 //screens/profile_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,7 @@ import '../models/civic_report.dart';
 import '../services/user_session.dart';
 import 'report_issue_screen.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 /// Color palette for Profile screen
 class ProfileColors {
@@ -141,24 +143,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (permission == LocationPermission.deniedForever) {
         setState(() {
-          _userLocation = 'Enable location in settings';
+          _userLocation = 'Opening app settings...';
           _isLoadingLocation = false;
         });
+        await openAppSettings();
         return;
       }
 
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
-          _userLocation = 'Please enable location services';
+          _userLocation = 'Opening location settings...';
+          _isLoadingLocation = false;
+        });
+        await Geolocator.openLocationSettings();
+        return;
+      }
+
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } on TimeoutException {
+        setState(() {
+          _userLocation = 'Timed out. Try outdoors or near a window.';
+          _isLoadingLocation = false;
+        });
+        return;
+      } catch (e) {
+        setState(() {
+          _userLocation = 'Location error: $e';
           _isLoadingLocation = false;
         });
         return;
       }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
 
       try {
         final placemarks = await placemarkFromCoordinates(
@@ -187,21 +207,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadProfileImage() async {
-    final permission = await Permission.photos.request();
-
-    if (permission.isDenied) {
-      _showPermissionDialog('Gallery access required to upload profile photo');
-      return;
-    }
-
-    if (permission.isPermanentlyDenied) {
-      _showPermissionDialog(
-        'Gallery access is permanently denied. Please enable it in settings.',
-      );
-      return;
-    }
-
     try {
+      // Try picker first - image_picker handles permissions; permission_handler
+      // can incorrectly report "denied" on some devices when permission is granted.
       final pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
@@ -215,41 +223,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         setState(() => _profileImagePath = localPath);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✓ Profile photo updated',
-              style: GoogleFonts.roboto(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: ProfileColors.successGreen,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showAppToast(context,
+            message: 'Profile photo updated',
+            isError: false,
+            duration: const Duration(seconds: 2));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error uploading photo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      final err = e.toString().toLowerCase();
+      if (err.contains('permission') || err.contains('denied') ||
+          err.contains('access') || err.contains('photo')) {
+        _showGalleryPermissionDialog();
+      } else {
+        showAppToast(context,
+            message: 'Error uploading photo: $e', isError: true);
+      }
     }
   }
 
-  void _showPermissionDialog(String message) {
+  void _showGalleryPermissionDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Permission Required',
+          'Gallery Access Required',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
-        content: Text(message, style: GoogleFonts.roboto()),
+        content: Text(
+          'Gallery permission was denied. Open settings to enable it?',
+          style: GoogleFonts.roboto(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: ProfileColors.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -257,7 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               openAppSettings();
             },
             child: Text(
-              'Settings',
+              'Open Settings',
               style: TextStyle(color: ProfileColors.accentOrange),
             ),
           ),
@@ -927,7 +933,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   top: Radius.circular(16),
                 ),
                 child: CachedNetworkImage(
-                  imageUrl: report.imageUrl,
+                  imageUrl: ApiService.imageUrl(report.imageUrl),
                   height: 160,
                   width: double.infinity,
                   fit: BoxFit.cover,

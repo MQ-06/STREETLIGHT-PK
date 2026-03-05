@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/user_session.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 /// Registration screen with all required fields
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -33,10 +34,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _handleCreateAccount() async {
   if (_formKey.currentState!.validate()) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Creating account...')),
-    );
-
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final email = _emailController.text.trim();
@@ -53,25 +50,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✓ Account created! Please sign in.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      showAppToast(context,
+          message: 'Account created! Please sign in.',
+          isError: false,
+          duration: const Duration(seconds: 2));
       Navigator.of(context).pushReplacementNamed('/login_form');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['error'] ?? 'Registration failed'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      showAppToast(context,
+          message: result['error'] ?? 'Registration failed', isError: true);
     }
   }
 }

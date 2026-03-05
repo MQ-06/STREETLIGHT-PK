@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/user_session.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 /// Login screen with email and password fields
 class LoginScreen extends StatefulWidget {
@@ -27,42 +28,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Signing in...')));
-
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
       final result = await ApiService.login(email: email, password: password);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       if (result['success'] == true) {
         final userData = result['data']['user'];
         final fullName = '${userData['first_name']} ${userData['last_name']}';
 
-        // Keep existing UserSession for local state (name, location etc)
         await UserSession.login(name: fullName, email: email);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Welcome back!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        showAppToast(context,
+            message: 'Welcome back!',
+            isError: false,
+            duration: const Duration(seconds: 2));
 
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        showAppToast(context,
+            message: result['error'] ?? 'Login failed', isError: true);
       }
     }
   }

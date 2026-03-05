@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime,
+    Column, Integer, String, Float, DateTime, Boolean,
     ForeignKey, Text, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
@@ -50,6 +50,48 @@ class Report(Base):
     verify_count = Column(Integer, default=0)
     views = Column(Integer, default=0)
 
+    # ==========================================
+    # AI AGENT RESULTS (NEW)
+    # ==========================================
+    
+    # Layer 0: Validation Results
+    validation_score = Column(Float, nullable=True, comment="Image quality score (0-100)")
+    validation_status = Column(String(20), nullable=True, comment="passed or failed")
+    validation_warnings = Column(Text, nullable=True, comment="JSON array of warnings")
+    
+    # Layer 1: AI Classification Results
+    ai_confidence = Column(Float, nullable=True, comment="AI confidence score (0-100)")
+    ai_predicted_class = Column(String(50), nullable=True, comment="pothole or garbage")
+    ai_severity = Column(String(20), nullable=True, comment="small, medium, or large")
+    final_score = Column(Float, nullable=True, comment="Combined AI + GPS score (0-100)")
+    
+    # GPS Verification Results
+    gps_verified = Column(Boolean, default=False, comment="Location verified with landmarks")
+    gps_has_photo_location = Column(Boolean, default=False, comment="Photo contained GPS in EXIF")
+    gps_distance_km = Column(Float, nullable=True, comment="Distance between photo & submitted GPS")
+    gps_spoofing_detected = Column(Boolean, default=False, comment="Large GPS mismatch detected")
+
+    # ==========================================
+    # LAYER 2: FRAUD DETECTION RESULTS (NEW)
+    # ==========================================
+
+    # Check 3: Spam pattern — soft flag; report is saved but queued for admin review
+    is_flagged_for_spam = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="User exceeded submission rate limit; flagged for admin review"
+    )
+
+    # Duplicate linkage — normally duplicates are blocked, but this FK is available
+    # if a near-duplicate ever needs to be saved and linked to its original
+    duplicate_of_id = Column(
+        Integer,
+        ForeignKey("reports.id"),
+        nullable=True,
+        comment="Self-referential FK pointing to the original report (duplicates are usually blocked)"
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -66,6 +108,12 @@ class Report(Base):
         "ReportInteraction",
         back_populates="report",
         cascade="all, delete"
+    )
+    # Self-referential: the original report this one was flagged as a duplicate of
+    duplicate_of = relationship(
+        "Report",
+        remote_side="Report.id",
+        foreign_keys="[Report.duplicate_of_id]",
     )
 
 
