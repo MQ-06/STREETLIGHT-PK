@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/report_model.dart';
+import '../models/verification_model.dart';
 import '../services/api_service.dart';
 import 'report_issue_screen.dart';
 import 'profile_screen.dart';
@@ -38,6 +40,11 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _pageSize = 20;
   bool _hasMore = true;
 
+  // ── Community verification notifications ──────────────────────────────────
+  List<VerificationRequestModel> _pendingVerifications = [];
+  double? _userLat;
+  double? _userLng;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _errorMessage = null;
         _reports = [];
       });
+      // Fetch nearby verification requests in parallel with the feed
+      _fetchPendingVerifications();
     }
 
     final result = await ApiService.getReportsFeed(
@@ -106,6 +115,45 @@ class _HomeScreenState extends State<HomeScreen> {
         _hasMore) {
       setState(() => _isLoadingMore = true);
       _loadFeed();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // PENDING VERIFICATIONS (bell badge)
+  // ─────────────────────────────────────────────
+
+  Future<void> _fetchPendingVerifications() async {
+    try {
+      // Use last-known position — fast, no blocking permission dialog
+      Position? position;
+      try {
+        final permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          position = await Geolocator.getLastKnownPosition();
+        }
+      } catch (_) {}
+
+      // Lahore city-centre fallback if GPS unavailable
+      final lat = position?.latitude ?? 31.5204;
+      final lng = position?.longitude ?? 74.3587;
+
+      if (mounted) setState(() { _userLat = lat; _userLng = lng; });
+
+      final result = await ApiService.getPendingVerifications(lat, lng);
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final raw = result['data']['requests'] as List<dynamic>;
+        setState(() {
+          _pendingVerifications = raw
+              .map((r) => VerificationRequestModel.fromJson(
+                    r as Map<String, dynamic>))
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('HomeScreen — pending verifications fetch error: $e');
     }
   }
 
@@ -442,10 +490,38 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const Spacer(),
           Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.notifications_outlined,
-                  color: HomeColors.textSecondary),
-              onPressed: () => _showNotificationDropdown(context),
+            builder: (context) => Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined,
+                      color: HomeColors.textSecondary),
+                  onPressed: () => _showNotificationDropdown(context),
+                ),
+                if (_pendingVerifications.isNotEmpty)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                        color: HomeColors.statusOrange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${_pendingVerifications.length}',
+                          style: GoogleFonts.roboto(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -854,41 +930,124 @@ class _HomeScreenState extends State<HomeScreen> {
   // NOTIFICATIONS
   // ─────────────────────────────────────────────
 
-  void _showNotificationDropdown(BuildContext context) {
+  Future<void> _showNotificationDropdown(BuildContext context) async {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final Offset offset =
         button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-          offset.dx - 150, offset.dy, offset.dx + button.size.width, offset.dy + 100),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      items: [
-        PopupMenuItem(
-          enabled: false,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            child: Column(
-              children: [
-                const Icon(Icons.notifications_off_outlined,
-                    size: 40, color: HomeColors.textGray),
-                const SizedBox(height: 8),
-                Text('No Notifications',
-                    style: GoogleFonts.roboto(
-                        fontSize: 14,
-                        color: HomeColors.textSecondary,
-                        fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Text("You're all caught up!",
-                    style: GoogleFonts.roboto(
-                        fontSize: 12, color: HomeColors.textGray)),
-              ],
+
+    // ── Empty state ──────────────────────────────────────────────────────────
+    if (_pendingVerifications.isEmpty) {
+      showMenu(
+        context: context,
+        position: RelativeRect.fromLTRB(
+            offset.dx - 150, offset.dy,
+            offset.dx + button.size.width, offset.dy + 100),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        items: [
+          PopupMenuItem(
+            enabled: false,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              child: Column(
+                children: [
+                  const Icon(Icons.notifications_off_outlined,
+                      size: 40, color: HomeColors.textGray),
+                  const SizedBox(height: 8),
+                  Text('No Notifications',
+                      style: GoogleFonts.roboto(
+                          fontSize: 14,
+                          color: HomeColors.textSecondary,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Text("You're all caught up!",
+                      style: GoogleFonts.roboto(
+                          fontSize: 12, color: HomeColors.textGray)),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      );
+      return;
+    }
+
+    // ── Populated state ──────────────────────────────────────────────────────
+    final tapped = await showMenu<int>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+          offset.dx - 220, offset.dy,
+          offset.dx + button.size.width, offset.dy + 100),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      items: _pendingVerifications
+          .map((req) => PopupMenuItem<int>(
+                value: req.requestId,
+                child: _buildNotificationItem(req),
+              ))
+          .toList(),
+    );
+
+    if (tapped != null && mounted) {
+      await Navigator.pushNamed(context, '/verification');
+      _loadFeed(refresh: true);
+    }
+  }
+
+  Widget _buildNotificationItem(VerificationRequestModel req) {
+    final distLabel = req.distanceM >= 1000
+        ? '${(req.distanceM / 1000).toStringAsFixed(1)} km away'
+        : '${req.distanceM.toInt()} m away';
+
+    return SizedBox(
+      width: 240,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: HomeColors.statusOrange,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  req.title,
+                  style: GoogleFonts.roboto(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: HomeColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Text(
+              'Verification Needed · $distLabel',
+              style: GoogleFonts.roboto(
+                fontSize: 11,
+                color: HomeColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
