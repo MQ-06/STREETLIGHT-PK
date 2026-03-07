@@ -14,6 +14,7 @@ from utils.auth_utils import get_current_user, get_db
 from utils.layer_orchestrator import LayerOrchestrator
 from utils.image_storage import ImageStorage
 from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
+from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -301,6 +302,26 @@ async def create_report(
         )
 
         # ==========================================
+        # STEP 8.5: TRIGGER COMMUNITY VERIFICATION (Layer 3)
+        # Non-blocking — a failure here must never prevent the report from
+        # being returned to the user.  Community verification is optional.
+        # ==========================================
+        community_verification_created = False
+        try:
+            CommunityVerificationEngine(db).create_verification_request(
+                report_id=report.id,
+                lat=location_lat,
+                lng=location_lng,
+            )
+            community_verification_created = True
+            logger.info(f"🏘️ Layer 3: verification request created for report ID={report.id}")
+        except Exception as layer3_exc:
+            logger.warning(
+                f"⚠️ Layer 3: verification request failed for report ID={report.id} "
+                f"(non-blocking) — {layer3_exc}"
+            )
+
+        # ==========================================
         # STEP 10: RETURN SUCCESS
         # ==========================================
         return {
@@ -327,7 +348,11 @@ async def create_report(
                 'is_duplicate': duplicate_of_id is not None,
                 'duplicate_of_id': duplicate_of_id,
                 'existing_report': duplicate_report,
-            }
+            },
+            'community_verification': {
+                'status': 'PENDING' if community_verification_created else 'UNAVAILABLE',
+                'request_created': community_verification_created,
+            },
         }
 
     except HTTPException:
