@@ -16,6 +16,10 @@ class UserProfile(Base):
     total_solved = Column(Integer, default=0)
     impact_score = Column(Float, default=0.0)
 
+    # Last-known GPS position — updated by the app on each session start
+    last_known_lat = Column(Float, nullable=True, comment="Last GPS latitude from app")
+    last_known_lng = Column(Float, nullable=True, comment="Last GPS longitude from app")
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)

@@ -1,7 +1,5 @@
 #main.py
-from pathlib import Path
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from routers import signup, login, forget_password, reset_password
 from routers.flutter import mobile_auth
 from middleware.cors import setup_cors
@@ -9,7 +7,8 @@ import logging
 
 from model.users import User
 from model.user_profile import UserProfile
-from model.report import Report, ReportInteraction 
+from model.report import Report, ReportInteraction
+from model.verification import VerificationRequest, VerificationVote
 from utils.image_storage import ImageStorage
 
 # Configure logging
@@ -27,10 +26,7 @@ app = FastAPI(
 
 setup_cors(app)
 
-# Serve uploaded report images at /uploads
-uploads_dir = Path(__file__).parent / "uploads"
-if uploads_dir.exists():
-    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+# Images are now served from Cloudinary — no local static mount needed
 
 app.include_router(signup.router)
 app.include_router(login.router)

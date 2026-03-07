@@ -92,6 +92,12 @@ class Report(Base):
         comment="Self-referential FK pointing to the original report (duplicates are usually blocked)"
     )
 
+    # ==========================================
+    # LAYER 3: COMMUNITY VERIFICATION RESULTS
+    # ==========================================
+
+    community_score = Column(Float, nullable=True, comment="Community verification score (0-100)")
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -114,6 +120,12 @@ class Report(Base):
         "Report",
         remote_side="Report.id",
         foreign_keys="[Report.duplicate_of_id]",
+    )
+    # Layer 3: one-to-one link to the community verification request
+    verification_request = relationship(
+        "VerificationRequest",
+        back_populates="report",
+        uselist=False,
     )
 
 
