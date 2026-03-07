@@ -315,4 +315,78 @@ class ApiService {
       return {'success': false, 'error': 'Cannot connect to server.'};
     }
   }
+
+  // ─────────────────────────────────────────────
+  // COMMUNITY VERIFICATION
+  // ─────────────────────────────────────────────
+
+  /// GET /verification/pending?lat=&lng=
+  static Future<Map<String, dynamic>> getPendingVerifications(
+    double lat,
+    double lng,
+  ) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseURL/verification/pending?lat=$lat&lng=$lng'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      if (response.statusCode == 401) {
+        return {'success': false, 'error': 'Session expired. Please log in again.', 'code': 401};
+      }
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load verifications'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  /// POST /verification/{requestId}/vote
+  static Future<Map<String, dynamic>> submitVerificationVote(
+    int requestId,
+    String vote,
+    double? lat,
+    double? lng,
+  ) async {
+    try {
+      final headers = await _authHeaders();
+      headers['Content-Type'] = 'application/json';
+      final response = await http
+          .post(
+            Uri.parse('$baseURL/verification/$requestId/vote'),
+            headers: headers,
+            body: jsonEncode({'vote': vote, 'lat': lat, 'lng': lng}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Vote failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  /// GET /verification/{reportId}/status
+  static Future<Map<String, dynamic>> getVerificationStatus(int reportId) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseURL/verification/$reportId/status'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      if (response.statusCode == 404) {
+        return {'success': false, 'error': 'No verification found', 'code': 404};
+      }
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load status'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
 }
