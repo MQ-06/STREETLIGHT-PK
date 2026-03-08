@@ -3,7 +3,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# Load .env from backend directory so we use the same DB as migration scripts
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_backend_dir, ".env"))
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
