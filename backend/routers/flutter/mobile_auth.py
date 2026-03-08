@@ -16,6 +16,7 @@ from utils.image_storage import ImageStorage
 from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
 from ai_layers.layer4_trust_history import TrustHistoryEngine
+from ai_layers.layer5_final_score import FinalScoreCalculator
 from utils.impact_score import ImpactScoreManager, PENALTY_SPOOFING, PENALTY_SPAM, POINTS_REPORT_CREATED
 
 # Configure logging
@@ -333,6 +334,21 @@ async def create_report(
             )
 
         # ==========================================
+        # STEP 9b: CALCULATE FINAL CONFIDENCE SCORE (Layer 5)
+        # Non-blocking — runs after report + community verification are persisted.
+        # ==========================================
+        score_result = {}
+        try:
+            score_result = FinalScoreCalculator(db).calculate_final_score(report.id)
+            logger.info(
+                f"📊 Final Score: {score_result.get('combined_score', 'N/A')} → "
+                f"{score_result.get('verification_status', 'N/A')}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Final score calculation failed (non-blocking): {e}")
+            score_result = {"combined_score": None, "verification_status": "PENDING"}
+
+        # ==========================================
         # STEP 10: RETURN SUCCESS
         # ==========================================
         return {
@@ -365,6 +381,7 @@ async def create_report(
                 'request_created': community_verification_created,
             },
             'trust_check': trust_result,
+            'final_score_result': score_result,
         }
 
     except HTTPException:
