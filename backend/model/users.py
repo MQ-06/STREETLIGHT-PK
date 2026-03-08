@@ -1,7 +1,8 @@
 #model.users.py
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime
 from db.database import Base
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
 
 class User(Base):
     __tablename__= "users"
@@ -13,5 +14,10 @@ class User(Base):
     email=Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     reset_token = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
 
     profile = relationship("UserProfile", back_populates="user", uselist=False)

@@ -20,6 +20,12 @@ class UserProfile(Base):
     last_known_lat = Column(Float, nullable=True, comment="Last GPS latitude from app")
     last_known_lng = Column(Float, nullable=True, comment="Last GPS longitude from app")
 
+    # FCM device token — used to send push notifications via Firebase
+    fcm_token = Column(String(255), nullable=True, comment="Firebase Cloud Messaging device token")
+
+    # Trust scoring — incremented by fraud detection engine
+    fraud_flags = Column(Integer, default=0, comment="Count of fraud detections (spoofing, spam, etc.)")
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
