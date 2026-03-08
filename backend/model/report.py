@@ -98,6 +98,12 @@ class Report(Base):
 
     community_score = Column(Float, nullable=True, comment="Community verification score (0-100)")
 
+    # ==========================================
+    # LAYER 4: TRUST HISTORY RESULTS
+    # ==========================================
+
+    trust_score = Column(Float, nullable=True, comment="Engine D trust score at time of report")
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)

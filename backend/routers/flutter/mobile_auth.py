@@ -15,6 +15,7 @@ from utils.layer_orchestrator import LayerOrchestrator
 from utils.image_storage import ImageStorage
 from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
+from ai_layers.layer4_trust_history import TrustHistoryEngine
 from utils.impact_score import ImpactScoreManager, PENALTY_SPOOFING, PENALTY_SPAM, POINTS_REPORT_CREATED
 
 # Configure logging
@@ -204,7 +205,19 @@ async def create_report(
                 }
             )
 
-        # ── 6b: Duplicate report → soft link (save & link to original) ─────
+        # ── 6b: Engine D — Trust & History Check ─────────────────────────────
+        trust_result = {}
+        try:
+            trust_result = TrustHistoryEngine(db).evaluate_trust(current_user.id)
+            logger.info(
+                f"🔐 Trust check: score={trust_result.get('trust_score', 'N/A')}, "
+                f"trusted={trust_result.get('is_trusted', 'N/A')}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Trust check failed (non-blocking): {e}")
+            trust_result = {"trust_score": None, "is_trusted": True}
+
+        # ── 6c: Duplicate report → soft link (save & link to original) ─────
         duplicate_of_id = fraud_result['duplicate_of_id']
         duplicate_report = fraud_result['duplicate_report']
         if duplicate_of_id is not None:
@@ -213,7 +226,7 @@ async def create_report(
                 f"→ will be linked to original report ID={duplicate_of_id}"
             )
 
-        # ── 6c: Spam flag → soft flag; continue pipeline ──────────────────
+        # ── 6d: Spam flag → soft flag; continue pipeline ──────────────────
         is_flagged_for_spam = fraud_result['is_spam']
         if is_flagged_for_spam:
             logger.warning(
@@ -270,6 +283,9 @@ async def create_report(
             # Layer 2: Fraud Detection results
             is_flagged_for_spam=is_flagged_for_spam,
             duplicate_of_id=duplicate_of_id,
+
+            # Layer 4: Trust score snapshot
+            trust_score=trust_result.get("trust_score"),
 
             # Initial status based on final score
             status=ReportStatus.VERIFIED if ai_result['final_score'] >= 80 else ReportStatus.PENDING
@@ -348,6 +364,7 @@ async def create_report(
                 'status': 'PENDING' if community_verification_created else 'UNAVAILABLE',
                 'request_created': community_verification_created,
             },
+            'trust_check': trust_result,
         }
 
     except HTTPException:
