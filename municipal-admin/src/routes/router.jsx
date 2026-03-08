@@ -10,15 +10,30 @@ import Analytics from '../pages/Analytics'
 import Transparency from '../pages/Transparency'
 import Departments from '../pages/Departments'
 import UserRoles from '../pages/UserRoles'
+import { isAuthenticated } from '../utils/auth'
+
+function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/signin" replace />
+  }
+  return children
+}
+
+function PublicOnlyRoute({ children }) {
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
 
 const router = createBrowserRouter([
   // ── Public — no layout
-  { path: '/signin', element: <SignIn /> },
+  { path: '/signin', element: <PublicOnlyRoute><SignIn /></PublicOnlyRoute> },
 
   // ── Authenticated — inside layout
   {
     path: '/',
-    element: <Layout />,
+    element: <ProtectedRoute><Layout /></ProtectedRoute>,
     children: [
       { index: true,                  element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard',            element: <Dashboard /> },
