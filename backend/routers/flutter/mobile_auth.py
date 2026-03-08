@@ -15,6 +15,7 @@ from utils.layer_orchestrator import LayerOrchestrator
 from utils.image_storage import ImageStorage
 from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
+from utils.impact_score import ImpactScoreManager, PENALTY_SPOOFING, PENALTY_SPAM, POINTS_REPORT_CREATED
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -188,17 +189,8 @@ async def create_report(
                 f"GPS=({location_lat}, {location_lng})"
             )
 
-            # Apply -50 point penalty to user's impact score
-            profile = db.query(UserProfile).filter(
-                UserProfile.user_id == current_user.id
-            ).first()
-            if profile:
-                profile.impact_score = (profile.impact_score or 0) - 50
-                db.commit()
-                logger.warning(
-                    f"📉 Penalty applied: -50 points to user={current_user.id} "
-                    f"(new impact_score={profile.impact_score})"
-                )
+            # Apply spoofing penalty via centralized manager
+            ImpactScoreManager(db).deduct_points(current_user.id, PENALTY_SPOOFING, "GPS_SPOOFING")
 
             raise HTTPException(
                 status_code=400,
@@ -229,6 +221,7 @@ async def create_report(
                 f"({fraud_result['hourly_count']} reports in last hour) — "
                 "report will be saved and queued for admin review"
             )
+            ImpactScoreManager(db).deduct_points(current_user.id, PENALTY_SPAM, "SPAM_FLAGGED")
 
         # ==========================================
         # STEP 7: UPLOAD TO CLOUDINARY
@@ -295,6 +288,8 @@ async def create_report(
 
         db.commit()
         db.refresh(report)
+
+        ImpactScoreManager(db).award_points(current_user.id, POINTS_REPORT_CREATED, "REPORT_CREATED")
 
         logger.info(
             f"✅ Report created: ID={report.id} | Score={ai_result['final_score']:.1f}/100 "

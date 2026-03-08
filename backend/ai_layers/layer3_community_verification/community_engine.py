@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from model.report import Report
+from utils.impact_score import ImpactScoreManager, POINTS_VOTE_CAST
 from model.user_profile import UserProfile
 from model.verification import (
     VerificationRequest,
@@ -102,12 +103,52 @@ class CommunityVerificationEngine:
         self.db.commit()
         self.db.refresh(request)
 
-        # Find nearby users (informational — push notifications handled by caller)
+        # Find nearby users (informational — push notifications handled below)
         nearby = self._find_nearby_users(lat, lng, DEFAULT_RADIUS_M, exclude_user_id=author_id)
         logger.info(
             f"   ✅ VerificationRequest ID={request.id} created | "
             f"{len(nearby)} nearby user(s) within {DEFAULT_RADIUS_M:.0f} m"
         )
+
+        # ── TODO: Send push notifications to nearby users ──────────────────
+        # For each (user_id, distance_m) pair in `nearby`, retrieve the user's
+        # FCM token from UserProfile and send a Firebase push alert.
+        #
+        # Prerequisites (not yet configured):
+        #   1.  pip install firebase-admin
+        #   2.  Set GOOGLE_APPLICATION_CREDENTIALS env var to service-account JSON
+        #   3.  Call firebase_admin.initialize_app() once at startup in main.py
+        #
+        # Implementation sketch:
+        #
+        #   from firebase_admin import messaging
+        #
+        #   for uid, dist_m in nearby:
+        #       profile = self.db.query(UserProfile).filter(
+        #           UserProfile.user_id == uid
+        #       ).first()
+        #       if profile is None or not profile.fcm_token:
+        #           continue                            # no token → skip
+        #
+        #       category_label = report.category.value if report else "Issue"
+        #       msg = messaging.Message(
+        #           notification=messaging.Notification(
+        #               title="Verification Needed Nearby",
+        #               body=(
+        #                   f"A {category_label} was reported "
+        #                   f"{dist_m:.0f} m from your location. "
+        #                   "Can you verify it?"
+        #               ),
+        #           ),
+        #           data={"request_id": str(request.id), "report_id": str(request.report_id)},
+        #           token=profile.fcm_token,
+        #       )
+        #       try:
+        #           messaging.send(msg)
+        #           logger.info(f"   🔔 Push sent to user ID={uid} ({dist_m:.0f} m)")
+        #       except Exception as push_exc:
+        #           logger.warning(f"   ⚠️  Push failed for user ID={uid}: {push_exc}")
+        # ──────────────────────────────────────────────────────────────────────
 
         return request
 
@@ -236,6 +277,12 @@ class CommunityVerificationEngine:
             f"distance={dist_label} | "
             f"totals: {request.total_votes}/{request.min_votes} required"
         )
+
+        # Award points for casting a vote — non-blocking
+        try:
+            ImpactScoreManager(self.db).award_points(user_id, POINTS_VOTE_CAST, "VERIFICATION_VOTE")
+        except Exception as score_exc:
+            logger.warning(f"   ⚠️ Impact score update failed for user={user_id} (non-blocking): {score_exc}")
 
         # Auto-finalise when vote threshold is reached
         score_finalised = False

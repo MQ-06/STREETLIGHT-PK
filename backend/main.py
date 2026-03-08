@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from routers import signup, login, forget_password, reset_password
 from routers.flutter import mobile_auth
 from routers.flutter import verification
+from routers.flutter import users
 from middleware.cors import setup_cors
 import logging
 
@@ -35,6 +36,7 @@ app.include_router(forget_password.router)
 app.include_router(reset_password.router)
 app.include_router(mobile_auth.router)
 app.include_router(verification.router)
+app.include_router(users.router)
 
 
 @app.on_event("startup")
