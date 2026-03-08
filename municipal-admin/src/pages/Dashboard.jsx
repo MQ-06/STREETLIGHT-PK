@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   FileText, ClipboardList, Map, Users, BarChart2,
   Bell, Plus, Search, ChevronDown, MoreHorizontal,
-  Zap, CheckCircle, UserCircle
+  Zap, CheckCircle, UserCircle, LogOut
 } from 'lucide-react'
+import { clearAuthData, getCurrentUser } from '../utils/auth'
 
 const SIDEBAR_LINKS = [
   { label: 'Overview',       icon: BarChart2,     path: '/dashboard' },
@@ -121,6 +122,13 @@ export default function Dashboard() {
   const location = useLocation()
   const [period, setPeriod] = useState('Last 7 days')
 
+  const user = getCurrentUser()
+
+  function handleLogout() {
+    clearAuthData()
+    navigate('/signin', { replace: true })
+  }
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f7f6e8' }}>
 
@@ -161,16 +169,28 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        {/* User profile */}
+        {/* User profile + Logout */}
         <div className="px-4 py-5 border-t" style={{ borderColor: '#ede8dc' }}>
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Logged In As</p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <img src="https://i.pravatar.cc/36?img=1" alt="user" className="w-9 h-9 rounded-full object-cover" />
             <div>
-              <p className="text-sm font-bold text-gray-800">Alex Johnson</p>
-              <p className="text-xs text-gray-400">Municipal Officer</p>
+              <p className="text-sm font-bold text-gray-800">
+                {user ? `${user.first_name} ${user.last_name}` : 'Admin'}
+              </p>
+              <p className="text-xs text-gray-400">
+                {user?.role ? user.role.replace(/_/g, ' ') : 'Admin'}
+              </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
         </div>
       </aside>
 
