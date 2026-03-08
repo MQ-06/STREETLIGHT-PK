@@ -104,6 +104,13 @@ class Report(Base):
 
     trust_score = Column(Float, nullable=True, comment="Engine D trust score at time of report")
 
+    # ==========================================
+    # STEP 5: FINAL CONFIDENCE SCORE
+    # ==========================================
+
+    combined_score = Column(Float, nullable=True, comment="Weighted combination of AI, community, and trust scores")
+    verification_status = Column(String(20), nullable=True, default="PENDING", comment="AUTO_VERIFIED | REVIEW_NEEDED | REJECTED | PENDING")
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
