@@ -6,6 +6,8 @@ from routers.flutter import verification
 from routers.flutter import users
 from routers.flutter import trust
 from routers.flutter import score
+from routers.admin import auth as admin_auth
+from routers.admin import dashboard as admin_dashboard
 from middleware.cors import setup_cors
 import logging
 
@@ -41,6 +43,8 @@ app.include_router(verification.router)
 app.include_router(users.router)
 app.include_router(trust.router)
 app.include_router(score.router)
+app.include_router(admin_auth.router)
+app.include_router(admin_dashboard.router)
 
 
 @app.on_event("startup")

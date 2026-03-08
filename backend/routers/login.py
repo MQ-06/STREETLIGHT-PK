@@ -21,12 +21,17 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
-    token = create_access_token({"user_id": db_user.id, "email": db_user.email})
+    token = create_access_token({
+        "user_id": db_user.id,
+        "email": db_user.email,
+        "role": db_user.role,
+    })
     return {"access_token": token, "token_type": "bearer",
              "user": {
                     "id": db_user.id,
                     "email": db_user.email,
                     "first_name": db_user.first_name,
                     "last_name": db_user.last_name,
+                    "role": db_user.role,
                 }
             }
