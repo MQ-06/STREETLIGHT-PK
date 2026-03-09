@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/comment_model.dart';
 import '../models/report_model.dart';
 import '../models/verification_model.dart';
 import '../services/api_service.dart';
@@ -185,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         views: report.views,
         supportCount: wasSupported ? prevCount - 1 : prevCount + 1,
         verifyCount: report.verifyCount,
+        commentCount: report.commentCount,
         status: report.status,
         hasSupported: !wasSupported,
         hasVerified: report.hasVerified,
@@ -217,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
             views: r.views,
             supportCount: data['support_count'] as int,
             verifyCount: r.verifyCount,
+            commentCount: r.commentCount,
             status: r.status,
             hasSupported: data['has_supported'] as bool,
             hasVerified: r.hasVerified,
@@ -245,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
             views: r.views,
             supportCount: prevCount,
             verifyCount: r.verifyCount,
+            commentCount: r.commentCount,
             status: r.status,
             hasSupported: wasSupported,
             hasVerified: r.hasVerified,
@@ -277,6 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
         views: report.views,
         supportCount: report.supportCount,
         verifyCount: wasVerified ? prevCount - 1 : prevCount + 1,
+        commentCount: report.commentCount,
         status: report.status,
         hasSupported: report.hasSupported,
         hasVerified: !wasVerified,
@@ -308,6 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
             views: r.views,
             supportCount: r.supportCount,
             verifyCount: data['verify_count'] as int,
+            commentCount: r.commentCount,
             status: r.status,
             hasSupported: r.hasSupported,
             hasVerified: data['has_verified'] as bool,
@@ -336,6 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
             views: r.views,
             supportCount: r.supportCount,
             verifyCount: prevCount,
+            commentCount: r.commentCount,
             status: r.status,
             hasSupported: r.hasSupported,
             hasVerified: wasVerified,
@@ -623,25 +630,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Image — only show if URL exists (not empty)
           if (report.imageUrl.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: ApiService.imageUrl(report.imageUrl),
-              height: 180,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => Container(
-                height: 180,
-                color: HomeColors.borderColor,
-                child: const Center(
-                  child: CircularProgressIndicator(
-                      color: HomeColors.statusOrange),
+            ClipRRect(
+              borderRadius: BorderRadius.zero,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: 160,
+                  maxHeight: 300,
                 ),
-              ),
-              errorWidget: (_, __, ___) => Container(
-                height: 100,
-                color: HomeColors.borderColor,
-                child: const Center(
-                  child: Icon(Icons.image_not_supported,
-                      color: HomeColors.textGray, size: 36),
+                child: Container(
+                  width: double.infinity,
+                  color: const Color(0xFFF0F0F0),
+                  child: CachedNetworkImage(
+                    imageUrl: ApiService.imageUrl(report.imageUrl),
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                            color: HomeColors.statusOrange),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => const SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: Icon(Icons.image_not_supported,
+                            color: HomeColors.textGray, size: 36),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -681,6 +697,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildSupportButton(index),
                 const SizedBox(width: 12),
                 _buildVerifyButton(index),
+                const SizedBox(width: 12),
+                _buildCommentButton(index),
               ],
             ),
           ),
@@ -923,6 +941,389 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCommentButton(int index) {
+    final report = _reports[index];
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showCommentsBottomSheet(index),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: HomeColors.borderColor),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.chat_bubble_outline,
+                  size: 16, color: HomeColors.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                '${report.commentCount}',
+                style: GoogleFonts.roboto(
+                  fontSize: 13,
+                  color: HomeColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCommentsBottomSheet(int index) async {
+    final report = _reports[index];
+    final TextEditingController commentController = TextEditingController();
+    List<CommentModel> comments = [];
+    bool loadingComments = true;
+    bool submitting = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            // Load comments on first build
+            if (loadingComments) {
+              ApiService.getReportComments(report.id).then((result) {
+                if (!mounted) return;
+                setSheetState(() {
+                  loadingComments = false;
+                  if (result['success'] == true) {
+                    final raw = result['data']['comments'] as List<dynamic>;
+                    comments = raw
+                        .map((c) => CommentModel.fromJson(c as Map<String, dynamic>))
+                        .toList();
+                  }
+                });
+              });
+            }
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.92,
+              expand: false,
+              builder: (_, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Handle
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: HomeColors.borderColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      // Title
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Comments (${comments.length})',
+                              style: GoogleFonts.roboto(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: HomeColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      // Comment list
+                      Expanded(
+                        child: loadingComments
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: HomeColors.statusOrange),
+                              )
+                            : comments.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.chat_bubble_outline,
+                                            size: 48,
+                                            color: HomeColors.textGray),
+                                        const SizedBox(height: 12),
+                                        Text('No comments yet',
+                                            style: GoogleFonts.roboto(
+                                                color: HomeColors.textSecondary,
+                                                fontSize: 14)),
+                                        Text('Be the first to comment!',
+                                            style: GoogleFonts.roboto(
+                                                color: HomeColors.textGray,
+                                                fontSize: 12)),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    controller: scrollController,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 8),
+                                    itemCount: comments.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 12),
+                                    itemBuilder: (_, i) =>
+                                        _buildCommentTile(comments[i], () {
+                                      setSheetState(() => comments.removeAt(i));
+                                      // Update card count
+                                      final idx = _reports
+                                          .indexWhere((r) => r.id == report.id);
+                                      if (idx != -1) {
+                                        setState(() {
+                                          final r = _reports[idx];
+                                          _reports[idx] = ReportModel(
+                                            id: r.id,
+                                            reporterId: r.reporterId,
+                                            reporterName: r.reporterName,
+                                            reporterInitials: r.reporterInitials,
+                                            reporterAvatarUrl: r.reporterAvatarUrl,
+                                            timestamp: r.timestamp,
+                                            location: r.location,
+                                            locationCity: r.locationCity,
+                                            issueCategory: r.issueCategory,
+                                            title: r.title,
+                                            description: r.description,
+                                            imageUrl: r.imageUrl,
+                                            views: r.views,
+                                            supportCount: r.supportCount,
+                                            verifyCount: r.verifyCount,
+                                            commentCount:
+                                                (r.commentCount - 1).clamp(0, 9999),
+                                            status: r.status,
+                                            hasSupported: r.hasSupported,
+                                            hasVerified: r.hasVerified,
+                                          );
+                                        });
+                                      }
+                                    }),
+                                  ),
+                      ),
+                      const Divider(height: 1),
+                      // Input row
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: 12,
+                          right: 12,
+                          top: 8,
+                          bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: commentController,
+                                maxLength: 500,
+                                maxLines: 3,
+                                minLines: 1,
+                                decoration: InputDecoration(
+                                  hintText: 'Write a comment...',
+                                  hintStyle: GoogleFonts.roboto(
+                                      color: HomeColors.textGray, fontSize: 14),
+                                  filled: true,
+                                  fillColor: HomeColors.backgroundColor,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  counterText: '',
+                                ),
+                                style: GoogleFonts.roboto(
+                                    fontSize: 14,
+                                    color: HomeColors.textPrimary),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            submitting
+                                ? const SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: HomeColors.statusOrange),
+                                  )
+                                : IconButton(
+                                    onPressed: () async {
+                                      final text =
+                                          commentController.text.trim();
+                                      if (text.isEmpty) return;
+                                      setSheetState(() => submitting = true);
+
+                                      final result =
+                                          await ApiService.createComment(
+                                              report.id, text);
+                                      if (!mounted) return;
+
+                                      if (result['success'] == true) {
+                                        final newComment =
+                                            CommentModel.fromJson(result['data']
+                                                ['comment'] as Map<String, dynamic>);
+                                        commentController.clear();
+                                        setSheetState(() {
+                                          comments.add(newComment);
+                                          submitting = false;
+                                        });
+                                        // Update card count
+                                        final idx = _reports.indexWhere(
+                                            (r) => r.id == report.id);
+                                        if (idx != -1) {
+                                          setState(() {
+                                            final r = _reports[idx];
+                                            _reports[idx] = ReportModel(
+                                              id: r.id,
+                                              reporterId: r.reporterId,
+                                              reporterName: r.reporterName,
+                                              reporterInitials:
+                                                  r.reporterInitials,
+                                              reporterAvatarUrl:
+                                                  r.reporterAvatarUrl,
+                                              timestamp: r.timestamp,
+                                              location: r.location,
+                                              locationCity: r.locationCity,
+                                              issueCategory: r.issueCategory,
+                                              title: r.title,
+                                              description: r.description,
+                                              imageUrl: r.imageUrl,
+                                              views: r.views,
+                                              supportCount: r.supportCount,
+                                              verifyCount: r.verifyCount,
+                                              commentCount: r.commentCount + 1,
+                                              status: r.status,
+                                              hasSupported: r.hasSupported,
+                                              hasVerified: r.hasVerified,
+                                            );
+                                          });
+                                        }
+                                      } else {
+                                        setSheetState(() => submitting = false);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.send_rounded,
+                                        color: HomeColors.statusOrange),
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+    commentController.dispose();
+  }
+
+  Widget _buildCommentTile(CommentModel comment, VoidCallback onDeleted) {
+    final colors = [
+      const Color(0xFFC85A3A),
+      const Color(0xFFD4A574),
+      const Color(0xFFB59B8F),
+      const Color(0xFFA0826D),
+      const Color(0xFF8B6F5E),
+    ];
+    final color = colors[comment.userName.length % colors.length];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Avatar
+        comment.userAvatarUrl != null && comment.userAvatarUrl!.isNotEmpty
+            ? ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: ApiService.imageUrl(comment.userAvatarUrl!),
+                  width: 34,
+                  height: 34,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) =>
+                      _initialsCircle(comment.userInitials, color),
+                ),
+              )
+            : Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: Center(
+                  child: Text(
+                    comment.userInitials,
+                    style: GoogleFonts.roboto(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
+                  ),
+                ),
+              ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    comment.userName,
+                    style: GoogleFonts.roboto(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: HomeColors.textPrimary),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    comment.timeAgo,
+                    style: GoogleFonts.roboto(
+                        fontSize: 11, color: HomeColors.textGray),
+                  ),
+                  if (comment.isOwnComment) ...[
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () async {
+                        final result =
+                            await ApiService.deleteComment(comment.id);
+                        if (result['success'] == true) onDeleted();
+                      },
+                      child: const Icon(Icons.delete_outline,
+                          size: 16, color: HomeColors.textGray),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                comment.text,
+                style: GoogleFonts.roboto(
+                    fontSize: 13,
+                    color: HomeColors.textPrimary,
+                    height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

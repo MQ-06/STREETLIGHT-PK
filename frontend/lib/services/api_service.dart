@@ -317,6 +317,73 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────────
+  // COMMENTS
+  // ─────────────────────────────────────────────
+
+  /// GET /reports/{reportId}/comments
+  static Future<Map<String, dynamic>> getReportComments(
+    int reportId, {
+    int skip = 0,
+    int limit = 20,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseURL/reports/$reportId/comments?skip=$skip&limit=$limit'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load comments'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  /// POST /reports/{reportId}/comments
+  static Future<Map<String, dynamic>> createComment(
+    int reportId,
+    String text,
+  ) async {
+    try {
+      final headers = await _authHeaders();
+      headers['Content-Type'] = 'application/json';
+      final response = await http
+          .post(
+            Uri.parse('$baseURL/reports/$reportId/comments'),
+            headers: headers,
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to post comment'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  /// DELETE /reports/comments/{commentId}
+  static Future<Map<String, dynamic>> deleteComment(int commentId) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .delete(
+            Uri.parse('$baseURL/reports/comments/$commentId'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to delete comment'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // COMMUNITY VERIFICATION
   // ─────────────────────────────────────────────
 

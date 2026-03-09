@@ -140,6 +140,13 @@ class Report(Base):
         back_populates="report",
         uselist=False,
     )
+    # Comments
+    comments = relationship(
+        "Comment",
+        back_populates="report",
+        cascade="all, delete",
+        order_by="Comment.created_at",
+    )
 
 
 class ReportInteraction(Base):
@@ -156,3 +163,20 @@ class ReportInteraction(Base):
     )
 
     report = relationship("Report", back_populates="interactions")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(Text, nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    report = relationship("Report", back_populates="comments")
+    user = relationship("User")

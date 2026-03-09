@@ -1,7 +1,7 @@
 # backendMain/routers/flutter/mobile_auth.py
-from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from typing import Optional
 import json
 import logging
@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from db.database import SessionLocal
 from model.users import User
 from model.user_profile import UserProfile
-from model.report import Report, ReportInteraction, IssueCategory, InteractionType, ReportStatus
+from model.report import Report, ReportInteraction, Comment, IssueCategory, InteractionType, ReportStatus
 from utils.auth_utils import get_current_user, get_db
 from utils.layer_orchestrator import LayerOrchestrator
 from utils.image_storage import ImageStorage
@@ -56,6 +56,10 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
     full_name = f"{reporter.first_name} {reporter.last_name}"
     initials = f"{reporter.first_name[0]}{reporter.last_name[0]}".upper()
 
+    comment_count = db.query(func.count(Comment.id)).filter(
+        Comment.report_id == report.id
+    ).scalar() or 0
+
     return {
         "id": report.id,
         "reporter_id": reporter.id,
@@ -72,6 +76,7 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
         "views": report.views,
         "support_count": report.support_count,
         "verify_count": report.verify_count,
+        "comment_count": comment_count,
         "status": report.status.value,
         "has_supported": has_supported,
         "has_verified": has_verified,
@@ -539,3 +544,109 @@ def get_my_reports(
         "count": len(reports),
         "reports": [_report_to_dict(r, current_user.id, db) for r in reports],
     }
+
+
+# ─────────────────────────────────────────────
+# COMMENTS
+# ─────────────────────────────────────────────
+
+def _comment_to_dict(comment: Comment, current_user_id: int) -> dict:
+    user = comment.user
+    profile = user.profile if hasattr(user, "profile") else None
+    full_name = f"{user.first_name} {user.last_name}"
+    initials = f"{user.first_name[0]}{user.last_name[0]}".upper()
+    return {
+        "id": comment.id,
+        "report_id": comment.report_id,
+        "user_id": comment.user_id,
+        "user_name": full_name,
+        "user_initials": initials,
+        "user_avatar_url": profile.profile_image_url if profile else None,
+        "text": comment.text,
+        "created_at": comment.created_at.isoformat(),
+        "is_own_comment": comment.user_id == current_user_id,
+    }
+
+
+@router.get("/{report_id}/comments")
+def get_comments(
+    report_id: int,
+    skip: int = 0,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Returns paginated comments for a report (oldest first)."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    comments = (
+        db.query(Comment)
+        .filter(Comment.report_id == report_id)
+        .order_by(Comment.created_at.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    total = db.query(func.count(Comment.id)).filter(Comment.report_id == report_id).scalar() or 0
+
+    return {
+        "success": True,
+        "total": total,
+        "comments": [_comment_to_dict(c, current_user.id) for c in comments],
+    }
+
+
+@router.post("/{report_id}/comments")
+def create_comment(
+    report_id: int,
+    text: str = Body(..., embed=True),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add a comment to a report."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment text cannot be empty")
+    if len(text) > 500:
+        raise HTTPException(status_code=400, detail="Comment must be 500 characters or fewer")
+
+    comment = Comment(
+        report_id=report_id,
+        user_id=current_user.id,
+        text=text,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+
+    logger.info(f"💬 Comment #{comment.id} added to report #{report_id} by user {current_user.id}")
+    return {
+        "success": True,
+        "comment": _comment_to_dict(comment, current_user.id),
+    }
+
+
+@router.delete("/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete own comment."""
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own comments")
+
+    db.delete(comment)
+    db.commit()
+    logger.info(f"🗑️ Comment #{comment_id} deleted by user {current_user.id}")
+    return {"success": True, "message": "Comment deleted"}

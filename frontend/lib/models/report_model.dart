@@ -16,6 +16,7 @@ class ReportModel {
   final int views;
   final int supportCount;
   final int verifyCount;
+  final int commentCount;
   final String status;
   bool hasSupported;
   bool hasVerified;
@@ -36,6 +37,7 @@ class ReportModel {
     required this.views,
     required this.supportCount,
     required this.verifyCount,
+    required this.commentCount,
     required this.status,
     required this.hasSupported,
     required this.hasVerified,
@@ -58,6 +60,7 @@ class ReportModel {
       views: json['views'] as int? ?? 0,
       supportCount: json['support_count'] as int? ?? 0,
       verifyCount: json['verify_count'] as int? ?? 0,
+      commentCount: json['comment_count'] as int? ?? 0,
       status: json['status'] as String? ?? 'REPORTED',
       hasSupported: json['has_supported'] as bool? ?? false,
       hasVerified: json['has_verified'] as bool? ?? false,
