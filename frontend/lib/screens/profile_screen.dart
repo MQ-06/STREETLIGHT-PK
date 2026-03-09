@@ -363,6 +363,284 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ─────────────────────────────────────────────
+  // BADGE SYSTEM
+  // ─────────────────────────────────────────────
+
+  static const List<Map<String, dynamic>> _allBadges = [
+    // Tier 1 — Rookie (0-200)
+    {'tier': 1, 'tierName': 'Rookie',               'min': 0,    'max': 66,   'subBadge': 'Street Scout',       'emoji': '🔍', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
+    {'tier': 1, 'tierName': 'Rookie',               'min': 67,   'max': 133,  'subBadge': 'Road Ranger',        'emoji': '🛣️', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
+    {'tier': 1, 'tierName': 'Rookie',               'min': 134,  'max': 200,  'subBadge': 'Eagle Eye',          'emoji': '🦅', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
+    // Tier 2 — Community Hero (201-500)
+    {'tier': 2, 'tierName': 'Community Hero',        'min': 201,  'max': 300,  'subBadge': 'Civic Warrior',      'emoji': '⚔️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
+    {'tier': 2, 'tierName': 'Community Hero',        'min': 301,  'max': 400,  'subBadge': 'Street Sentinel',    'emoji': '🛡️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
+    {'tier': 2, 'tierName': 'Community Hero',        'min': 401,  'max': 500,  'subBadge': 'Problem Buster',     'emoji': '💥', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
+    // Tier 3 — Master Reformer (501-800)
+    {'tier': 3, 'tierName': 'Master Reformer',       'min': 501,  'max': 600,  'subBadge': 'Urban Legend',       'emoji': '🌆', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
+    {'tier': 3, 'tierName': 'Master Reformer',       'min': 601,  'max': 700,  'subBadge': 'Infrastructure Icon','emoji': '🏗️', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
+    {'tier': 3, 'tierName': 'Master Reformer',       'min': 701,  'max': 800,  'subBadge': 'Trust Titan',        'emoji': '⭐', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
+    // Tier 4 — StreetLight Paragon (801-1000)
+    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 801,  'max': 866,  'subBadge': 'City Architect',     'emoji': '🏛️', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
+    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 867,  'max': 933,  'subBadge': 'Beacon of Change',   'emoji': '💡', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
+    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 934,  'max': 1000, 'subBadge': 'Grand Overseer',     'emoji': '👑', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
+  ];
+
+  Map<String, dynamic> _getBadgeInfo(int score) {
+    final clamped = score.clamp(0, 1000);
+    for (final b in _allBadges) {
+      if (clamped >= (b['min'] as int) && clamped <= (b['max'] as int)) {
+        return b;
+      }
+    }
+    return _allBadges.last;
+  }
+
+  int _nextTierScore(Map<String, dynamic> badge) {
+    final tier = badge['tier'] as int;
+    if (tier >= 4) return -1;
+    // First badge of the next tier
+    final next = _allBadges.firstWhere((b) => (b['tier'] as int) == tier + 1);
+    return next['min'] as int;
+  }
+
+  Widget _buildBadgeChip() {
+    final badge = _getBadgeInfo(_impactScore);
+    final color = Color(badge['color'] as int);
+    final bg    = Color(badge['bg'] as int);
+
+    return GestureDetector(
+      onTap: () => _showBadgeInfoSheet(badge),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(badge['emoji'] as String, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  badge['subBadge'] as String,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  'Tier ${badge['tier']} · ${badge['tierName']}',
+                  style: GoogleFonts.roboto(
+                    fontSize: 10,
+                    color: color.withOpacity(0.75),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.info_outline, size: 14, color: color.withOpacity(0.6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBadgeInfoSheet(Map<String, dynamic> currentBadge) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, scroll) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: ProfileColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Text(
+                  'Badge Ranks',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ProfileColors.textPrimary,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  controller: scroll,
+                  padding: const EdgeInsets.all(16),
+                  children: _buildBadgeList(currentBadge),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildBadgeList(Map<String, dynamic> currentBadge) {
+    final widgets = <Widget>[];
+    int? lastTier;
+
+    for (final badge in _allBadges) {
+      final tier = badge['tier'] as int;
+      final color = Color(badge['color'] as int);
+      final bg    = Color(badge['bg'] as int);
+      final isCurrent = badge['subBadge'] == currentBadge['subBadge'];
+      final score = _impactScore;
+      final isUnlocked = score >= (badge['min'] as int);
+
+      // Tier header
+      if (lastTier != tier) {
+        lastTier = tier;
+        final tierRange = _tierRange(tier);
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: tier == 1 ? 0 : 20, bottom: 8),
+            child: Row(
+              children: [
+                Text(
+                  'Tier $tier',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '· ${badge['tierName']}',
+                  style: GoogleFonts.roboto(
+                    fontSize: 11,
+                    color: color.withOpacity(0.7),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  tierRange,
+                  style: GoogleFonts.roboto(
+                    fontSize: 10,
+                    color: ProfileColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isCurrent ? bg : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isCurrent ? color.withOpacity(0.5) : ProfileColors.borderLight,
+              width: isCurrent ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Text(
+                badge['emoji'] as String,
+                style: TextStyle(
+                  fontSize: 22,
+                  color: isUnlocked ? null : Colors.black,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      badge['subBadge'] as String,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isUnlocked ? color : ProfileColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      '${badge['min']} – ${badge['max']} pts',
+                      style: GoogleFonts.roboto(
+                        fontSize: 11,
+                        color: ProfileColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isCurrent)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'YOU',
+                    style: GoogleFonts.roboto(
+                      fontSize: 9,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                )
+              else if (isUnlocked)
+                Icon(Icons.check_circle, color: color, size: 18)
+              else
+                Icon(Icons.lock_outline, color: ProfileColors.borderLight, size: 18),
+            ],
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  String _tierRange(int tier) {
+    switch (tier) {
+      case 1: return '0 – 200 pts';
+      case 2: return '201 – 500 pts';
+      case 3: return '501 – 800 pts';
+      case 4: return '801 – 1000 pts';
+      default: return '';
+    }
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -461,6 +739,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          _buildBadgeChip(),
           const SizedBox(height: 20),
         ],
       ),
@@ -564,8 +844,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildBadgeProgressRow(),
         ],
       ),
+    );
+  }
+
+  Widget _buildBadgeProgressRow() {
+    final badge = _getBadgeInfo(_impactScore);
+    final nextScore = _nextTierScore(badge);
+    final color = Color(badge['color'] as int);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Text(badge['emoji'] as String, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              badge['subBadge'] as String,
+              style: GoogleFonts.roboto(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        if (nextScore > 0)
+          Text(
+            '${nextScore - _impactScore} pts to Tier ${(badge['tier'] as int) + 1}',
+            style: GoogleFonts.roboto(
+              fontSize: 11,
+              color: ProfileColors.textSecondary,
+            ),
+          )
+        else
+          Text(
+            'Max Rank Achieved 👑',
+            style: GoogleFonts.roboto(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+      ],
     );
   }
 
