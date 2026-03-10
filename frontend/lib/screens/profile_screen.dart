@@ -369,21 +369,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   static const List<Map<String, dynamic>> _allBadges = [
     // Tier 1 — Rookie (0-200)
-    {'tier': 1, 'tierName': 'Rookie',               'min': 0,    'max': 66,   'subBadge': 'Street Scout',       'emoji': '🔍', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
-    {'tier': 1, 'tierName': 'Rookie',               'min': 67,   'max': 133,  'subBadge': 'Road Ranger',        'emoji': '🛣️', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
-    {'tier': 1, 'tierName': 'Rookie',               'min': 134,  'max': 200,  'subBadge': 'Eagle Eye',          'emoji': '🦅', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7},
+    {'tier': 1, 'tierName': 'Rookie',              'min': 0,   'max': 66,   'subBadge': 'Street Scout',        'emoji': '🔍', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7, 'description': 'Just getting started — your eyes are open to the city\'s problems.'},
+    {'tier': 1, 'tierName': 'Rookie',              'min': 67,  'max': 133,  'subBadge': 'Road Ranger',         'emoji': '🛣️', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7, 'description': 'You\'re out there covering ground and spotting issues others walk past.'},
+    {'tier': 1, 'tierName': 'Rookie',              'min': 134, 'max': 200,  'subBadge': 'Eagle Eye',           'emoji': '🦅', 'color': 0xFF8B7355, 'bg': 0xFFF5ECD7, 'description': 'Sharp and observant — nothing escapes your attention on the streets.'},
     // Tier 2 — Community Hero (201-500)
-    {'tier': 2, 'tierName': 'Community Hero',        'min': 201,  'max': 300,  'subBadge': 'Civic Warrior',      'emoji': '⚔️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
-    {'tier': 2, 'tierName': 'Community Hero',        'min': 301,  'max': 400,  'subBadge': 'Street Sentinel',    'emoji': '🛡️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
-    {'tier': 2, 'tierName': 'Community Hero',        'min': 401,  'max': 500,  'subBadge': 'Problem Buster',     'emoji': '💥', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6},
+    {'tier': 2, 'tierName': 'Community Hero',      'min': 201, 'max': 300,  'subBadge': 'Civic Warrior',       'emoji': '⚔️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6, 'description': 'You fight for your community one report at a time. The city notices.'},
+    {'tier': 2, 'tierName': 'Community Hero',      'min': 301, 'max': 400,  'subBadge': 'Street Sentinel',     'emoji': '🛡️', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6, 'description': 'Standing guard over your neighbourhood, always on the lookout.'},
+    {'tier': 2, 'tierName': 'Community Hero',      'min': 401, 'max': 500,  'subBadge': 'Problem Buster',      'emoji': '💥', 'color': 0xFFC85A3A, 'bg': 0xFFF5E6E6, 'description': 'You don\'t just find problems — you make sure they get fixed.'},
     // Tier 3 — Master Reformer (501-800)
-    {'tier': 3, 'tierName': 'Master Reformer',       'min': 501,  'max': 600,  'subBadge': 'Urban Legend',       'emoji': '🌆', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
-    {'tier': 3, 'tierName': 'Master Reformer',       'min': 601,  'max': 700,  'subBadge': 'Infrastructure Icon','emoji': '🏗️', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
-    {'tier': 3, 'tierName': 'Master Reformer',       'min': 701,  'max': 800,  'subBadge': 'Trust Titan',        'emoji': '⭐', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0},
+    {'tier': 3, 'tierName': 'Master Reformer',     'min': 501, 'max': 600,  'subBadge': 'Urban Legend',        'emoji': '🌆', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0, 'description': 'Your name is known across the city. People talk about your impact.'},
+    {'tier': 3, 'tierName': 'Master Reformer',     'min': 601, 'max': 700,  'subBadge': 'Infrastructure Icon', 'emoji': '🏗️', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0, 'description': 'You\'ve become a symbol of civic pride and real infrastructure change.'},
+    {'tier': 3, 'tierName': 'Master Reformer',     'min': 701, 'max': 800,  'subBadge': 'Trust Titan',         'emoji': '⭐', 'color': 0xFFD4730F, 'bg': 0xFFFFF3E0, 'description': 'Trusted, verified, and respected — a pillar of the community.'},
     // Tier 4 — StreetLight Paragon (801-1000)
-    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 801,  'max': 866,  'subBadge': 'City Architect',     'emoji': '🏛️', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
-    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 867,  'max': 933,  'subBadge': 'Beacon of Change',   'emoji': '💡', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
-    {'tier': 4, 'tierName': 'StreetLight Paragon',   'min': 934,  'max': 1000, 'subBadge': 'Grand Overseer',     'emoji': '👑', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7},
+    {'tier': 4, 'tierName': 'StreetLight Paragon', 'min': 801, 'max': 866,  'subBadge': 'City Architect',      'emoji': '🏛️', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7, 'description': 'You are shaping the city\'s future one resolved issue at a time.'},
+    {'tier': 4, 'tierName': 'StreetLight Paragon', 'min': 867, 'max': 933,  'subBadge': 'Beacon of Change',    'emoji': '💡', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7, 'description': 'A guiding light for others — your impact inspires the whole community.'},
+    {'tier': 4, 'tierName': 'StreetLight Paragon', 'min': 934, 'max': 1000, 'subBadge': 'Grand Overseer',      'emoji': '👑', 'color': 0xFFB8860B, 'bg': 0xFFFFFDE7, 'description': 'The highest rank. You have transformed your city. Truly legendary.'},
   ];
 
   Map<String, dynamic> _getBadgeInfo(int score) {
@@ -441,6 +441,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontSize: 10,
                     color: color.withOpacity(0.75),
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: 180,
+                  child: Text(
+                    badge['description'] as String,
+                    style: GoogleFonts.roboto(
+                      fontSize: 10,
+                      color: color.withOpacity(0.6),
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -597,6 +611,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: GoogleFonts.roboto(
                         fontSize: 11,
                         color: ProfileColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      badge['description'] as String,
+                      style: GoogleFonts.roboto(
+                        fontSize: 11,
+                        color: isUnlocked
+                            ? color.withOpacity(0.75)
+                            : ProfileColors.textSecondary.withOpacity(0.6),
+                        height: 1.3,
                       ),
                     ),
                   ],
