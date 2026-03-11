@@ -189,7 +189,7 @@ class ApiService {
 
       final response = await http
           .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 30));
 
       final data = jsonDecode(response.body);
 
@@ -300,6 +300,20 @@ class ApiService {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) return {'success': true, 'data': data};
       return {'success': false, 'error': data['detail'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(Uri.parse('$baseURL/users/me'), headers: headers)
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load profile'};
     } catch (e) {
       return {'success': false, 'error': 'Cannot connect to server.'};
     }

@@ -1,6 +1,6 @@
 # backendMain/routers/flutter/mobile_auth.py
 from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import Optional
 import json
@@ -419,26 +419,75 @@ def get_feed(
     db: Session = Depends(get_db),
 ):
     """Returns paginated reports newest first. Optional category filter."""
-    query = db.query(Report)
+    query = db.query(Report).options(
+        joinedload(Report.reporter).joinedload(User.profile)
+    )
 
     if category:
         try:
             cat = IssueCategory(category.upper())
             query = query.filter(Report.category == cat)
         except ValueError:
-            pass  # invalid filter → return all
+            pass
 
     reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
 
-    for report in reports:
-        report.views = (report.views or 0) + 1
+    if not reports:
+        return {"success": True, "count": 0, "reports": []}
+
+    # Increment views in bulk
+    report_ids = [r.id for r in reports]
+    db.query(Report).filter(Report.id.in_(report_ids)).update(
+        {Report.views: Report.views + 1}, synchronize_session=False
+    )
     db.commit()
 
-    return {
-        "success": True,
-        "count": len(reports),
-        "reports": [_report_to_dict(r, current_user.id, db) for r in reports],
-    }
+    # Batch-fetch current user's interactions for all reports in one query
+    interactions = db.query(ReportInteraction).filter(
+        ReportInteraction.report_id.in_(report_ids),
+        ReportInteraction.user_id == current_user.id,
+    ).all()
+    supported_ids = {i.report_id for i in interactions if i.interaction_type == InteractionType.SUPPORT}
+    verified_ids  = {i.report_id for i in interactions if i.interaction_type == InteractionType.VERIFY}
+
+    # Batch-fetch comment counts for all reports in one query
+    comment_counts = dict(
+        db.query(Comment.report_id, func.count(Comment.id))
+        .filter(Comment.report_id.in_(report_ids))
+        .group_by(Comment.report_id)
+        .all()
+    )
+
+    result = []
+    for report in reports:
+        reporter = report.reporter
+        reporter_profile = reporter.profile if reporter else None
+        full_name = f"{reporter.first_name} {reporter.last_name}" if reporter else "Unknown"
+        initials = f"{reporter.first_name[0]}{reporter.last_name[0]}".upper() if reporter else "??"
+
+        result.append({
+            "id": report.id,
+            "reporter_id": reporter.id if reporter else None,
+            "reporter_name": full_name,
+            "reporter_initials": initials,
+            "reporter_avatar_url": reporter_profile.profile_image_url if reporter_profile else None,
+            "timestamp": report.created_at.isoformat(),
+            "location": report.location_address,
+            "location_city": report.location_city or "",
+            "issue_category": report.category.value,
+            "title": report.title,
+            "description": report.description,
+            "image_url": report.image_url or "",
+            "views": report.views,
+            "support_count": report.support_count,
+            "verify_count": report.verify_count,
+            "comment_count": comment_counts.get(report.id, 0),
+            "status": report.status.value,
+            "has_supported": report.id in supported_ids,
+            "has_verified": report.id in verified_ids,
+        })
+
+    return {"success": True, "count": len(result), "reports": result}
 
 
 # ─────────────────────────────────────────────
@@ -521,6 +570,10 @@ def toggle_verify(
             report.status = ReportStatus.VERIFIED
 
     db.commit()
+
+    if has_verified:
+        ImpactScoreManager(db).award_points(current_user.id, POINTS_VOTE_CAST, "VERIFY_CAST")
+
     return {
         "success": True,
         "has_verified": has_verified,
