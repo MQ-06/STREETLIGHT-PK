@@ -84,7 +84,7 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
 
 
 @router.post("/create")
-async def create_report(
+def create_report(
     image: UploadFile = File(...),  # REQUIRED: Image file for AI processing
     title: str = Form(...),
     description: Optional[str] = Form(None),
