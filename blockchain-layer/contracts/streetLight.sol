@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-contract StreetLight {
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+contract StreetLight is Ownable {
+
+    constructor() Ownable(msg.sender) {}
+
     enum Status {
         VERIFIED,
         RESOLVED
@@ -42,7 +47,7 @@ contract StreetLight {
         string memory issueType,
         bytes32 locationHash,
         VerificationType v
-    ) public {
+    ) public onlyOwner{
         complaints[complaintID] = Complaint(
             complaintID,
             imagehash,
