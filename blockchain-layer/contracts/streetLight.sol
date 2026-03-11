@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StreetLight is Ownable {
-
     constructor() Ownable(msg.sender) {}
+
+    uint256 public TotalComplaints;
 
     enum Status {
         VERIFIED,
@@ -47,7 +48,7 @@ contract StreetLight is Ownable {
         string memory issueType,
         bytes32 locationHash,
         VerificationType v
-    ) public onlyOwner{
+    ) public onlyOwner {
         complaints[complaintID] = Complaint(
             complaintID,
             imagehash,
@@ -63,6 +64,13 @@ contract StreetLight is Ownable {
             block.timestamp,
             Status.VERIFIED
         );
+        TotalComplaints++;
+    }
+
+    function GetComplaint(
+        uint256 ComplaintID
+    ) public view returns (Complaint memory c) {
+        return complaints[ComplaintID];
     }
 
     function ComplaintResolved(
@@ -72,7 +80,7 @@ contract StreetLight is Ownable {
         bytes32 locationHash,
         VerificationType v
     ) public onlyOwner {
-   complaints[complaintID] = Complaint(
+        complaints[complaintID] = Complaint(
             complaintID,
             imagehash,
             issueType,
@@ -88,14 +96,12 @@ contract StreetLight is Ownable {
             Status.RESOLVED
         );
     }
-
-    function GetComplaint(uint256 ComplaintID) public view returns(Complaint memory c){
-        return complaints[ComplaintID];
-    }
-
-    function GetComplaintHash(uint256 complainID) public view returns(bytes32 complainHash){
+    function GetComplaintHash(
+        uint256 complainID
+    ) public view returns (bytes32 complainHash) {
         return complaints[complainID].imageHash;
     }
-
-    
+    function getTotalComplaints() public view returns (uint256) {
+        return TotalComplaints;
+    }
 }
