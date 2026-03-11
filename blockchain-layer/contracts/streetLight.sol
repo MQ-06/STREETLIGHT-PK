@@ -10,16 +10,53 @@ contract StreetLight {
         AUTO,
         MANUAL
     }
-    struct complaint {
+    struct Complaint {
         uint256 complaintId;
         bytes32 imageHash;
         string issueType;
         bytes32 locationHash;
-        uint256 timestamp;
         VerificationType verificationType;
         Status status;
     }
 
-    event ComplainVerification(uint256 complaintID, bytes32 imagehash, string issueType, uint256 timestamp, Status s);
-    event ComplainResolved(uint256 complaintID, bytes32 imagehash, string issueType, uint256 timestamp, Status s);
+    mapping(uint256 => Complaint) public complaints;
+
+    event ComplainVerified(
+        uint256 complaintID,
+        bytes32 imagehash,
+        string issueType,
+        uint256 timestamp,
+        Status s
+    );
+    event ComplainResolved(
+        uint256 complaintID,
+        bytes32 imagehash,
+        string issueType,
+        uint256 timestamp,
+        Status s
+    );
+
+    function registerComplaint(
+        uint256 complaintID,
+        bytes32 imagehash,
+        string memory issueType,
+        bytes32 locationHash,
+        VerificationType v
+    ) public {
+        complaints[complaintID] = Complaint(
+            complaintID,
+            imagehash,
+            issueType,
+            locationHash,
+            v,
+            Status.VERIFIED
+        );
+        emit ComplainVerified(
+            complaintID,
+            imagehash,
+            issueType,
+            block.timestamp,
+            Status.VERIFIED
+        );
+    }
 }
