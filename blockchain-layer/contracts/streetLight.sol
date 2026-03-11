@@ -65,6 +65,30 @@ contract StreetLight is Ownable {
         );
     }
 
+    function ComplaintResolved(
+        uint256 complaintID,
+        bytes32 imagehash,
+        string memory issueType,
+        bytes32 locationHash,
+        VerificationType v
+    ) public onlyOwner {
+   complaints[complaintID] = Complaint(
+            complaintID,
+            imagehash,
+            issueType,
+            locationHash,
+            v,
+            Status.RESOLVED
+        );
+        emit ComplainResolved(
+            complaintID,
+            imagehash,
+            issueType,
+            block.timestamp,
+            Status.RESOLVED
+        );
+    }
+
     function GetComplaint(uint256 ComplaintID) public view returns(Complaint memory c){
         return complaints[ComplaintID];
     }
