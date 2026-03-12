@@ -1,3 +1,4 @@
+#backend/model/report.py
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean,
     ForeignKey, Text, Enum as SAEnum
