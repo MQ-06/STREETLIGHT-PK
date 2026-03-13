@@ -443,36 +443,48 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: ReportIssueColors.primaryOrange, shape: BoxShape.circle),
+              color: ReportIssueColors.primaryOrange,
+              shape: BoxShape.circle,
+            ),
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: () {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text('Help',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      'Before you submit',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     content: Text(
-                      '1. Upload a photo of the issue\n'
-                      '2. Tap the map to get your location\n'
-                      '3. Select the issue category\n'
-                      '4. Describe the problem (optional)\n\n'
-                      'Then tap Submit.',
+                      '1. Take a clear photo of the issue so it is easy to see.\n'
+                      '2. Make sure your location is turned on so StreetLight can place it on the city map.\n'
+                      '3. Add a short description so the city team understands the context.\n\n'
+                      'StreetLight will use AI and community verification to classify and prioritise your report.\n'
+                      'You can track its status and impact later from your Profile screen.',
                       style: GoogleFonts.roboto(),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text('Got it',
-                            style: TextStyle(
-                                color: ReportIssueColors.primaryOrange)),
+                        child: Text(
+                          'Got it',
+                          style: TextStyle(
+                            color: ReportIssueColors.primaryOrange,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 );
               },
-              icon: const Icon(Icons.question_mark,
-                  color: Colors.white, size: 18),
+              icon: const Icon(
+                Icons.question_mark,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ),
         ],
