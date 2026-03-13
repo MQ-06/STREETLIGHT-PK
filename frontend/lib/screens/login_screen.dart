@@ -201,7 +201,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
+                // City skyline decoration to match registration screen
+                _buildCitySkyline(),
+                const SizedBox(height: 10),
               ],
             ),
           ),
@@ -307,19 +310,157 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSocialButton() {
+  Widget _buildCitySkyline() {
     return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE4C4),
-        borderRadius: BorderRadius.circular(25),
+      height: 80,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFE8D5B5),
+            Color(0xFFD4C4A8),
+          ],
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
       ),
-      child: const Icon(
-        Icons.person_outline,
-        color: Color(0xFF8B4513),
-        size: 24,
+      child: CustomPaint(
+        painter: _SkylinePainter(),
       ),
     );
   }
+}
+
+class _SkylinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final skyPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFE8D5B5),
+          Color(0xFFDDCCB8),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), skyPaint);
+
+    final buildingDark = const Color(0xFFC4A882);
+    final buildingMedium = const Color(0xFFD4B894);
+    final buildingLight = const Color(0xFFDCC8A8);
+    final windowColor = const Color(0xFFB09870);
+
+    _drawBackgroundBuildings(canvas, size, buildingLight);
+    _drawMiddleBuildings(canvas, size, buildingMedium, windowColor);
+    _drawForegroundBuildings(canvas, size, buildingDark, windowColor);
+  }
+
+  void _drawBackgroundBuildings(Canvas canvas, Size size, Color color) {
+    final paint = Paint()..color = color.withAlpha(180);
+
+    final buildings = [
+      Rect.fromLTWH(size.width * 0.02, size.height * 0.5, size.width * 0.06, size.height * 0.5),
+      Rect.fromLTWH(size.width * 0.1, size.height * 0.4, size.width * 0.08, size.height * 0.6),
+      Rect.fromLTWH(size.width * 0.25, size.height * 0.45, size.width * 0.05, size.height * 0.55),
+      Rect.fromLTWH(size.width * 0.5, size.height * 0.42, size.width * 0.07, size.height * 0.58),
+      Rect.fromLTWH(size.width * 0.7, size.height * 0.48, size.width * 0.06, size.height * 0.52),
+      Rect.fromLTWH(size.width * 0.85, size.height * 0.44, size.width * 0.08, size.height * 0.56),
+    ];
+
+    for (final rect in buildings) {
+      canvas.drawRect(rect, paint);
+    }
+  }
+
+  void _drawMiddleBuildings(Canvas canvas, Size size, Color color, Color windowColor) {
+    final paint = Paint()..color = color;
+    final windowPaint = Paint()..color = windowColor;
+
+    final b1 = Rect.fromLTWH(size.width * 0.05, size.height * 0.25, size.width * 0.1, size.height * 0.75);
+    canvas.drawRect(b1, paint);
+    _drawWindows(canvas, b1, windowPaint, 2, 6);
+
+    final b2 = Rect.fromLTWH(size.width * 0.18, size.height * 0.4, size.width * 0.12, size.height * 0.6);
+    canvas.drawRect(b2, paint);
+    _drawWindows(canvas, b2, windowPaint, 3, 4);
+
+    final b3 = Rect.fromLTWH(size.width * 0.4, size.height * 0.2, size.width * 0.12, size.height * 0.8);
+    canvas.drawRect(b3, paint);
+    canvas.drawRect(
+      Rect.fromLTWH(size.width * 0.455, size.height * 0.12, size.width * 0.01, size.height * 0.08),
+      paint,
+    );
+    _drawWindows(canvas, b3, windowPaint, 3, 7);
+
+    final b4 = Rect.fromLTWH(size.width * 0.65, size.height * 0.35, size.width * 0.1, size.height * 0.65);
+    canvas.drawRect(b4, paint);
+    _drawWindows(canvas, b4, windowPaint, 2, 5);
+
+    final b5 = Rect.fromLTWH(size.width * 0.82, size.height * 0.3, size.width * 0.11, size.height * 0.7);
+    canvas.drawRect(b5, paint);
+    _drawWindows(canvas, b5, windowPaint, 2, 6);
+  }
+
+  void _drawForegroundBuildings(Canvas canvas, Size size, Color color, Color windowColor) {
+    final paint = Paint()..color = color;
+    final windowPaint = Paint()..color = windowColor;
+
+    final b1 = Rect.fromLTWH(0, size.height * 0.5, size.width * 0.08, size.height * 0.5);
+    canvas.drawRect(b1, paint);
+
+    final b2 = Rect.fromLTWH(size.width * 0.12, size.height * 0.35, size.width * 0.08, size.height * 0.65);
+    canvas.drawRect(b2, paint);
+    final roofPath = Path()
+      ..moveTo(size.width * 0.12, size.height * 0.35)
+      ..lineTo(size.width * 0.16, size.height * 0.28)
+      ..lineTo(size.width * 0.20, size.height * 0.35)
+      ..close();
+    canvas.drawPath(roofPath, paint);
+    _drawWindows(canvas, b2, windowPaint, 2, 4);
+
+    final b3 = Rect.fromLTWH(size.width * 0.32, size.height * 0.28, size.width * 0.1, size.height * 0.72);
+    canvas.drawRect(b3, paint);
+    _drawWindows(canvas, b3, windowPaint, 2, 6);
+
+    final b4 = Rect.fromLTWH(size.width * 0.54, size.height * 0.38, size.width * 0.12, size.height * 0.62);
+    canvas.drawRect(b4, paint);
+    _drawWindows(canvas, b4, windowPaint, 3, 4);
+
+    final b5 = Rect.fromLTWH(size.width * 0.75, size.height * 0.22, size.width * 0.09, size.height * 0.78);
+    canvas.drawRect(b5, paint);
+    canvas.drawCircle(
+      Offset(size.width * 0.795, size.height * 0.24),
+      size.width * 0.02,
+      Paint()..color = windowColor,
+    );
+    _drawWindows(canvas, b5, windowPaint, 2, 7);
+
+    final b6 = Rect.fromLTWH(size.width * 0.9, size.height * 0.45, size.width * 0.1, size.height * 0.55);
+    canvas.drawRect(b6, paint);
+    _drawWindows(canvas, b6, windowPaint, 2, 3);
+  }
+
+  void _drawWindows(Canvas canvas, Rect building, Paint paint, int columns, int rows) {
+    final windowWidth = building.width / (columns * 2 + 1);
+    final windowHeight = building.height / (rows * 2 + 1);
+
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < columns; col++) {
+        final x = building.left + windowWidth * (col * 2 + 1);
+        final y = building.top + windowHeight * (row * 2 + 1);
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, windowWidth * 0.8, windowHeight * 0.7),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+
 }

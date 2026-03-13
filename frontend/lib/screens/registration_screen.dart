@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/user_session.dart';
 import '../services/api_service.dart';
 import '../widgets/app_toast.dart';
 /// Registration screen with all required fields
@@ -160,17 +159,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     LengthLimitingTextInputFormatter(13),
                     _CnicInputFormatter(),
                   ],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your CNIC';
-                    }
-                    // Remove dashes to count digits
-                    final digitsOnly = value.replaceAll('-', '');
-                    if (digitsOnly.length != 13) {
-                      return 'CNIC must be exactly 13 digits';
-                    }
-                    return null;
-                  },
+                  validator: _validateCnic,
                 ),
                 const SizedBox(height: 20),
                 // Email field
@@ -193,7 +182,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // Password field
                 _buildInputField(
                   label: 'Password',
-                  hint: 'Min. 8 characters',
+                  hint: 'Min. 8 characters with letters, number & symbol',
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
@@ -205,15 +194,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       setState(() => _obscurePassword = !_obscurePassword);
                     },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 8) {
-                      return 'Password must be at least 8 characters';
-                    }
-                    return null;
-                  },
+                  validator: _validatePassword,
                 ),
                 const SizedBox(height: 30),
                 // Create Account button
@@ -274,7 +255,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF2196F3),
+                          color: const Color(0xFF8B4513),
                         ),
                       ),
                     ),
@@ -395,6 +376,52 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         ),
       ),
     );
+  }
+
+  String? _validateCnic(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your CNIC';
+    }
+    final digitsOnly = value.replaceAll('-', '');
+    if (digitsOnly.length != 13) {
+      return 'CNIC must be exactly 13 digits';
+    }
+    if (!RegExp(r'^\d{5}-\d{7}-\d$').hasMatch(value)) {
+      return 'CNIC must be in format 12345-1234567-1';
+    }
+    if (digitsOnly[0] == '0') {
+      return 'CNIC cannot start with 0';
+    }
+    // Reject obviously fake CNICs like all same digit
+    if (RegExp(r'^(\d)\1{12}$').hasMatch(digitsOnly)) {
+      return 'Please enter a valid CNIC';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a password';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (value.contains(' ')) {
+      return 'Password cannot contain spaces';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Add at least one uppercase letter';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Add at least one lowercase letter';
+    }
+    if (!RegExp(r'\d').hasMatch(value)) {
+      return 'Add at least one number';
+    }
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-]').hasMatch(value)) {
+      return 'Add at least one symbol (e.g. ! @ #)';
+    }
+    return null;
   }
 
   Widget _buildCitySkyline() {
