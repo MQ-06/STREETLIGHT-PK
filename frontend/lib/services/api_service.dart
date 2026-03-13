@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'user_session.dart';
 
 import '../config/api_config.dart';
 
@@ -170,6 +171,7 @@ class ApiService {
 
   static Future<void> logout() async {
     await clearToken();
+    await UserSession.logout();
   }
 
   // ─────────────────────────────────────────────

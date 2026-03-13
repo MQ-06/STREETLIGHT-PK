@@ -95,10 +95,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoadingMore = false;
       });
     } else {
-      // Session expired → kick to login
+      // Session expired → unified logout flow
       if (result['code'] == 401) {
         await ApiService.logout();
-        if (mounted) Navigator.pushReplacementNamed(context, '/login_form');
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login_form',
+            (route) => false,
+          );
+        }
         return;
       }
       setState(() {

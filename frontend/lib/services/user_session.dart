@@ -142,6 +142,12 @@ class UserSession {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyIsLoggedIn, false);
+    await prefs.remove(_keyUserName);
+    await prefs.remove(_keyUserEmail);
+    await prefs.remove(_keyUserLocation);
+    await prefs.remove(_keyProfileImage);
+    await prefs.remove(_keyTotalReported);
+    await prefs.remove(_keyTotalResolved);
   }
   
   // ============ USER DATA GETTERS & SETTERS ============
