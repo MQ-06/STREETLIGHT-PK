@@ -12,6 +12,7 @@ from model.user_profile import UserProfile
 from model.report import Report
 from model.verification import VerificationRequest, VerificationStatus, VoteChoice
 from utils.auth_utils import get_current_user, get_db
+from utils.impact_score import ImpactScoreManager, POINTS_VOTE_CAST
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,10 @@ def get_pending_verifications(
             if report is None or report.location_lat is None or report.location_lng is None:
                 continue
 
+            # Skip reports submitted by the current user — they should not verify their own
+            if report.user_id == current_user.id:
+                continue
+
             dist_km = _haversine_km(lat, lng, report.location_lat, report.location_lng)
             if dist_km > FEED_RADIUS_KM:
                 continue
@@ -179,6 +184,9 @@ def submit_vote(
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+
+        # Award impact points for casting a community vote
+        ImpactScoreManager(db).award_points(current_user.id, POINTS_VOTE_CAST, "COMMUNITY_VOTE")
 
         # Update user GPS if provided
         if body.lat is not None and body.lng is not None:

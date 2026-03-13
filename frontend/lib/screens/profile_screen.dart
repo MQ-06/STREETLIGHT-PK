@@ -77,6 +77,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Initialize Pakistan-based sample reports
 
     // userReports already fetch ho chuki hai ApiService.getMyReports() se upar
+    final profileResult = await ApiService.getUserProfile();
+    if (profileResult['success'] == true) {
+      _impactScore = (profileResult['data']['impact_score'] as num).toInt();
+    }
+
     final myReports = await ApiService.getMyReports();
     if (myReports['success'] == true) {
       final reports = myReports['data']['reports'] as List<dynamic>;
@@ -85,7 +90,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _impactPercentage = _totalReported > 0
           ? (_totalResolved / _totalReported) * 100
           : 0.0;
-      _impactScore = _impactPercentage.toInt() * 10;
 
       // Real reports from backend
       userReports = reports
@@ -305,18 +309,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   /// Refresh profile data (called when returning from report submission)
   Future<void> _refreshProfileData() async {
+    final profileResult = await ApiService.getUserProfile();
     final myReports = await ApiService.getMyReports();
-    if (myReports['success'] == true) {
-      final reports = myReports['data']['reports'] as List<dynamic>;
-      setState(() {
+
+    setState(() {
+      if (profileResult['success'] == true) {
+        _impactScore = (profileResult['data']['impact_score'] as num).toInt();
+      }
+      if (myReports['success'] == true) {
+        final reports = myReports['data']['reports'] as List<dynamic>;
         _totalReported = reports.length;
         _totalResolved = reports.where((r) => r['status'] == 'RESOLVED').length;
         _impactPercentage = _totalReported > 0
             ? (_totalResolved / _totalReported) * 100
             : 0.0;
-        _impactScore = _impactPercentage.toInt() * 10;
-      });
-    }
+      }
+    });
   }
 
   @override

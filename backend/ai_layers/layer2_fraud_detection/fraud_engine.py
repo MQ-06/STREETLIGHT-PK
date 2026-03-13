@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 IMPOSSIBLE_TRAVEL_KM: float = 100.0    # Distance that is physically impossible in < 2 min
 IMPOSSIBLE_TRAVEL_MIN: float = 2.0     # Time window (minutes) for travel check
 
-DUPLICATE_RADIUS_M: float = 30.0       # Radius (metres) for duplicate detection
+DUPLICATE_RADIUS_M: float = 100.0      # Radius (metres) for duplicate detection
 DUPLICATE_WINDOW_DAYS: int = 14        # Look-back window (days) for duplicate search
 BOUNDING_BOX_DEG: float = 0.001        # ±0.001° ≈ ±111 m — coarse SQL pre-filter
 
