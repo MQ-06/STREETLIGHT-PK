@@ -4,9 +4,7 @@ import 'screens/splash_screen.dart';
 import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/explore_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/main_shell.dart';
 import 'screens/report_issue_screen.dart';
 import 'screens/verification_screen.dart';
 import 'screens/forget-password.dart';    // ✅ fixed: was forget-passsword.dart (3 s's + hyphen)
@@ -58,9 +56,7 @@ class StreetlightApp extends StatelessWidget {
         '/landing': (context) => const LandingScreen(),
         '/login_form': (context) => const LoginScreen(),
         '/register_form': (context) => const RegistrationScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/explore': (context) => const ExploreScreen(),
-        '/profile': (context) => const ProfileScreen(),
+        '/home': (context) => const MainShell(),
         '/report_issue': (context) => const ReportIssueScreen(),
         '/forget-password': (context) => const ForgotPasswordScreen(),   // ✅ NEW
         '/reset-password': (context) => const ResetPasswordScreen(),     // ✅ NEW

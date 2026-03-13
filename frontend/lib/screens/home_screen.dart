@@ -382,7 +382,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(

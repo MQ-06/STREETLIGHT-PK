@@ -408,7 +408,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
       floatingActionButton: _buildFAB(),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -1188,64 +1187,5 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_outlined, 'HOME', 0, '/home'),
-              _buildNavItem(Icons.explore, 'EXPLORE', 1, null),
-              _buildNavItem(Icons.person_outline, 'PROFILE', 2, '/profile'),
-              _buildNavItem(Icons.warning_amber_outlined, 'ISSUES', 3, '/report_issue'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index, String? route) {
-    final isActive = index == _currentNavIndex;
-    
-    return GestureDetector(
-      onTap: () {
-        if (route != null && index != _currentNavIndex) {
-          Navigator.pushReplacementNamed(context, route);
-        }
-        setState(() => _currentNavIndex = index);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isActive ? ExploreColors.primaryOrange : ExploreColors.textSecondary,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.roboto(
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive ? ExploreColors.primaryOrange : ExploreColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Bottom navigation is now provided by MainShell (IndexedStack).
 }

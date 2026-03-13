@@ -367,7 +367,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       floatingActionButton: _buildFAB(),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -1681,81 +1680,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.explore, 'Explore'),
-              _buildNavItem(2, Icons.person, 'Profile'),
-              _buildNavItem(3, Icons.warning_amber_rounded, 'Issues'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    bool isActive = _currentNavIndex == index;
-    return InkWell(
-      onTap: () {
-        if (index == 0) {
-          // Navigate to Home
-          Navigator.pushReplacementNamed(context, '/home');
-        } else if (index == 1) {
-          // Navigate to Explore
-          Navigator.pushReplacementNamed(context, '/explore');
-        } else if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ReportIssueScreen()),
-          ).then((_) => _refreshProfileData());
-        } else {
-          setState(() => _currentNavIndex = index);
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isActive
-                  ? ProfileColors.accentOrange
-                  : ProfileColors.textSecondary,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                fontSize: 11,
-                color: isActive
-                    ? ProfileColors.accentOrange
-                    : ProfileColors.textSecondary,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Bottom navigation is now provided by MainShell (IndexedStack).
 }

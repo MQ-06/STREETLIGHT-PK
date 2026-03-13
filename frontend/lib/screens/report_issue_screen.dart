@@ -408,7 +408,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
