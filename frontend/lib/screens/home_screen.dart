@@ -15,6 +15,7 @@ class HomeColors {
   static const cardBackground = Color(0xFFFFFFFF);
   static const statusOrange = Color(0xFFC85A3A);
   static const statusGreen = Color(0xFF2E7D32);
+  static const statusGreenLight = Color(0xFFE8F5E9);
   static const statusRed = Color(0xFFD32F2F);
   static const textPrimary = Color(0xFF000000);
   static const textSecondary = Color(0xFF666666);
@@ -73,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentSkip = 0;
         _hasMore = true;
         _errorMessage = null;
-        _reports = [];
+        // keep existing _reports so UI doesn't go blank on transient errors
       });
       // Fetch nearby verification requests in parallel with the feed
       _fetchPendingVerifications();
@@ -90,7 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final raw = result['data']['reports'] as List<dynamic>;
       final newReports = raw.map((r) => ReportModel.fromJson(r)).toList();
       setState(() {
-        _reports.addAll(newReports);
+        if (refresh) {
+          _reports = newReports;
+        } else {
+          _reports.addAll(newReports);
+        }
         _currentSkip = _reports.length;
         _hasMore = newReports.length == _pageSize;
         _isLoading = false;
@@ -928,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: report.hasVerified
-                ? HomeColors.statusGreen
+                ? HomeColors.statusGreenLight
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -946,7 +951,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : Icons.verified_outlined,
                 size: 16,
                 color: report.hasVerified
-                    ? Colors.white
+                    ? HomeColors.statusGreen
                     : HomeColors.textSecondary,
               ),
               const SizedBox(width: 6),
@@ -955,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.roboto(
                   fontSize: 13,
                   color: report.hasVerified
-                      ? Colors.white
+                      ? HomeColors.statusGreen
                       : HomeColors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
