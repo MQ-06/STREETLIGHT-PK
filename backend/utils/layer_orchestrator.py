@@ -46,7 +46,7 @@ class LayerOrchestrator:
 
         # Supported model filenames — add more if teammate uses different name
         backend_root = Path(__file__).resolve().parent.parent
-        models_dir = backend_root / "ai_layers" / "layer1_ai_engine" / "models"
+        models_dir = backend_root / "ai_layers" / "layer1_ai_engine" / "model"
 
         possible_model_names = [
             "best_model.pth",   # original expected name
