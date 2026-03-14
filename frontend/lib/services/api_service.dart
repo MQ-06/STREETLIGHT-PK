@@ -189,7 +189,7 @@ class ApiService {
 
       final response = await http
           .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 30));
 
       final data = jsonDecode(response.body);
 
@@ -199,8 +199,11 @@ class ApiService {
         return {'success': false, 'error': 'Session expired. Please log in again.', 'code': 401};
       }
       return {'success': false, 'error': data['detail'] ?? 'Failed to load feed'};
+    } on TimeoutException {
+      return {'success': false, 'error': 'Request timed out (>${20}s). Server may be busy.'};
     } catch (e) {
-      return {'success': false, 'error': 'Cannot connect to server.'};
+      if (kDebugMode) print('getReportsFeed error [${e.runtimeType}]: $e');
+      return {'success': false, 'error': 'Feed error [${e.runtimeType}]: $e'};
     }
   }
 
@@ -297,6 +300,20 @@ class ApiService {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) return {'success': true, 'data': data};
       return {'success': false, 'error': data['detail'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(Uri.parse('$baseURL/users/me'), headers: headers)
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load profile'};
     } catch (e) {
       return {'success': false, 'error': 'Cannot connect to server.'};
     }
@@ -407,6 +424,7 @@ class ApiService {
       }
       return {'success': false, 'error': data['detail'] ?? 'Failed to load verifications'};
     } catch (e) {
+      if (kDebugMode) print('getPendingVerifications error [${e.runtimeType}]: $e');
       return {'success': false, 'error': 'Cannot connect to server.'};
     }
   }

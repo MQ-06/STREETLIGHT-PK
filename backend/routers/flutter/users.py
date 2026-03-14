@@ -18,6 +18,26 @@ class FcmTokenRequest(BaseModel):
     fcm_token: str
 
 
+@router.get("/me")
+def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the authenticated user's profile including impact_score."""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return {
+        "success": True,
+        "impact_score": profile.impact_score or 0.0,
+        "total_reported": profile.total_reported or 0,
+        "total_solved": profile.total_solved or 0,
+        "fraud_flags": profile.fraud_flags or 0,
+        "profile_image_url": profile.profile_image_url,
+        "location": profile.location,
+    }
+
+
 @router.post("/fcm-token")
 def update_fcm_token(
     body: FcmTokenRequest,
