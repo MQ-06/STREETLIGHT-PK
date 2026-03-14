@@ -311,7 +311,7 @@ class ApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseURL/users/me'), headers: headers)
+          .get(Uri.parse('$baseURL/users/me/profile'), headers: headers)
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) return {'success': true, 'data': data};
