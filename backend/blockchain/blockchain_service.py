@@ -1,3 +1,4 @@
+#blockchain/blockchain_service.py
 import json
 import logging
 import os
@@ -6,6 +7,7 @@ from typing import Dict, Optional
 
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
+
 
 from blockchain.utils import (
     hash_image_url,
@@ -37,7 +39,7 @@ class BlockchainService:
         self.account = None
 
         if not self.enabled:
-            logger.warning("⚠️  Blockchain DISABLED — set BLOCKCHAIN_ENABLED=true in .env to enable")
+            logger.warning("Blockchain DISABLED — set BLOCKCHAIN_ENABLED=true in .env to enable")
             return
 
         self._initialize()
@@ -64,7 +66,7 @@ class BlockchainService:
             if not self.w3.is_connected():
                 raise ConnectionError(f"Cannot connect to blockchain at {rpc_url}")
 
-            logger.info(f"✅ Connected to blockchain: {rpc_url}")
+            logger.info(f"Connected to blockchain: {rpc_url}")
             logger.info(f"   Chain ID: {self.w3.eth.chain_id}")
 
             # ── Load account ──────────────────────────────────────────────────
