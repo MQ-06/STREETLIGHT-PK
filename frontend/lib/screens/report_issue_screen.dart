@@ -48,6 +48,12 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
+  void initState() {
+    super.initState();
+    _fetchInitialLocation();
+  }
+
+  @override
   void dispose() {
     _descriptionController.dispose();
     super.dispose();
