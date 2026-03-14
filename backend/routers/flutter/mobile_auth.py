@@ -25,6 +25,7 @@ from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
 from ai_layers.layer4_trust_history import TrustHistoryEngine
 from ai_layers.layer5_final_score import FinalScoreCalculator
+import piexif
 from utils.impact_score import (
     ImpactScoreManager,
     PENALTY_SPOOFING,
@@ -192,6 +193,95 @@ def create_report(
         issue_category = IssueCategory.POTHOLE if ai_category == "POTHOLE" else IssueCategory.TRASH
 
         # ==========================================
+        # STEP 5.5: HASH-BASED DUPLICATE CHECK (MERGE AS CONTRIBUTION)
+        # ==========================================
+        image_hash = ai_result.get("image_hash")
+        if image_hash:
+            existing_report = (
+                db.query(Report)
+                .filter(Report.image_hash == image_hash)
+                .order_by(Report.created_at.asc())
+                .first()
+            )
+        else:
+            existing_report = None
+
+        if existing_report is not None:
+            logger.info(
+                f"📋 Hash-duplicate detected: user={current_user.id} "
+                f"→ will be merged into original report ID={existing_report.id}"
+            )
+
+            category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+
+            # Strip EXIF GPS data before permanent upload
+            try:
+                piexif.remove(str(temp_image_path))
+            except Exception as ex:
+                logger.warning(f"piexif.remove failed (non-blocking): {ex}")
+
+            logger.info(f"☁️ Uploading duplicate image to Cloudinary folder: {category_str}...")
+            image_url = image_storage.upload_to_cloudinary(
+                temp_image_path, category=category_str
+            )
+
+            contribution = ReportContribution(
+                report_id=existing_report.id,
+                user_id=current_user.id,
+                image_url=image_url,
+                ai_confidence=ai_result["confidence"],
+                ai_severity=ai_result["severity"],
+                location_lat=location_lat,
+                location_lng=location_lng,
+            )
+            db.add(contribution)
+
+            existing_report.confirmation_count = (existing_report.confirmation_count or 0) + 1
+
+            # Track the best (highest-confidence) image URL seen so far
+            existing_conf = existing_report.ai_confidence or 0.0
+            if ai_result["confidence"] > existing_conf:
+                existing_report.best_image_url = image_url
+
+            # Community-style auto-verification based on confirmations
+            if (
+                existing_report.confirmation_count >= 3
+                and (existing_report.verify_count or 0) < 5
+            ):
+                existing_report.verify_count = (existing_report.verify_count or 0) + 1
+
+            if (
+                existing_report.confirmation_count >= 5
+                and existing_report.status == ReportStatus.PENDING
+            ):
+                existing_report.status = ReportStatus.VERIFIED
+
+            # Update reporting user's profile stats
+            profile = (
+                db.query(UserProfile)
+                .filter(UserProfile.user_id == current_user.id)
+                .first()
+            )
+            if profile:
+                profile.total_reported = (profile.total_reported or 0) + 1
+                profile.impact_score = (profile.impact_score or 0) + 5
+
+            db.commit()
+            db.refresh(existing_report)
+
+            return {
+                "success": True,
+                "merged": True,
+                "message": (
+                    "Your report has been merged with an existing report with the same photo. "
+                    "Thank you for confirming this issue!"
+                ),
+                "original_report_id": existing_report.id,
+                "original_report": _report_to_dict(existing_report, current_user.id, db),
+                "confirmation_count": existing_report.confirmation_count,
+            }
+
+        # ==========================================
         # STEP 6: LAYER 2 — FRAUD DETECTION (Engine B)
         # Runs AFTER Layer 1, BEFORE Cloudinary upload.
         # ==========================================
@@ -247,8 +337,12 @@ def create_report(
                 f"→ will be merged into original report ID={duplicate_of_id}"
             )
 
-            # Upload this confirming image to Cloudinary
+            # Upload this confirming image to Cloudinary (after stripping EXIF GPS)
             category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+            try:
+                piexif.remove(str(temp_image_path))
+            except Exception as ex:
+                logger.warning(f"piexif.remove failed (non-blocking): {ex}")
             logger.info(f"☁️ Uploading duplicate image to Cloudinary folder: {category_str}...")
             image_url = image_storage.upload_to_cloudinary(
                 temp_image_path, category=category_str
@@ -338,6 +432,11 @@ def create_report(
         # (Only reached if no hard block or duplicate-merge path was taken)
         # ==========================================
         category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+        # Strip EXIF GPS data before permanent upload
+        try:
+            piexif.remove(str(temp_image_path))
+        except Exception as ex:
+            logger.warning(f"piexif.remove failed (non-blocking): {ex}")
         logger.info(f"☁️ Uploading to Cloudinary folder: {category_str}...")
         image_url = image_storage.upload_to_cloudinary(
             temp_image_path, category=category_str
@@ -372,6 +471,7 @@ def create_report(
             ai_predicted_class=ai_result['predicted_class'],
             ai_severity=ai_result['severity'],
             final_score=ai_result['final_score'],
+            image_hash=image_hash,
 
             # GPS verification
             gps_verified=(ai_result['gps_verification']['verification_status'] == 'verified'),

@@ -69,6 +69,7 @@ class Report(Base):
     ai_predicted_class = Column(String(50), nullable=True, comment="pothole or garbage")
     ai_severity = Column(String(20), nullable=True, comment="small, medium, or large")
     final_score = Column(Float, nullable=True, comment="Combined AI + GPS score (0-100)")
+    image_hash = Column(String(128), nullable=True, comment="SHA-256 hash of the uploaded image")
     
     # GPS Verification Results
     gps_verified = Column(Boolean, default=False, comment="Location verified with landmarks")
