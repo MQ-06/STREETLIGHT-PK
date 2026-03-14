@@ -133,10 +133,11 @@ class AIEngine:
                 submitted_lon=submitted_lon
             )
             
-            # Calculate final score (AI confidence + GPS adjustment)
+            # Calculate final score (AI confidence + GPS adjustment + severity impact)
             ai_score = round(confidence_value * 100, 2)
             score_adjustment = gps_verification.get('score_adjustment', 0)
-            final_score = max(0, min(100, ai_score + score_adjustment))
+            severity_adjustment = 5 if severity == "large" else -5 if severity == "small" else 0
+            final_score = max(0, min(100, ai_score + score_adjustment + severity_adjustment))
             
             # Generate user message (includes GPS info if relevant)
             message = self._generate_message(
