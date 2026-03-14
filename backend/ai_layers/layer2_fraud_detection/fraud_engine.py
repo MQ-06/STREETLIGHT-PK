@@ -138,7 +138,9 @@ class FraudDetector:
         result["duplicate_of_id"] = dup_id
         result["duplicate_report"] = dup_report
         if dup_id is not None:
-            logger.warning(f"📋 Layer 2 verdict: DUPLICATE of report ID={dup_id} — hard block")
+            logger.warning(
+                f"📋 Layer 2 verdict: DUPLICATE of report ID={dup_id} — will merge as contribution"
+            )
             logger.info("=" * 60)
             return result  # Short-circuit
 

@@ -51,6 +51,10 @@ class Report(Base):
     verify_count = Column(Integer, default=0)
     views = Column(Integer, default=0)
 
+    # Community confirmation contributions (other users' photos)
+    confirmation_count = Column(Integer, default=0)
+    best_image_url = Column(String, nullable=True)
+
     # ==========================================
     # AI AGENT RESULTS (NEW)
     # ==========================================
@@ -181,3 +185,27 @@ class Comment(Base):
 
     report = relationship("Report", back_populates="comments")
     user = relationship("User")
+
+
+class ReportContribution(Base):
+    __tablename__ = "report_contributions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Cloudinary URL of the contributor's photo
+    image_url = Column(String, nullable=False)
+
+    # Snapshot of AI results for this contribution
+    ai_confidence = Column(Float, nullable=True)
+    ai_severity = Column(String(20), nullable=True)
+
+    # Location where this confirming photo was taken
+    location_lat = Column(Float, nullable=True)
+    location_lng = Column(Float, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )

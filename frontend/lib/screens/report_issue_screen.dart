@@ -327,10 +327,22 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     if (result['success'] == true) {
       await UserSession.incrementTotalReported();
 
-      showAppToast(context,
+      if (result['merged'] == true) {
+        showAppToast(
+          context,
+          message:
+              'Issue already reported nearby. Your photo has been added as confirmation!',
+          isError: false,
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        showAppToast(
+          context,
           message: 'Report submitted successfully!',
           isError: false,
-          duration: const Duration(seconds: 2));
+          duration: const Duration(seconds: 2),
+        );
+      }
 
       // Wait a beat then pop back — pass true so HomeScreen refreshes feed
       await Future.delayed(const Duration(milliseconds: 1200));
