@@ -385,9 +385,9 @@ def create_report(
 
             # Layer 4: Trust score snapshot
             trust_score=trust_result.get("trust_score"),
-
-            # Initial status based on final score
-            status=ReportStatus.VERIFIED if ai_result['final_score'] >= 80 else ReportStatus.PENDING
+            
+            # Initial status based on AI final score (detailed thresholds handled in Layer 5)
+            status=ReportStatus.VERIFIED if ai_result['final_score'] >= 85.0 else ReportStatus.PENDING
         )
 
         db.add(report)

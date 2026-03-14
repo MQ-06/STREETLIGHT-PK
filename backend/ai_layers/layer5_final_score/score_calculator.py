@@ -28,7 +28,7 @@ THRESHOLD_AUTO_VERIFY: float = 85.0
 THRESHOLD_REVIEW: float = 60.0
 
 # ── Status labels ─────────────────────────────────────────────────────────────
-STATUS_AUTO_VERIFIED: str = "AUTO_VERIFIED"
+STATUS_AUTO_VERIFIED: str = "VERIFIED"
 STATUS_REVIEW_NEEDED: str = "REVIEW_NEEDED"
 STATUS_REJECTED: str = "REJECTED"
 
