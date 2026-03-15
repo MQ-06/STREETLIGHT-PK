@@ -18,6 +18,8 @@ class ReportModel {
   final int verifyCount;
   final int commentCount;
   final String status;
+  final double? combinedScore;
+  final String? verificationStatus;
   bool hasSupported;
   bool hasVerified;
 
@@ -39,6 +41,8 @@ class ReportModel {
     required this.verifyCount,
     required this.commentCount,
     required this.status,
+    this.combinedScore,
+    this.verificationStatus,
     required this.hasSupported,
     required this.hasVerified,
   });
@@ -62,6 +66,8 @@ class ReportModel {
       verifyCount: json['verify_count'] as int? ?? 0,
       commentCount: json['comment_count'] as int? ?? 0,
       status: json['status'] as String? ?? 'REPORTED',
+      combinedScore: (json['combined_score'] as num?)?.toDouble(),
+      verificationStatus: json['verification_status'] as String?,
       hasSupported: json['has_supported'] as bool? ?? false,
       hasVerified: json['has_verified'] as bool? ?? false,
     );

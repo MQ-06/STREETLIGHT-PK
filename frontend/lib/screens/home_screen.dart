@@ -656,7 +656,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildAvatar(report),
                 const SizedBox(width: 10),
                 Expanded(child: _buildReporterInfo(report)),
-                _buildStatusBadge(report.status),
+                _buildStatusBadge(
+                  report.status,
+                  verificationStatus: report.verificationStatus,
+                  combinedScore: report.combinedScore,
+                ),
               ],
             ),
           ),
@@ -830,30 +834,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, {String? verificationStatus, double? combinedScore}) {
     Color bgColor;
     String label;
-    switch (status) {
-      case 'VERIFIED':
-        bgColor = HomeColors.statusGreen;
-        label = 'VERIFIED';
-        break;
-      case 'PENDING':
-      case 'REPORTED':
-        bgColor = HomeColors.statusRed;
-        label = 'PENDING';
-        break;
-      case 'IN_PROGRESS':
-        bgColor = Colors.amber[700] ?? Colors.amber;
-        label = 'IN PROGRESS';
-        break;
-      case 'RESOLVED':
-        bgColor = HomeColors.statusGreen;
-        label = 'RESOLVED';
-        break;
-      default:
-        bgColor = HomeColors.textGray;
-        label = status;
+    // Prefer engine verification_status when available; fall back to status.
+    final vs = verificationStatus ?? '';
+    if (vs == 'VERIFIED') {
+      bgColor = HomeColors.statusGreen;
+      label = 'VERIFIED';
+    } else if (vs == 'REVIEW_NEEDED') {
+      bgColor = Colors.amber[700] ?? Colors.amber;
+      label = 'REVIEW NEEDED';
+    } else if (vs == 'REJECTED') {
+      bgColor = HomeColors.statusRed;
+      label = 'REJECTED';
+    } else {
+      switch (status) {
+        case 'VERIFIED':
+          bgColor = HomeColors.statusGreen;
+          label = 'VERIFIED';
+          break;
+        case 'PENDING':
+        case 'REPORTED':
+          bgColor = HomeColors.statusRed;
+          label = 'PENDING';
+          break;
+        case 'IN_PROGRESS':
+          bgColor = Colors.amber[700] ?? Colors.amber;
+          label = 'IN PROGRESS';
+          break;
+        case 'RESOLVED':
+          bgColor = HomeColors.statusGreen;
+          label = 'RESOLVED';
+          break;
+        default:
+          bgColor = HomeColors.textGray;
+          label = status;
+      }
     }
 
     return Container(

@@ -94,6 +94,8 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
         "confirmation_count": getattr(report, "confirmation_count", 0),
         "comment_count": comment_count,
         "status": report.status.value,
+        "combined_score": getattr(report, "combined_score", None),
+        "verification_status": getattr(report, "verification_status", None),
         "has_supported": has_supported,
         "has_verified": has_verified,
     }
