@@ -181,15 +181,6 @@ def create_report(
                 detail=f"AI could not identify a civic issue. Detected: {ai_category}"
             )
 
-        if ai_result['confidence'] < 50.0:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"AI confidence too low ({ai_result['confidence']:.1f}%). "
-                    "The issue is not clearly visible. Please retake the photo with better clarity."
-                )
-            )
-
         issue_category = IssueCategory.POTHOLE if ai_category == "POTHOLE" else IssueCategory.TRASH
 
         # ==========================================
@@ -450,6 +441,29 @@ def create_report(
         ai_category_name = "Pothole" if ai_category == "POTHOLE" else "Garbage"
         updated_title = title.replace("Civic Issue", ai_category_name)
 
+        final_score_val = ai_result['final_score']
+        if final_score_val >= 85:
+            report_status = ReportStatus.VERIFIED
+        elif final_score_val >= 60:
+            report_status = ReportStatus.REVIEW_NEEDED
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    'message': (
+                        f"Report score too low ({final_score_val:.0f}/100). "
+                        "The photo may not clearly show the issue. "
+                        "Please try again from closer with better lighting."
+                    ),
+                    'score': final_score_val,
+                    'errors': [
+                        f"Score {final_score_val:.0f}/100 is below the minimum threshold of 60."
+                    ],
+                    'agent_decision': 'REJECTED',
+                    'agent_reason': 'Final score below minimum threshold',
+                },
+            )
+
         report = Report(
             user_id=current_user.id,
             title=updated_title.strip(),
@@ -486,8 +500,8 @@ def create_report(
             # Layer 4: Trust score snapshot
             trust_score=trust_result.get("trust_score"),
             
-            # Initial status based on AI final score (detailed thresholds handled in Layer 5)
-            status=ReportStatus.VERIFIED if ai_result['final_score'] >= 85.0 else ReportStatus.PENDING
+            # Initial status based on AI final score buckets
+            status=report_status
         )
 
         db.add(report)

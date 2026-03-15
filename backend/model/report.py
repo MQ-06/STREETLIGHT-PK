@@ -12,6 +12,7 @@ import enum
 class ReportStatus(str, enum.Enum):
     PENDING = "PENDING"
     VERIFIED = "VERIFIED"
+    REVIEW_NEEDED = "REVIEW_NEEDED"
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     RESOLVED = "RESOLVED"

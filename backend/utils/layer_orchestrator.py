@@ -66,7 +66,7 @@ class LayerOrchestrator:
 
         if model_path is not None:
             try:
-                self.ai_engine = AIEngine(model_path, confidence_threshold=0.5)
+                self.ai_engine = AIEngine(model_path, confidence_threshold=0.65)
                 self.layer1_available = True
                 logger.info("✓ Layer 1 (AI Engine) initialized successfully")
             except Exception as e:

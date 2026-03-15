@@ -90,6 +90,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _impactPercentage = _totalReported > 0
           ? (_totalResolved / _totalReported) * 100
           : 0.0;
+      // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
+      _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
 
       // Real reports from backend
       userReports = reports
@@ -323,6 +325,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _impactPercentage = _totalReported > 0
             ? (_totalResolved / _totalReported) * 100
             : 0.0;
+        // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
+        _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
       }
     });
   }
