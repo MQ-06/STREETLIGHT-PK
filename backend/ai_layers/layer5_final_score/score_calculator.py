@@ -92,7 +92,10 @@ class FinalScoreCalculator:
             raise ValueError(f"Report ID={report_id} not found")
 
         # ── Collect raw scores ────────────────────────────────────────────────
-        ai_score: float = report.ai_confidence or 0.0
+        # Use Layer 1 final_score (AI + GPS + severity) as primary AI input so
+        # GPS penalties and severity bonuses flow through to Layer 5.
+        # Fallback to ai_confidence (0-100) only if final_score is missing.
+        ai_score: float = (report.final_score or report.ai_confidence or 0.0)
         community_score: Optional[float] = report.community_score   # may be None
         trust_score: float = report.trust_score or 0.0
 
