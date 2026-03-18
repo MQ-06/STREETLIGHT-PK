@@ -35,6 +35,31 @@ def get_my_profile(
         "fraud_flags": profile.fraud_flags or 0,
         "profile_image_url": profile.profile_image_url,
         "location": profile.location,
+        "created_at": profile.created_at.isoformat() if profile.created_at else None,
+    }
+
+
+@router.get("/me/profile")
+def get_my_profile_details(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Detailed profile endpoint for mobile app.
+
+    Returns impact_score and core counters (total_reported, total_solved)
+    plus account creation timestamp.
+    """
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return {
+        "success": True,
+        "impact_score": profile.impact_score or 0.0,
+        "total_reported": profile.total_reported or 0,
+        "total_solved": profile.total_solved or 0,
+        "created_at": profile.created_at.isoformat() if profile.created_at else None,
     }
 
 

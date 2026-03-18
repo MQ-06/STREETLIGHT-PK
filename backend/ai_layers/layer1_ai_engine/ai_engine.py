@@ -9,7 +9,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import cv2
-# import hashlib  # COMMENTED OUT - hash/duplicate detection will be added later
+import hashlib  # SHA-256 hash for duplicate detection
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 import logging
@@ -121,9 +121,8 @@ class AIEngine:
             if is_valid_issue:
                 severity = self._estimate_severity(image_np, predicted_class)
             
-            # Calculate image hash (COMMENTED OUT -  add duplicate detection later)
-            # image_hash = self._calculate_hash(image_path)
-            image_hash = None
+            # Calculate image hash for duplicate detection
+            image_hash = self._calculate_hash(image_path)
             
             # GPS Verification (landmark detection)
             logger.info("Running GPS verification...")
@@ -133,10 +132,11 @@ class AIEngine:
                 submitted_lon=submitted_lon
             )
             
-            # Calculate final score (AI confidence + GPS adjustment)
+            # Calculate final score (AI confidence + GPS adjustment + severity bonus)
             ai_score = round(confidence_value * 100, 2)
             score_adjustment = gps_verification.get('score_adjustment', 0)
-            final_score = max(0, min(100, ai_score + score_adjustment))
+            severity_bonus = {'large': 5, 'medium': 0, 'small': -5}.get(severity or 'medium', 0)
+            final_score = max(0, min(100, ai_score + score_adjustment + severity_bonus))
             
             # Generate user message (includes GPS info if relevant)
             message = self._generate_message(
@@ -391,30 +391,29 @@ class AIEngine:
             logger.error(f"Feature-based severity estimation error: {str(e)}")
             return "medium"  # Default to medium if error
     
-    # DUPLICATE DETECTION - COMMENTED OUT (will be added in Layer 2)
-    # def _calculate_hash(self, image_path: Path) -> str:
-    #     """
-    #     Calculate SHA-256 hash of image file.
-    #     
-    #     Args:
-    #         image_path: Path to image file
-    #         
-    #     Returns:
-    #         Hexadecimal hash string
-    #     """
-    #     try:
-    #         sha256_hash = hashlib.sha256()
-    #         
-    #         with open(image_path, "rb") as f:
-    #             # Read in chunks for large files
-    #             for byte_block in iter(lambda: f.read(4096), b""):
-    #                 sha256_hash.update(byte_block)
-    #         
-    #         return sha256_hash.hexdigest()
-    #         
-    #     except Exception as e:
-    #         logger.error(f"Hash calculation error: {str(e)}")
-    #         return "hash_unavailable"
+    def _calculate_hash(self, image_path: Path) -> str:
+        """
+        Calculate SHA-256 hash of image file.
+        
+        Args:
+            image_path: Path to image file
+            
+        Returns:
+            Hexadecimal hash string
+        """
+        try:
+            sha256_hash = hashlib.sha256()
+            
+            with open(image_path, "rb") as f:
+                # Read in chunks for large files
+                for byte_block in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(byte_block)
+            
+            return sha256_hash.hexdigest()
+            
+        except Exception as e:
+            logger.error(f"Hash calculation error: {str(e)}")
+            return "hash_unavailable"
     
     def _generate_message(
         self,

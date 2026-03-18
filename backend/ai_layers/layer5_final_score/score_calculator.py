@@ -195,7 +195,7 @@ THRESHOLD_AUTO_VERIFY: float = 85.0
 THRESHOLD_REVIEW: float = 60.0
 
 # ── Status labels ─────────────────────────────────────────────────────────────
-STATUS_AUTO_VERIFIED: str = "AUTO_VERIFIED"
+STATUS_AUTO_VERIFIED: str = "VERIFIED"
 STATUS_REVIEW_NEEDED: str = "REVIEW_NEEDED"
 STATUS_REJECTED: str = "REJECTED"
 
@@ -253,8 +253,11 @@ class FinalScoreCalculator:
             raise ValueError(f"Report ID={report_id} not found")
 
         # ── Collect raw scores ────────────────────────────────────────────────
-        ai_score: float = report.ai_confidence or 0.0
-        community_score: Optional[float] = report.community_score
+        # Use Layer 1 final_score (AI + GPS + severity) as primary AI input so
+        # GPS penalties and severity bonuses flow through to Layer 5.
+        # Fallback to ai_confidence (0-100) only if final_score is missing.
+        ai_score: float = (report.final_score or report.ai_confidence or 0.0)
+        community_score: Optional[float] = report.community_score   # may be None
         trust_score: float = report.trust_score or 0.0
 
         # ── Apply weights ─────────────────────────────────────────────────────

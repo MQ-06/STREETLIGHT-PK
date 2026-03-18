@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/civic_complaint.dart';
+import '../models/report_model.dart';
+import '../services/api_service.dart';
 
 /// Color palette for Explore screen
 class ExploreColors {
@@ -33,6 +35,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _selectedCategory = 'All Categories';
   String _searchQuery = '';
   Timer? _searchTimer;
+  bool _isLoading = false;
+  String? _errorMessage;
   
   // Map controller
   final MapController _mapController = MapController();
@@ -46,8 +50,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // Draggable sheet controller
   final DraggableScrollableController _sheetController = DraggableScrollableController();
 
-  // Hardcoded Lahore sample data
-  final List<CivicComplaint> _allComplaints = [
+  // Hardcoded Lahore sample data (used as visual fallback when no backend data)
+  final List<CivicComplaint> _sampleComplaints = [
     CivicComplaint(
       id: 'complaint_001',
       referenceId: '#LHR-9921',
@@ -186,10 +190,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ),
   ];
 
+  // Backend-powered complaints list (preferred source when not empty)
+  List<CivicComplaint> _backendComplaints = [];
+
   // Stats computed from complaints
   int get _criticalCount => _filteredComplaints.where((c) => c.status == 'CRITICAL').length;
   int get _pendingCount => _filteredComplaints.where((c) => c.status == 'PENDING').length;
   int get _resolvedCount => _filteredComplaints.where((c) => c.status == 'RESOLVED').length;
+
+  List<CivicComplaint> get _activeSource =>
+      _backendComplaints.isNotEmpty ? _backendComplaints : _sampleComplaints;
 
   List<CivicComplaint> get _filteredComplaints {
     var results = _searchComplaints(_searchQuery);
@@ -211,14 +221,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   List<CivicComplaint> _searchComplaints(String query) {
-    if (query.isEmpty) return _allComplaints;
-    
-    query = query.toLowerCase();
-    return _allComplaints.where((complaint) {
+    final source = _activeSource;
+    if (query.isEmpty) return List<CivicComplaint>.from(source);
+
+    final q = query.toLowerCase();
+    return source.where((complaint) {
       return complaint.location.toLowerCase().contains(query) ||
-             complaint.referenceId.toLowerCase().contains(query) ||
-             complaint.title.toLowerCase().contains(query) ||
-             complaint.address.toLowerCase().contains(query);
+             complaint.referenceId.toLowerCase().contains(q) ||
+             complaint.title.toLowerCase().contains(q) ||
+             complaint.address.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -247,6 +258,114 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadComplaintsFromBackend();
+  }
+
+  Future<void> _loadComplaintsFromBackend() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ApiService.getReportsFeed(skip: 0, limit: 100);
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final raw = result['data']['reports'] as List<dynamic>;
+      final reports = raw
+          .map((r) => ReportModel.fromJson(r as Map<String, dynamic>))
+          .toList();
+
+      setState(() {
+        _backendComplaints = reports.map(_mapReportToComplaint).toList();
+        _isLoading = false;
+      });
+    } else {
+      // Session expired → reuse unified logout flow
+      if (result['code'] == 401) {
+        await ApiService.logout();
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login_form',
+            (route) => false,
+          );
+        }
+        return;
+      }
+      setState(() {
+        _errorMessage = result['error'] as String?;
+        _isLoading = false;
+      });
+    }
+  }
+
+  CivicComplaint _mapReportToComplaint(ReportModel report) {
+    // Approximate location coordinates using city name; fallback to Lahore center
+    final LatLng cityCenter = _cityToLatLng(report.locationCity);
+
+    final statusUpper = report.status.toUpperCase();
+    String mappedStatus;
+    if (statusUpper == 'RESOLVED') {
+      mappedStatus = 'RESOLVED';
+    } else if (statusUpper == 'CRITICAL') {
+      mappedStatus = 'CRITICAL';
+    } else {
+      mappedStatus = 'PENDING';
+    }
+
+    final categoryUpper = report.issueCategory.toUpperCase();
+
+    final area = report.locationCity.isNotEmpty
+        ? report.locationCity
+        : report.location;
+
+    final address = report.locationCity.isNotEmpty
+        ? '${report.location} • ${report.locationCity}'
+        : report.location;
+
+    return CivicComplaint(
+      id: report.id.toString(),
+      referenceId: '#RPT-${report.id.toString().padLeft(4, '0')}',
+      title: report.title,
+      description: report.description,
+      category: categoryUpper,
+      priority: mappedStatus,
+      location: area,
+      address: address,
+      latitude: cityCenter.latitude,
+      longitude: cityCenter.longitude,
+      reportedDate: report.timestamp,
+      status: mappedStatus,
+      timeAgo: report.timeAgo,
+      region: area.toUpperCase(),
+      isPriority: mappedStatus == 'CRITICAL',
+    );
+  }
+
+  LatLng _cityToLatLng(String city) {
+    final c = city.toLowerCase().trim();
+    switch (c) {
+      case 'lahore':
+        return const LatLng(31.5204, 74.3587);
+      case 'karachi':
+        return const LatLng(24.8607, 67.0011);
+      case 'islamabad':
+        return const LatLng(33.6844, 73.0479);
+      case 'rawalpindi':
+        return const LatLng(33.5651, 73.0169);
+      case 'faisalabad':
+        return const LatLng(31.4504, 73.1350);
+      default:
+        // Fallback to Lahore center
+        return const LatLng(31.5204, 74.3587);
+    }
+  }
+
+  @override
   void dispose() {
     _searchTimer?.cancel();
     _searchController.dispose();
@@ -264,15 +383,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
           children: [
             _buildHeader(),
             _buildSearchBar(),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(
+                  _errorMessage!,
+                  style: GoogleFonts.roboto(
+                    fontSize: 12,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
             _buildViewToggle(),
             Expanded(
-              child: _isMapView ? _buildMapViewWithSheet() : _buildListView(),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: ExploreColors.primaryOrange,
+                      ),
+                    )
+                  : (_isMapView ? _buildMapViewWithSheet() : _buildListView()),
             ),
           ],
         ),
       ),
       floatingActionButton: _buildFAB(),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -1052,64 +1187,5 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_outlined, 'HOME', 0, '/home'),
-              _buildNavItem(Icons.explore, 'EXPLORE', 1, null),
-              _buildNavItem(Icons.person_outline, 'PROFILE', 2, '/profile'),
-              _buildNavItem(Icons.warning_amber_outlined, 'ISSUES', 3, '/report_issue'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index, String? route) {
-    final isActive = index == _currentNavIndex;
-    
-    return GestureDetector(
-      onTap: () {
-        if (route != null && index != _currentNavIndex) {
-          Navigator.pushReplacementNamed(context, route);
-        }
-        setState(() => _currentNavIndex = index);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isActive ? ExploreColors.primaryOrange : ExploreColors.textSecondary,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.roboto(
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive ? ExploreColors.primaryOrange : ExploreColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Bottom navigation is now provided by MainShell (IndexedStack).
 }

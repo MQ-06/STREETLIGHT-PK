@@ -9,7 +9,15 @@ from datetime import datetime, timezone
 from db.database import SessionLocal
 from model.users import User
 from model.user_profile import UserProfile
-from model.report import Report, ReportInteraction, Comment, IssueCategory, InteractionType, ReportStatus
+from model.report import (
+    Report,
+    ReportInteraction,
+    Comment,
+    IssueCategory,
+    InteractionType,
+    ReportStatus,
+    ReportContribution,
+)
 from utils.auth_utils import get_current_user, get_db
 from utils.layer_orchestrator import LayerOrchestrator
 from utils.image_storage import ImageStorage
@@ -17,7 +25,14 @@ from ai_layers.layer2_fraud_detection.fraud_engine import FraudDetector
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
 from ai_layers.layer4_trust_history import TrustHistoryEngine
 from ai_layers.layer5_final_score import FinalScoreCalculator
-from utils.impact_score import ImpactScoreManager, PENALTY_SPOOFING, PENALTY_SPAM, POINTS_REPORT_CREATED
+import piexif
+from utils.impact_score import (
+    ImpactScoreManager,
+    PENALTY_SPOOFING,
+    PENALTY_SPAM,
+    POINTS_REPORT_CREATED,
+    POINTS_VOTE_CAST,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -76,8 +91,11 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
         "views": report.views,
         "support_count": report.support_count,
         "verify_count": report.verify_count,
+        "confirmation_count": getattr(report, "confirmation_count", 0),
         "comment_count": comment_count,
         "status": report.status.value,
+        "combined_score": getattr(report, "combined_score", None),
+        "verification_status": getattr(report, "verification_status", None),
         "has_supported": has_supported,
         "has_verified": has_verified,
     }
@@ -165,16 +183,96 @@ def create_report(
                 detail=f"AI could not identify a civic issue. Detected: {ai_category}"
             )
 
-        if ai_result['confidence'] < 50.0:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"AI confidence too low ({ai_result['confidence']:.1f}%). "
-                    "The issue is not clearly visible. Please retake the photo with better clarity."
-                )
+        issue_category = IssueCategory.POTHOLE if ai_category == "POTHOLE" else IssueCategory.TRASH
+
+        # ==========================================
+        # STEP 5.5: HASH-BASED DUPLICATE CHECK (MERGE AS CONTRIBUTION)
+        # ==========================================
+        image_hash = ai_result.get("image_hash")
+        if image_hash:
+            existing_report = (
+                db.query(Report)
+                .filter(Report.image_hash == image_hash)
+                .order_by(Report.created_at.asc())
+                .first()
+            )
+        else:
+            existing_report = None
+
+        if existing_report is not None:
+            logger.info(
+                f"📋 Hash-duplicate detected: user={current_user.id} "
+                f"→ will be merged into original report ID={existing_report.id}"
             )
 
-        issue_category = IssueCategory.POTHOLE if ai_category == "POTHOLE" else IssueCategory.TRASH
+            category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+
+            # Strip EXIF GPS data before permanent upload
+            try:
+                piexif.remove(str(temp_image_path))
+            except Exception as ex:
+                logger.warning(f"piexif.remove failed (non-blocking): {ex}")
+
+            logger.info(f"☁️ Uploading duplicate image to Cloudinary folder: {category_str}...")
+            image_url = image_storage.upload_to_cloudinary(
+                temp_image_path, category=category_str
+            )
+
+            contribution = ReportContribution(
+                report_id=existing_report.id,
+                user_id=current_user.id,
+                image_url=image_url,
+                ai_confidence=ai_result["confidence"],
+                ai_severity=ai_result["severity"],
+                location_lat=location_lat,
+                location_lng=location_lng,
+            )
+            db.add(contribution)
+
+            existing_report.confirmation_count = (existing_report.confirmation_count or 0) + 1
+
+            # Track the best (highest-confidence) image URL seen so far
+            existing_conf = existing_report.ai_confidence or 0.0
+            if ai_result["confidence"] > existing_conf:
+                existing_report.best_image_url = image_url
+
+            # Community-style auto-verification based on confirmations
+            if (
+                existing_report.confirmation_count >= 3
+                and (existing_report.verify_count or 0) < 5
+            ):
+                existing_report.verify_count = (existing_report.verify_count or 0) + 1
+
+            if (
+                existing_report.confirmation_count >= 5
+                and existing_report.status == ReportStatus.PENDING
+            ):
+                existing_report.status = ReportStatus.VERIFIED
+
+            # Update reporting user's profile stats
+            profile = (
+                db.query(UserProfile)
+                .filter(UserProfile.user_id == current_user.id)
+                .first()
+            )
+            if profile:
+                profile.total_reported = (profile.total_reported or 0) + 1
+                profile.impact_score = (profile.impact_score or 0) + 5
+
+            db.commit()
+            db.refresh(existing_report)
+
+            return {
+                "success": True,
+                "merged": True,
+                "message": (
+                    "Your report has been merged with an existing report with the same photo. "
+                    "Thank you for confirming this issue!"
+                ),
+                "original_report_id": existing_report.id,
+                "original_report": _report_to_dict(existing_report, current_user.id, db),
+                "confirmation_count": existing_report.confirmation_count,
+            }
 
         # ==========================================
         # STEP 6: LAYER 2 — FRAUD DETECTION (Engine B)
@@ -223,14 +321,94 @@ def create_report(
             logger.error(f"❌ Trust check failed (non-blocking): {e}")
             trust_result = {"trust_score": None, "is_trusted": True}
 
-        # ── 6c: Duplicate report → soft link (save & link to original) ─────
+        # ── 6c: Duplicate report → merge as contribution ─────
         duplicate_of_id = fraud_result['duplicate_of_id']
         duplicate_report = fraud_result['duplicate_report']
         if duplicate_of_id is not None:
             logger.info(
                 f"📋 Duplicate detected: user={current_user.id} "
-                f"→ will be linked to original report ID={duplicate_of_id}"
+                f"→ will be merged into original report ID={duplicate_of_id}"
             )
+
+            # Upload this confirming image to Cloudinary (after stripping EXIF GPS)
+            category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+            try:
+                piexif.remove(str(temp_image_path))
+            except Exception as ex:
+                logger.warning(f"piexif.remove failed (non-blocking): {ex}")
+            logger.info(f"☁️ Uploading duplicate image to Cloudinary folder: {category_str}...")
+            image_url = image_storage.upload_to_cloudinary(
+                temp_image_path, category=category_str
+            )
+
+            # Create a contribution record linked to the original report
+            contribution = ReportContribution(
+                report_id=duplicate_of_id,
+                user_id=current_user.id,
+                image_url=image_url,
+                ai_confidence=ai_result["confidence"],
+                ai_severity=ai_result["severity"],
+                location_lat=location_lat,
+                location_lng=location_lng,
+            )
+            db.add(contribution)
+
+            # Fetch original report and update its confirmation stats
+            original_report = db.query(Report).filter(Report.id == duplicate_of_id).first()
+            if not original_report:
+                logger.error(
+                    f"Duplicate target report ID={duplicate_of_id} not found; "
+                    "cannot merge contribution."
+                )
+                raise HTTPException(
+                    status_code=404,
+                    detail="Original report for duplicate merge not found",
+                )
+
+            original_report.confirmation_count = (original_report.confirmation_count or 0) + 1
+
+            # Track the best (highest-confidence) image URL seen so far
+            existing_conf = original_report.ai_confidence or 0.0
+            if ai_result["confidence"] > existing_conf:
+                original_report.best_image_url = image_url
+
+            # Community-style auto-verification based on confirmations
+            if (
+                original_report.confirmation_count >= 3
+                and (original_report.verify_count or 0) < 5
+            ):
+                original_report.verify_count = (original_report.verify_count or 0) + 1
+
+            if (
+                original_report.confirmation_count >= 5
+                and original_report.status == ReportStatus.PENDING
+            ):
+                original_report.status = ReportStatus.VERIFIED
+
+            # Update reporting user's profile stats
+            profile = (
+                db.query(UserProfile)
+                .filter(UserProfile.user_id == current_user.id)
+                .first()
+            )
+            if profile:
+                profile.total_reported = (profile.total_reported or 0) + 1
+                profile.impact_score = (profile.impact_score or 0) + 5
+
+            db.commit()
+            db.refresh(original_report)
+
+            return {
+                "success": True,
+                "merged": True,
+                "message": (
+                    "Your report has been merged with an existing nearby report. "
+                    "Thank you for confirming this issue!"
+                ),
+                "original_report_id": duplicate_of_id,
+                "original_report": _report_to_dict(original_report, current_user.id, db),
+                "confirmation_count": original_report.confirmation_count,
+            }
 
         # ── 6d: Spam flag → soft flag; continue pipeline ──────────────────
         is_flagged_for_spam = fraud_result['is_spam']
@@ -244,11 +422,18 @@ def create_report(
 
         # ==========================================
         # STEP 7: UPLOAD TO CLOUDINARY
-        # (Only reached if no hard block was raised above)
+        # (Only reached if no hard block or duplicate-merge path was taken)
         # ==========================================
         category_str = "pothole_img" if ai_category == "POTHOLE" else "garbage_img"
+        # Strip EXIF GPS data before permanent upload
+        try:
+            piexif.remove(str(temp_image_path))
+        except Exception as ex:
+            logger.warning(f"piexif.remove failed (non-blocking): {ex}")
         logger.info(f"☁️ Uploading to Cloudinary folder: {category_str}...")
-        image_url = image_storage.upload_to_cloudinary(temp_image_path, category=category_str)
+        image_url = image_storage.upload_to_cloudinary(
+            temp_image_path, category=category_str
+        )
 
         # ==========================================
         # STEP 8: CREATE DATABASE RECORD
@@ -257,6 +442,29 @@ def create_report(
 
         ai_category_name = "Pothole" if ai_category == "POTHOLE" else "Garbage"
         updated_title = title.replace("Civic Issue", ai_category_name)
+
+        final_score_val = ai_result['final_score']
+        if final_score_val >= 85:
+            report_status = ReportStatus.VERIFIED
+        elif final_score_val >= 60:
+            report_status = ReportStatus.REVIEW_NEEDED
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    'message': (
+                        f"Report score too low ({final_score_val:.0f}/100). "
+                        "The photo may not clearly show the issue. "
+                        "Please try again from closer with better lighting."
+                    ),
+                    'score': final_score_val,
+                    'errors': [
+                        f"Score {final_score_val:.0f}/100 is below the minimum threshold of 60."
+                    ],
+                    'agent_decision': 'REJECTED',
+                    'agent_reason': 'Final score below minimum threshold',
+                },
+            )
 
         report = Report(
             user_id=current_user.id,
@@ -279,6 +487,7 @@ def create_report(
             ai_predicted_class=ai_result['predicted_class'],
             ai_severity=ai_result['severity'],
             final_score=ai_result['final_score'],
+            image_hash=image_hash,
 
             # GPS verification
             gps_verified=(ai_result['gps_verification']['verification_status'] == 'verified'),
@@ -292,9 +501,9 @@ def create_report(
 
             # Layer 4: Trust score snapshot
             trust_score=trust_result.get("trust_score"),
-
-            # Initial status based on final score
-            status=ReportStatus.VERIFIED if ai_result['final_score'] >= 80 else ReportStatus.PENDING
+            
+            # Initial status based on AI final score buckets
+            status=report_status
         )
 
         db.add(report)
@@ -357,36 +566,39 @@ def create_report(
         # STEP 10: RETURN SUCCESS
         # ==========================================
         return {
-            'success': True,
-            'message': ai_result['message'],
-            'report': _report_to_dict(report, current_user.id, db),
-            'ai_results': {
-                'confidence': ai_result['confidence'],
-                'severity': ai_result['severity'],
-                'final_score': ai_result['final_score'],
-                'gps_verification': {
-                    'status': ai_result['gps_verification']['verification_status'],
-                    'distance_km': ai_result['gps_verification'].get('distance_km'),
-                    'is_spoofed': ai_result['gps_verification']['is_spoofed']
-                }
+            "success": True,
+            "merged": False,
+            "message": ai_result["message"],
+            "report": _report_to_dict(report, current_user.id, db),
+            "ai_results": {
+                "confidence": ai_result["confidence"],
+                "severity": ai_result["severity"],
+                "final_score": ai_result["final_score"],
+                "gps_verification": {
+                    "status": ai_result["gps_verification"]["verification_status"],
+                    "distance_km": ai_result["gps_verification"].get("distance_km"),
+                    "is_spoofed": ai_result["gps_verification"]["is_spoofed"],
+                },
             },
-            'validation': {
-                'quality_score': processing_result['layer0']['overall_quality'],
-                'warnings': processing_result['warnings']
+            "validation": {
+                "quality_score": processing_result["layer0"]["overall_quality"],
+                "warnings": processing_result["warnings"],
             },
-            'fraud_check': {
-                'is_flagged_for_spam': is_flagged_for_spam,
-                'hourly_count': fraud_result['hourly_count'],
-                'is_duplicate': duplicate_of_id is not None,
-                'duplicate_of_id': duplicate_of_id,
-                'existing_report': duplicate_report,
+            "fraud_check": {
+                "is_flagged_for_spam": is_flagged_for_spam,
+                "hourly_count": fraud_result["hourly_count"],
+                "is_duplicate": duplicate_of_id is not None,
+                "duplicate_of_id": duplicate_of_id,
+                "existing_report": duplicate_report,
             },
-            'community_verification': {
-                'status': 'PENDING' if community_verification_created else 'UNAVAILABLE',
-                'request_created': community_verification_created,
+            "community_verification": {
+                "status": "PENDING"
+                if community_verification_created
+                else "UNAVAILABLE",
+                "request_created": community_verification_created,
             },
-            'trust_check': trust_result,
-            'final_score_result': score_result,
+            "trust_check": trust_result,
+            "final_score_result": score_result,
         }
 
     except HTTPException:
@@ -566,7 +778,7 @@ def toggle_verify(
         has_verified = True
 
         # Auto-promote: 5+ verifications → VERIFIED status
-        if report.verify_count >= 5 and report.status == ReportStatus.REPORTED:
+        if report.verify_count >= 5 and report.status == ReportStatus.PENDING:
             report.status = ReportStatus.VERIFIED
 
     db.commit()

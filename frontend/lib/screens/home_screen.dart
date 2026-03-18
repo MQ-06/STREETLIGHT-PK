@@ -14,7 +14,9 @@ class HomeColors {
   static const backgroundColor = Color(0xFFFFF8E7);
   static const cardBackground = Color(0xFFFFFFFF);
   static const statusOrange = Color(0xFFC85A3A);
-  static const statusBrown = Color(0xFF5C4033);
+  static const statusGreen = Color(0xFF2E7D32);
+  static const statusGreenLight = Color(0xFFE8F5E9);
+  static const statusRed = Color(0xFFD32F2F);
   static const textPrimary = Color(0xFF000000);
   static const textSecondary = Color(0xFF666666);
   static const textGray = Color(0xFFAAAAAA);
@@ -34,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
 
   List<ReportModel> _reports = [];
+  String _searchQuery = '';
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _errorMessage;
@@ -71,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentSkip = 0;
         _hasMore = true;
         _errorMessage = null;
-        _reports = [];
+        // keep existing _reports so UI doesn't go blank on transient errors
       });
       // Fetch nearby verification requests in parallel with the feed
       _fetchPendingVerifications();
@@ -88,17 +91,27 @@ class _HomeScreenState extends State<HomeScreen> {
       final raw = result['data']['reports'] as List<dynamic>;
       final newReports = raw.map((r) => ReportModel.fromJson(r)).toList();
       setState(() {
-        _reports.addAll(newReports);
+        if (refresh) {
+          _reports = newReports;
+        } else {
+          _reports.addAll(newReports);
+        }
         _currentSkip = _reports.length;
         _hasMore = newReports.length == _pageSize;
         _isLoading = false;
         _isLoadingMore = false;
       });
     } else {
-      // Session expired → kick to login
+      // Session expired → unified logout flow
       if (result['code'] == 401) {
         await ApiService.logout();
-        if (mounted) Navigator.pushReplacementNamed(context, '/login_form');
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login_form',
+            (route) => false,
+          );
+        }
         return;
       }
       setState(() {
@@ -369,7 +382,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
@@ -385,6 +397,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody() {
+    // Apply search filtering
+    final List<ReportModel> visibleReports;
+    if (_searchQuery.isEmpty) {
+      visibleReports = _reports;
+    } else {
+      final q = _searchQuery;
+      visibleReports = _reports.where((r) {
+        return r.title.toLowerCase().contains(q) ||
+            r.description.toLowerCase().contains(q) ||
+            r.location.toLowerCase().contains(q) ||
+            r.reporterName.toLowerCase().contains(q);
+      }).toList();
+    }
+
     // Loading state
     if (_isLoading) {
       return const Center(
@@ -423,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Empty state
-    if (_reports.isEmpty) {
+    if (visibleReports.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -432,7 +458,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 size: 64, color: HomeColors.textGray),
             const SizedBox(height: 16),
             Text(
-              'No reports yet.\nBe the first to report an issue!',
+              _searchQuery.isEmpty
+                  ? 'No reports yet.\nBe the first to report an issue!'
+                  : 'No reports match your search.\nTry a different area or keyword.',
               textAlign: TextAlign.center,
               style: GoogleFonts.roboto(
                   fontSize: 15, color: HomeColors.textSecondary),
@@ -449,9 +477,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _reports.length + (_isLoadingMore ? 1 : 0),
+        itemCount: visibleReports.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == _reports.length) {
+          if (index == visibleReports.length) {
             return const Padding(
               padding: EdgeInsets.all(16),
               child: Center(
@@ -560,8 +588,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _searchController,
                       style: GoogleFonts.roboto(
                           fontSize: 14, color: HomeColors.textPrimary),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value.trim().toLowerCase();
+                        });
+                      },
                       decoration: InputDecoration(
-                        hintText: 'Search community reports...',
+                        hintText: 'Search by area, title or reporter…',
                         hintStyle: GoogleFonts.roboto(
                             color: HomeColors.textGray, fontSize: 14),
                         border: InputBorder.none,
@@ -623,7 +656,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildAvatar(report),
                 const SizedBox(width: 10),
                 Expanded(child: _buildReporterInfo(report)),
-                _buildStatusBadge(report.status),
+                _buildStatusBadge(
+                  report.status,
+                  verificationStatus: report.verificationStatus,
+                  combinedScore: report.combinedScore,
+                ),
               ],
             ),
           ),
@@ -797,36 +834,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    if (status == 'REPORTED') {
-      return Text(
-        'REPORTED',
-        style: GoogleFonts.roboto(
-            fontSize: 10,
-            color: HomeColors.textGray,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5),
-      );
-    }
-
+  Widget _buildStatusBadge(String status, {String? verificationStatus, double? combinedScore}) {
     Color bgColor;
     String label;
-    switch (status) {
-      case 'VERIFIED':
-        bgColor = HomeColors.statusOrange;
-        label = 'VERIFIED';
-        break;
-      case 'IN_PROGRESS':
-        bgColor = HomeColors.statusBrown;
-        label = 'IN PROGRESS';
-        break;
-      case 'RESOLVED':
-        bgColor = Colors.green;
-        label = 'RESOLVED';
-        break;
-      default:
-        bgColor = HomeColors.textGray;
-        label = status;
+    // Prefer engine verification_status when available; fall back to status.
+    final vs = verificationStatus ?? '';
+    if (vs == 'VERIFIED') {
+      bgColor = HomeColors.statusGreen;
+      label = 'VERIFIED';
+    } else if (vs == 'REVIEW_NEEDED') {
+      bgColor = Colors.amber[700] ?? Colors.amber;
+      label = 'REVIEW NEEDED';
+    } else if (vs == 'REJECTED') {
+      bgColor = HomeColors.statusRed;
+      label = 'REJECTED';
+    } else {
+      switch (status) {
+        case 'VERIFIED':
+          bgColor = HomeColors.statusGreen;
+          label = 'VERIFIED';
+          break;
+        case 'PENDING':
+        case 'REPORTED':
+          bgColor = HomeColors.statusRed;
+          label = 'PENDING';
+          break;
+        case 'IN_PROGRESS':
+          bgColor = Colors.amber[700] ?? Colors.amber;
+          label = 'IN PROGRESS';
+          break;
+        case 'RESOLVED':
+          bgColor = HomeColors.statusGreen;
+          label = 'RESOLVED';
+          break;
+        default:
+          bgColor = HomeColors.textGray;
+          label = status;
+      }
     }
 
     return Container(
@@ -905,12 +949,12 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: report.hasVerified
-                ? HomeColors.statusBrown
+                ? HomeColors.statusGreenLight
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: report.hasVerified
-                  ? HomeColors.statusBrown
+                  ? HomeColors.statusGreen
                   : HomeColors.borderColor,
             ),
           ),
@@ -923,7 +967,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : Icons.verified_outlined,
                 size: 16,
                 color: report.hasVerified
-                    ? Colors.white
+                    ? HomeColors.statusGreen
                     : HomeColors.textSecondary,
               ),
               const SizedBox(width: 6),
@@ -932,7 +976,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.roboto(
                   fontSize: 13,
                   color: report.hasVerified
-                      ? Colors.white
+                      ? HomeColors.statusGreen
                       : HomeColors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),

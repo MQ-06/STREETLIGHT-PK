@@ -66,7 +66,7 @@ class LayerOrchestrator:
 
         if model_path is not None:
             try:
-                self.ai_engine = AIEngine(model_path, confidence_threshold=0.5)
+                self.ai_engine = AIEngine(model_path, confidence_threshold=0.65)
                 self.layer1_available = True
                 logger.info("✓ Layer 1 (AI Engine) initialized successfully")
             except Exception as e:
@@ -222,6 +222,28 @@ class LayerOrchestrator:
                 'final_score': ai_result['final_score'],
                 'agent_decision': 'REJECTED',
                 'agent_reason': 'AI confidence too low or not a civic issue'
+            }
+
+        # Enforce minimum final score threshold (hard reject below 60/100)
+        if ai_result['final_score'] < 60.0:
+            logger.warning(
+                "❌ AI AGENT DECISION: REJECT — Final score below threshold "
+                f"({ai_result['final_score']:.2f} < 60.00)"
+            )
+            logger.info("=" * 60)
+
+            return {
+                'passed': False,
+                'errors': [
+                    f"AI final confidence score too low ({ai_result['final_score']:.1f}/100). "
+                    "Reports scoring below 60 are automatically rejected."
+                ],
+                'warnings': validation_result['warnings'],
+                'layer0': validation_result,
+                'layer1': ai_result,
+                'final_score': ai_result['final_score'],
+                'agent_decision': 'REJECTED',
+                'agent_reason': 'AI final score below acceptance threshold (60/100)'
             }
 
         # ==========================================

@@ -20,6 +20,7 @@ def run_migration():
         ("ai_predicted_class", "VARCHAR(50)"),
         ("ai_severity", "VARCHAR(20)"),
         ("final_score", "FLOAT"),
+        ("image_hash", "VARCHAR(128)"),
         ("gps_verified", "BOOLEAN DEFAULT FALSE"),
         ("gps_has_photo_location", "BOOLEAN DEFAULT FALSE"),
         ("gps_distance_km", "FLOAT"),

@@ -90,6 +90,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _impactPercentage = _totalReported > 0
           ? (_totalResolved / _totalReported) * 100
           : 0.0;
+      // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
+      _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
 
       // Real reports from backend
       userReports = reports
@@ -323,6 +325,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _impactPercentage = _totalReported > 0
             ? (_totalResolved / _totalReported) * 100
             : 0.0;
+        // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
+        _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
       }
     });
   }
@@ -367,7 +371,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       floatingActionButton: _buildFAB(),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -676,16 +679,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(
-        'Profile & Impact',
-        style: GoogleFonts.poppins(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: ProfileColors.primaryRust,
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Profile & Impact',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: ProfileColors.primaryRust,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: ProfileColors.primaryRust),
+            tooltip: 'Logout',
+            onPressed: _confirmAndLogout,
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _confirmAndLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Logout',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: GoogleFonts.roboto(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.roboto(color: ProfileColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Logout',
+              style: GoogleFonts.roboto(color: ProfileColors.accentOrange),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      await ApiService.logout();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login_form',
+        (route) => false,
+      );
+    }
   }
 
   Widget _buildProfileCard() {
@@ -1629,81 +1684,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.explore, 'Explore'),
-              _buildNavItem(2, Icons.person, 'Profile'),
-              _buildNavItem(3, Icons.warning_amber_rounded, 'Issues'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    bool isActive = _currentNavIndex == index;
-    return InkWell(
-      onTap: () {
-        if (index == 0) {
-          // Navigate to Home
-          Navigator.pushReplacementNamed(context, '/home');
-        } else if (index == 1) {
-          // Navigate to Explore
-          Navigator.pushReplacementNamed(context, '/explore');
-        } else if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ReportIssueScreen()),
-          ).then((_) => _refreshProfileData());
-        } else {
-          setState(() => _currentNavIndex = index);
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isActive
-                  ? ProfileColors.accentOrange
-                  : ProfileColors.textSecondary,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                fontSize: 11,
-                color: isActive
-                    ? ProfileColors.accentOrange
-                    : ProfileColors.textSecondary,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Bottom navigation is now provided by MainShell (IndexedStack).
 }
