@@ -91,8 +91,7 @@
 #         if report is None:
 #             raise ValueError(f"Report ID={report_id} not found")
 
-#         # ── Collect raw scores ────────────────────────────────────────────────
-#         ai_score: float = report.ai_confidence or 0.0
+#         # ── Collect raw scores ───────────────────────────────────────────────#         ai_score: float = report.ai_confidence or 0.0
 #         community_score: Optional[float] = report.community_score   # may be None
 #         trust_score: float = report.trust_score or 0.0
 
