@@ -6,6 +6,7 @@ from routers.flutter import verification
 from routers.flutter import users
 from routers.flutter import trust
 from routers.flutter import score
+from routers.flutter import notifications
 from routers.admin import auth as admin_auth
 from routers.admin import dashboard as admin_dashboard
 from middleware.cors import setup_cors
@@ -17,6 +18,7 @@ from model.report import Report, ReportInteraction
 from model.verification import VerificationRequest, VerificationVote
 from utils.image_storage import ImageStorage
 from script.migrate_add_report_contribution_and_fields import migrate as migrate_report_fields
+from script.migrate_notifications import run_migration as migrate_notifications
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +46,7 @@ app.include_router(verification.router)
 app.include_router(users.router)
 app.include_router(trust.router)
 app.include_router(score.router)
+app.include_router(notifications.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 
@@ -61,6 +64,7 @@ async def startup_event():
         # Ensure DB schema is compatible with current models
         logger.info("Ensuring database schema is up to date...")
         migrate_report_fields()
+        migrate_notifications()
         logger.info("✓ Database schema ensured")
 
         # AI layers are initialized when mobile_auth module loads

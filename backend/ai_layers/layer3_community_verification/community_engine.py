@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from model.report import Report
 from utils.impact_score import ImpactScoreManager, POINTS_VOTE_CAST
 from model.user_profile import UserProfile
+from utils.notifications import NotificationService
 from model.verification import (
     VerificationRequest,
     VerificationVote,
@@ -110,6 +111,27 @@ class CommunityVerificationEngine:
             f"   ✅ VerificationRequest ID={request.id} created | "
             f"{len(nearby)} nearby user(s) within {DEFAULT_RADIUS_M:.0f} m"
         )
+
+        # Phase 1: DB-backed in-app notifications for nearby users
+        try:
+            if report is not None:
+                category_label = report.category.value if report.category else "Issue"
+                for uid, dist_m in nearby:
+                    NotificationService(self.db).create(
+                        user_id=uid,
+                        type="VERIFY_REQUEST",
+                        title="Verification needed nearby",
+                        body=(
+                            f"A {category_label.lower()} was reported about "
+                            f"{dist_m:.0f}m from you. Can you verify it?"
+                        ),
+                        entity_type="verification_request",
+                        entity_id=request.id,
+                        data={"request_id": request.id, "report_id": report_id, "distance_m": round(dist_m, 1)},
+                        dedupe_key=f"VERIFY_REQUEST:{uid}:{request.id}",
+                    )
+        except Exception as notify_exc:
+            logger.warning(f"⚠️ Failed to create in-app notifications for request={request.id}: {notify_exc}")
 
         # ── TODO: Send push notifications to nearby users ──────────────────
         # For each (user_id, distance_m) pair in `nearby`, retrieve the user's
