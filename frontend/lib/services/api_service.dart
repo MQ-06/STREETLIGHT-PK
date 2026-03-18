@@ -193,16 +193,44 @@ class ApiService {
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 30));
 
-      final data = jsonDecode(response.body);
+      final body = response.body;
+      final contentType = response.headers['content-type'] ?? '';
+
+      dynamic data;
+      try {
+        data = jsonDecode(body);
+      } on FormatException {
+        data = null;
+      }
 
       if (response.statusCode == 200) {
-        return {'success': true, 'data': data};
-      } else if (response.statusCode == 401) {
+        if (data is Map<String, dynamic>) {
+          return {'success': true, 'data': data};
+        }
+        return {
+          'success': false,
+          'error': 'Invalid server response (expected JSON).',
+        };
+      }
+
+      if (response.statusCode == 401) {
         return {'success': false, 'error': 'Session expired. Please log in again.', 'code': 401};
       }
-      return {'success': false, 'error': data['detail'] ?? 'Failed to load feed'};
+
+      if (data is Map && data['detail'] != null) {
+        return {'success': false, 'error': data['detail'].toString(), 'code': response.statusCode};
+      }
+
+      final preview = body.trim().isEmpty
+          ? '(empty body)'
+          : (body.trim().length > 200 ? '${body.trim().substring(0, 200)}…' : body.trim());
+      return {
+        'success': false,
+        'error': 'Server error ${response.statusCode} (${contentType.isEmpty ? 'unknown content-type' : contentType}): $preview',
+        'code': response.statusCode,
+      };
     } on TimeoutException {
-      return {'success': false, 'error': 'Request timed out (>${20}s). Server may be busy.'};
+      return {'success': false, 'error': 'Request timed out (>${30}s). Server may be busy.'};
     } catch (e) {
       if (kDebugMode) print('getReportsFeed error [${e.runtimeType}]: $e');
       return {'success': false, 'error': 'Feed error [${e.runtimeType}]: $e'};

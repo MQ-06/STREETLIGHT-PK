@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
+import 'report_issue_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -24,6 +25,7 @@ class _MainShellState extends State<MainShell> {
     _pages = const [
       HomeScreen(),
       ExploreScreen(),
+      ReportIssueScreen(),
       ProfileScreen(),
     ];
   }
@@ -66,7 +68,8 @@ class _MainShellState extends State<MainShell> {
             children: [
               _buildNavItem(Icons.home_outlined, 'HOME', 0),
               _buildNavItem(Icons.explore, 'EXPLORE', 1),
-              _buildNavItem(Icons.person_outline, 'PROFILE', 2),
+              _buildNavItem(Icons.add_circle_outline, 'REPORT', 2),
+              _buildNavItem(Icons.person_outline, 'PROFILE', 3),
             ],
           ),
         ),
