@@ -43,9 +43,21 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
             hashed_password=hash_password(user.password)
         )
         db.add(new_user)
+        db.flush()  # ensure new_user.id is available for profile FK
+
+        # Create linked UserProfile so trust / impact / verification layers work
+        profile = UserProfile(
+            user_id=new_user.id,
+            location="Unknown",
+            total_reported=0,
+            total_solved=0,
+            impact_score=0.0,
+        )
+        db.add(profile)
+
         db.commit()
         db.refresh(new_user)
-        
+
         return {
             "message": "User created successfully",
             "user_id": new_user.id

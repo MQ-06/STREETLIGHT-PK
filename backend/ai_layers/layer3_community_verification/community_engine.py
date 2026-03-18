@@ -26,6 +26,7 @@ from model.verification import (
     VerificationStatus,
     VoteChoice,
 )
+from ai_layers.layer5_final_score.score_calculator import FinalScoreCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +293,16 @@ class CommunityVerificationEngine:
             )
             self._calculate_community_score(request_id)
             self.db.refresh(request)
+
+            # Recalculate Layer 5 final score now that community_score is available
+            try:
+                FinalScoreCalculator(self.db).calculate_final_score(request.report_id)
+            except Exception as final_exc:
+                logger.warning(
+                    "   ⚠️ FinalScoreCalculator failed after community vote "
+                    f"(report_id={request.report_id}): {final_exc}"
+                )
+
             score_finalised = True
 
         return {
@@ -394,6 +405,15 @@ class CommunityVerificationEngine:
                 # Partial score from whatever votes were collected
                 self._calculate_community_score(request.id)
                 self.db.refresh(request)
+
+                # Recalculate Layer 5 final score using partial community score
+                try:
+                    FinalScoreCalculator(self.db).calculate_final_score(request.report_id)
+                except Exception as final_exc:
+                    logger.warning(
+                        "   ⚠️ FinalScoreCalculator failed for expired request "
+                        f"(report_id={request.report_id}): {final_exc}"
+                    )
             else:
                 # Zero votes — propagate NULL to Report
                 report: Optional[Report] = (
@@ -404,6 +424,15 @@ class CommunityVerificationEngine:
                 if report is not None:
                     report.community_score = None
                 request.community_score = None
+
+                # Even with no votes, recompute final score so it reflects lack of community signal
+                try:
+                    FinalScoreCalculator(self.db).calculate_final_score(request.report_id)
+                except Exception as final_exc:
+                    logger.warning(
+                        "   ⚠️ FinalScoreCalculator failed for zero-vote expired request "
+                        f"(report_id={request.report_id}): {final_exc}"
+                    )
 
             # Override to EXPIRED regardless (COMPLETED only for threshold-triggered closes)
             request.status = VerificationStatus.EXPIRED
