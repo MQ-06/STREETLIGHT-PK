@@ -187,6 +187,8 @@ def create_report(
 
         # ==========================================
         # STEP 5.5: HASH-BASED DUPLICATE CHECK (MERGE AS CONTRIBUTION)
+        # Note: this is location-agnostic by design — the exact same photo
+        # indicates a duplicate report even if the user moves a few metres.
         # ==========================================
         image_hash = ai_result.get("image_hash")
         if image_hash:

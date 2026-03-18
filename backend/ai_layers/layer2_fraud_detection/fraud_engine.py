@@ -7,7 +7,7 @@ No paid external APIs are used — all logic is pure Python + SQL.
 
 Checks (in priority order):
     1. Impossible Travel  → HARD BLOCK  (GPS spoofing)
-    2. Duplicate Report   → HARD BLOCK  (same category, ≤30 m, last 14 days)
+    2. Duplicate Report   → HARD BLOCK  (same category, ≤100 m, last 14 days)
     3. Spam Pattern       → SOFT FLAG   (>20 reports in last 1 hour)
 """
 

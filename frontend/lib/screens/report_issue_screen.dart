@@ -50,7 +50,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchInitialLocation();
+    _fetchInitialLocation().then((_) => _tryAutoPreciseLocation());
   }
 
   @override
@@ -86,6 +86,27 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       debugPrint('IP geolocation failed: $e');
     } finally {
       setState(() => _isLoadingLocation = false);
+    }
+  }
+
+  /// Auto-fetch precise GPS when permission is already granted.
+  /// This avoids requiring the user to tap the map after they’ve allowed location.
+  Future<void> _tryAutoPreciseLocation() async {
+    if (!mounted) return;
+    if (_isLoadingLocation) return;
+
+    try {
+      final permission = await Geolocator.checkPermission();
+      final hasPermission = permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      if (!hasPermission) return;
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      await _getPreciseLocation();
+    } catch (_) {
+      // Silent fallback: user can still tap to retry.
     }
   }
 
