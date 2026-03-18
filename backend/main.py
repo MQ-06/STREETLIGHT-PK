@@ -16,6 +16,7 @@ from model.user_profile import UserProfile
 from model.report import Report, ReportInteraction
 from model.verification import VerificationRequest, VerificationVote
 from utils.image_storage import ImageStorage
+from script.migrate_add_report_contribution_and_fields import migrate as migrate_report_fields
 
 # Configure logging
 logging.basicConfig(
@@ -57,6 +58,11 @@ async def startup_event():
     logger.info("=" * 70)
     
     try:
+        # Ensure DB schema is compatible with current models
+        logger.info("Ensuring database schema is up to date...")
+        migrate_report_fields()
+        logger.info("✓ Database schema ensured")
+
         # AI layers are initialized when mobile_auth module loads
         logger.info("✓ AI Agent initialized (loaded with mobile_auth router)")
         
