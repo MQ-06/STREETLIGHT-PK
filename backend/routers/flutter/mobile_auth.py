@@ -446,11 +446,9 @@ def create_report(
         updated_title = title.replace("Civic Issue", ai_category_name)
 
         final_score_val = ai_result['final_score']
-        if final_score_val >= 85:
-            report_status = ReportStatus.VERIFIED
-        elif final_score_val >= 60:
-            report_status = ReportStatus.REVIEW_NEEDED
-        else:
+        # Hard-reject only truly low-quality submissions here; leave lifecycle
+        # status to Layer 5 so there is a single source of truth.
+        if final_score_val < 60:
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -467,6 +465,8 @@ def create_report(
                     'agent_reason': 'Final score below minimum threshold',
                 },
             )
+        # All accepted reports start as PENDING; Layer 5 will promote/downgrade.
+        report_status = ReportStatus.PENDING
 
         report = Report(
             user_id=current_user.id,

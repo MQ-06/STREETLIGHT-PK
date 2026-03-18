@@ -177,7 +177,7 @@ from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 from blockchain.blockchain_service import blockchain_service
-from model.report import Report
+from model.report import Report, ReportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +284,20 @@ class FinalScoreCalculator:
             verification_status = STATUS_REJECTED
 
         # ── Persist to DB ─────────────────────────────────────────────────────
+        # Use Report.status as the single lifecycle field; verification_status
+        # is kept in sync as a more detailed label for analytics/blockchain.
+        if verification_status == STATUS_AUTO_VERIFIED:
+            report.status = ReportStatus.VERIFIED
+        elif verification_status == STATUS_REVIEW_NEEDED:
+            # Only downgrade to REVIEW_NEEDED if not already RESOLVED/IN_PROGRESS.
+            if report.status not in (ReportStatus.RESOLVED, ReportStatus.IN_PROGRESS):
+                report.status = ReportStatus.REVIEW_NEEDED
+        else:  # STATUS_REJECTED
+            # Do not auto-mark the issue as RESOLVED — a low combined score
+            # means the submission is not trustworthy, not that the issue is fixed.
+            # Leave status unchanged so officers can still review if needed.
+            pass
+
         report.combined_score      = combined_score
         report.verification_status = verification_status
         self.db.commit()
@@ -358,7 +372,8 @@ class FinalScoreCalculator:
         if report is None:
             raise ValueError(f"Report ID={report_id} not found")
 
-        # Update status to OFFICER_APPROVED in DB
+        # Update lifecycle status and verification_status in DB
+        report.status = ReportStatus.VERIFIED
         report.verification_status = "OFFICER_APPROVED"
         self.db.commit()
 

@@ -837,40 +837,32 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildStatusBadge(String status, {String? verificationStatus, double? combinedScore}) {
     Color bgColor;
     String label;
-    // Prefer engine verification_status when available; fall back to status.
-    final vs = verificationStatus ?? '';
-    if (vs == 'VERIFIED') {
-      bgColor = HomeColors.statusGreen;
-      label = 'VERIFIED';
-    } else if (vs == 'REVIEW_NEEDED') {
-      bgColor = Colors.amber[700] ?? Colors.amber;
-      label = 'REVIEW NEEDED';
-    } else if (vs == 'REJECTED') {
-      bgColor = HomeColors.statusRed;
-      label = 'REJECTED';
-    } else {
-      switch (status) {
-        case 'VERIFIED':
-          bgColor = HomeColors.statusGreen;
-          label = 'VERIFIED';
-          break;
-        case 'PENDING':
-        case 'REPORTED':
-          bgColor = HomeColors.statusRed;
-          label = 'PENDING';
-          break;
-        case 'IN_PROGRESS':
-          bgColor = Colors.amber[700] ?? Colors.amber;
-          label = 'IN PROGRESS';
-          break;
-        case 'RESOLVED':
-          bgColor = HomeColors.statusGreen;
-          label = 'RESOLVED';
-          break;
-        default:
-          bgColor = HomeColors.textGray;
-          label = status;
-      }
+    // Use Report.status as the single lifecycle field for UI.
+    switch (status) {
+      case 'VERIFIED':
+        bgColor = HomeColors.statusGreen;
+        label = 'VERIFIED';
+        break;
+      case 'REVIEW_NEEDED':
+        bgColor = Colors.amber[700] ?? Colors.amber;
+        label = 'REVIEW NEEDED';
+        break;
+      case 'PENDING':
+      case 'REPORTED':
+        bgColor = HomeColors.statusRed;
+        label = 'PENDING';
+        break;
+      case 'IN_PROGRESS':
+        bgColor = Colors.amber[700] ?? Colors.amber;
+        label = 'IN PROGRESS';
+        break;
+      case 'RESOLVED':
+        bgColor = HomeColors.statusGreen;
+        label = 'RESOLVED';
+        break;
+      default:
+        bgColor = HomeColors.textGray;
+        label = status;
     }
 
     return Container(
