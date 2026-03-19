@@ -21,6 +21,7 @@ from model.report import Report
 from utils.impact_score import ImpactScoreManager, POINTS_VOTE_CAST
 from model.user_profile import UserProfile
 from utils.notifications import NotificationService
+from utils.push import send_push_to_user
 from model.verification import (
     VerificationRequest,
     VerificationVote,
@@ -117,18 +118,28 @@ class CommunityVerificationEngine:
             if report is not None:
                 category_label = report.category.value if report.category else "Issue"
                 for uid, dist_m in nearby:
+                    title = "Verification needed nearby"
+                    body = (
+                        f"A {category_label.lower()} was reported about "
+                        f"{dist_m:.0f}m from you. Can you verify it?"
+                    )
                     NotificationService(self.db).create(
                         user_id=uid,
                         type="VERIFY_REQUEST",
-                        title="Verification needed nearby",
-                        body=(
-                            f"A {category_label.lower()} was reported about "
-                            f"{dist_m:.0f}m from you. Can you verify it?"
-                        ),
+                        title=title,
+                        body=body,
                         entity_type="verification_request",
                         entity_id=request.id,
                         data={"request_id": request.id, "report_id": report_id, "distance_m": round(dist_m, 1)},
                         dedupe_key=f"VERIFY_REQUEST:{uid}:{request.id}",
+                    )
+                    # Phase 2: best-effort push (if FCM is configured)
+                    send_push_to_user(
+                        self.db,
+                        user_id=uid,
+                        title=title,
+                        body=body,
+                        data={"route": "/verification", "request_id": request.id, "report_id": report_id},
                     )
         except Exception as notify_exc:
             logger.warning(f"⚠️ Failed to create in-app notifications for request={request.id}: {notify_exc}")

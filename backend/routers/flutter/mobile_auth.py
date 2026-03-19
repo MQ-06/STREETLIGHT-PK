@@ -34,6 +34,7 @@ from utils.impact_score import (
     POINTS_VOTE_CAST,
 )
 from utils.notifications import NotificationService
+from utils.push import send_push_to_user
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -591,6 +592,14 @@ def create_report(
                 entity_id=report.id,
                 data={"report_id": report.id, "verification_status": vstatus, "combined_score": combined_score},
                 dedupe_key=f"REPORT_STATUS:{current_user.id}:{report.id}:{vstatus}",
+            )
+            # Phase 2: best-effort push (if FCM is configured)
+            send_push_to_user(
+                db,
+                user_id=current_user.id,
+                title=title,
+                body=body,
+                data={"route": "/notifications", "report_id": report.id, "verification_status": vstatus},
             )
         except Exception as notify_exc:
             logger.warning(f"⚠️ Failed to notify reporter for report={report.id}: {notify_exc}")
