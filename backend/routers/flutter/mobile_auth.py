@@ -33,8 +33,7 @@ from utils.impact_score import (
     POINTS_REPORT_CREATED,
     POINTS_VOTE_CAST,
 )
-from utils.notifications import NotificationService
-from utils.push import send_push_to_user
+# Notifications/push are handled at later lifecycle stages (e.g. RESOLVED).
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -565,44 +564,6 @@ def create_report(
         except Exception as e:
             logger.error(f"❌ Final score calculation failed (non-blocking): {e}")
             score_result = {"combined_score": None, "verification_status": "PENDING"}
-
-        # Phase 1: notify reporter about final decision (deduped per status)
-        try:
-            vstatus = score_result.get("verification_status") or "PENDING"
-            combined_score = score_result.get("combined_score")
-            if vstatus == "VERIFIED":
-                title = "Report verified"
-                body = "Your report has been auto-verified and sent for action."
-            elif vstatus == "REVIEW_NEEDED":
-                title = "Report under review"
-                body = "Your report needs officer review. You’ll be updated once a decision is made."
-            elif vstatus == "REJECTED":
-                title = "Report rejected"
-                body = "Your report was rejected due to low confidence. You can try submitting a clearer photo."
-            else:
-                title = "Report received"
-                body = "Your report was received and is being processed."
-
-            NotificationService(db).create(
-                user_id=current_user.id,
-                type="REPORT_STATUS",
-                title=title,
-                body=body + (f" (Score: {combined_score})" if combined_score is not None else ""),
-                entity_type="report",
-                entity_id=report.id,
-                data={"report_id": report.id, "verification_status": vstatus, "combined_score": combined_score},
-                dedupe_key=f"REPORT_STATUS:{current_user.id}:{report.id}:{vstatus}",
-            )
-            # Phase 2: best-effort push (if FCM is configured)
-            send_push_to_user(
-                db,
-                user_id=current_user.id,
-                title=title,
-                body=body,
-                data={"route": "/notifications", "report_id": report.id, "verification_status": vstatus},
-            )
-        except Exception as notify_exc:
-            logger.warning(f"⚠️ Failed to notify reporter for report={report.id}: {notify_exc}")
 
         # ==========================================
         # STEP 10: RETURN SUCCESS

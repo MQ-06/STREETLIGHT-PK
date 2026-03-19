@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session
 from blockchain.blockchain_service import blockchain_service
 from db.database import get_db
 from model.report import Report
+from utils.notifications import NotificationService
+from utils.push import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +144,10 @@ def mark_complaint_resolved(
         )
 
     # ── Check it's verified first ─────────────────────────────────────────────
-    if report.verification_status not in ("AUTO_VERIFIED", "OFFICER_APPROVED"):
+    # Your scoring layer writes `verification_status` values like "VERIFIED"
+    # (auto) or "OFFICER_APPROVED" (manual). Keep this consistent so
+    # resolved events can be triggered reliably.
+    if report.verification_status not in ("VERIFIED", "OFFICER_APPROVED"):
         raise HTTPException(
             status_code=400,
             detail=(
@@ -164,6 +169,32 @@ def mark_complaint_resolved(
         report.status = ReportStatus.RESOLVED
         db.commit()
         logger.info(f"✅ Report #{complaint_id} marked RESOLVED in DB + blockchain")
+
+        # Phase 1: notify reporter that complaint is resolved
+        try:
+            NotificationService(db).create(
+                user_id=report.user_id,
+                type="REPORT_RESOLVED",
+                title="Report resolved",
+                body="Municipality has marked your complaint as resolved.",
+                entity_type="report",
+                entity_id=report.id,
+                data={"report_id": report.id, "status": "RESOLVED"},
+                dedupe_key=f"REPORT_RESOLVED:{report.id}",
+            )
+
+            # Phase 2: best-effort push (if FCM is configured)
+            send_push_to_user(
+                db,
+                user_id=report.user_id,
+                title="Report resolved",
+                body="Municipality has marked your complaint as resolved.",
+                data={"route": "/notifications", "report_id": report.id},
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                f"⚠️ Failed to notify reporter for resolved report={complaint_id}: {notify_exc}"
+            )
 
     return {
         "success":          result.get("success", False),

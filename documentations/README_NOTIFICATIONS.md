@@ -181,45 +181,32 @@ Note:
 
 ---
 
-### 4.2 Report final score decision → notify reporter
+### 4.2 Complaint resolved → notify reporter
 
 Trigger point:
 
-- `backend/routers/flutter/mobile_auth.py`
-- In `create_report(...)` after `FinalScoreCalculator(db).calculate_final_score(report.id)`
+- `backend/routers/blockchain.py`
+- In `POST /blockchain/resolve/{complaint_id}` right after the DB update sets `report.status = RESOLVED`.
 
 When it runs:
 
-- After Layer 5 scoring updates the report’s `verification_status` and may update `report.status` to `VERIFIED` or `REVIEW_NEEDED` or leave it as per logic for rejected.
+- Municipal admin calls the resolve endpoint when the issue is fixed.
+- Backend calls blockchain `mark_resolved(...)`.
+- If successful, backend updates the report status in DB to `RESOLVED`.
 
 Notification created (Phase 1):
 
-- One notification for the reporter (deduped per status):
-  - `type: "REPORT_STATUS"`
+- One notification for the reporter:
+  - `type: "REPORT_RESOLVED"`
   - `entity_type: "report"`
   - `entity_id: report.id`
-  - `data: { report_id, verification_status, combined_score }`
-  - `dedupe_key: "REPORT_STATUS:{user_id}:{report.id}:{vstatus}"`
-
-Message content:
-
-- `VERIFIED`:
-  - title: “Report verified”
-  - body: “Your report has been auto-verified and sent for action.”
-- `REVIEW_NEEDED`:
-  - title: “Report under review”
-  - body: “Your report needs officer review. You’ll be updated once a decision is made.”
-- `REJECTED`:
-  - title: “Report rejected”
-  - body: “Your report was rejected due to low confidence. You can try submitting a clearer photo.”
-- fallback (pending/unexpected):
-  - title: “Report received”
-  - body: “Your report was received and is being processed.”
+  - `data: { report_id, status: "RESOLVED" }`
+  - `dedupe_key: "REPORT_RESOLVED:{report.id}"`
 
 Push sent (Phase 2, best-effort):
 
 - route/deep link: `/notifications`
-- data: `{ route: "/notifications", report_id, verification_status }`
+- data: `{ route: "/notifications", report_id }`
 
 ---
 
@@ -317,14 +304,14 @@ Behavior:
   - tap an item → marks as read (if currently unread)
   - uses minimal deep link rules:
     - `type == "VERIFY_REQUEST"` → navigates to `/verification`
-    - `type == "REPORT_STATUS"` → remains on notifications list (Phase 1 UX)
+    - `type == "REPORT_RESOLVED"` → remains on notifications list (Phase 1 UX)
 
 ### 6.3 Push tap navigation
 
 FCM tap payload includes `data.route`:
 
 - For nearby verification push: route `/verification`
-- For reporter status push: route `/notifications`
+- For resolved push: route `/notifications`
 
 Flutter receives it in `PushNotifications.init(...)` and navigates accordingly.
 
@@ -338,14 +325,23 @@ Flutter receives it in `PushNotifications.init(...)` and navigates accordingly.
 2. Backend runs Layer 0/1/2/Cloudinary persist
 3. Backend creates community verification request (Layer 3)
 4. Backend runs Layer 5 final score calculation
-5. Backend creates:
-  - DB notification `REPORT_STATUS` for the reporter
-6. Backend attempts FCM push to reporter device token
-7. Flutter Home bell badge updates when:
-  - app opens and fetches unread count
-8. User taps push (if they got it) → Flutter navigates to `/notifications`
-9. User sees notification in `NotificationsScreen`, taps it:
-  - it becomes read (POST `/notifications/{id}/read`)
+5. Nearby users are notified immediately via:
+   - DB notification `VERIFY_REQUEST`
+   - optional FCM push with route `/verification`
+
+6. Later, when municipal admin resolves the complaint:
+   - backend `POST /blockchain/resolve/{complaint_id}`
+   - DB status changes to `RESOLVED`
+
+7. Backend then creates:
+   - DB notification `REPORT_RESOLVED` for the reporter
+   - optional FCM push to reporter with route `/notifications`
+
+8. Flutter Home bell badge updates when:
+   - app opens and fetches unread count
+
+9. User opens Notifications and taps the item:
+   - it becomes read (POST `/notifications/{id}/read`)
 
 ### Scenario B: Nearby user gets a “verify” request push
 
@@ -374,9 +370,11 @@ Flutter receives it in `PushNotifications.init(...)` and navigates accordingly.
 1. Login on Device A
 2. Submit a report from Device A
 3. Open `/notifications` on Device A
-4. Verify you see a `REPORT_STATUS` notification
-5. Tap the notification → it becomes read
-6. Verify bell badge unread count decreases
+4. Verify you do NOT necessarily see a reporter notification until the complaint is resolved.
+5. Resolve the complaint via municipal admin endpoint.
+6. Open `/notifications` again and verify you see `REPORT_RESOLVED`.
+7. Tap the notification → it becomes read
+8. Verify bell badge unread count decreases
 
 Expected backend logs:
 
@@ -395,7 +393,7 @@ Expected backend logs:
   - Device B should receive `VERIFY_REQUEST` push (route `/verification`)
 5. Tap push:
   - app should navigate to `/verification`
-6. Device A should also receive `REPORT_STATUS` push:
+6. Device A should receive `REPORT_RESOLVED` push after you resolve the complaint:
   - tapping should navigate to `/notifications`
 
 ### Logs to check when debugging push
@@ -431,12 +429,11 @@ The repository ignores service-account JSON files via:
 FCM push currently triggers only on two event types:
 
 1. Nearby verification request created → `VERIFY_REQUEST`
-2. Reporter final score decision after report submission → `REPORT_STATUS`
+2. Complaint resolved → `REPORT_RESOLVED`
 
 Currently NOT pushing (yet):
 
 1. Officer manual approval events (if they happen via separate endpoint)
-2. Blockchain “resolved” events from `/blockchain` router
 
 UI limitations:
 
