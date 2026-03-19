@@ -43,7 +43,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool _isLoadingLocation = false;
   bool _isLoadingImage = false;
   bool _isSubmitting = false;
-  int _currentNavIndex = 3;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -881,72 +880,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2)),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.explore, 'Explore'),
-              _buildNavItem(2, Icons.person_outline, 'Profile'),
-              _buildNavItem(3, Icons.warning_amber_rounded, 'Issues'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    bool isActive = _currentNavIndex == index;
-    return InkWell(
-      onTap: () {
-        if (index == 0) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else if (index == 1) {
-          Navigator.pushReplacementNamed(context, '/explore');
-        } else if (index == 2) {
-          Navigator.pushReplacementNamed(context, '/profile');
-        } else {
-          setState(() => _currentNavIndex = index);
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 24,
-                color: isActive
-                    ? ReportIssueColors.primaryOrange
-                    : ReportIssueColors.textSecondary),
-            const SizedBox(height: 4),
-            Text(label,
-                style: GoogleFonts.roboto(
-                    fontSize: 11,
-                    color: isActive
-                        ? ReportIssueColors.primaryOrange
-                        : ReportIssueColors.textSecondary,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class MapGridPainter extends CustomPainter {

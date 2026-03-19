@@ -57,7 +57,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _selectedCategory = 'ALL';
 
   // UI state
-  int _currentNavIndex = 2; // Profile tab
   bool _isLoading = true;
   bool _isLoadingLocation = false;
 
@@ -77,11 +76,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Initialize Pakistan-based sample reports
 
     // userReports already fetch ho chuki hai ApiService.getMyReports() se upar
-    final profileResult = await ApiService.getUserProfile();
-    if (profileResult['success'] == true) {
-      _impactScore = (profileResult['data']['impact_score'] as num).toInt();
-    }
-
     final myReports = await ApiService.getMyReports();
     if (myReports['success'] == true) {
       final reports = myReports['data']['reports'] as List<dynamic>;
@@ -90,8 +84,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _impactPercentage = _totalReported > 0
           ? (_totalResolved / _totalReported) * 100
           : 0.0;
-      // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
-      _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
+
+      // Load authoritative impact_score from backend profile
+      final profileResult = await ApiService.getUserProfile();
+      if (profileResult['success'] == true) {
+        _impactScore = (profileResult['data']['impact_score'] as num).toInt();
+      }
 
       // Real reports from backend
       userReports = reports
@@ -302,13 +300,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return filtered;
   }
 
-  String _formatNumber(int number) {
-    if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}k';
-    }
-    return number.toString();
-  }
-
   /// Refresh profile data (called when returning from report submission)
   Future<void> _refreshProfileData() async {
     final profileResult = await ApiService.getUserProfile();
@@ -325,8 +316,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _impactPercentage = _totalReported > 0
             ? (_totalResolved / _totalReported) * 100
             : 0.0;
-        // Impact score: 5 pts per submission + 10 pts per resolved report, capped at 1000
-        _impactScore = ((_totalReported * 5) + (_totalResolved * 10)).clamp(0, 1000);
       }
     });
   }

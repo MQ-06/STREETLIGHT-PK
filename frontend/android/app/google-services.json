@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "891729174962",
+    "project_id": "streetlight-pk",
+    "storage_bucket": "streetlight-pk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:891729174962:android:ac925a630b633862c1c4ab",
+        "android_client_info": {
+          "package_name": "com.streetlight.streetlight"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBju5n1_Njo6Py5Rk0paaBgjl9SGr0I0X0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

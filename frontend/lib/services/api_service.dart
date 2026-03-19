@@ -54,6 +54,96 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────────
+  // PUSH (Phase 2)
+  // ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> updateFcmToken(String token) async {
+    try {
+      final headers = await _authHeaders();
+      headers['Content-Type'] = 'application/json';
+      final response = await http
+          .post(
+            Uri.parse('$baseURL/users/fcm-token'),
+            headers: headers,
+            body: jsonEncode({'fcm_token': token}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed'};
+    } catch (e) {
+      if (kDebugMode) print('updateFcmToken error [${e.runtimeType}]: $e');
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // NOTIFICATIONS (Phase 1: in-app)
+  // ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getNotifications({
+    bool unreadOnly = false,
+    int limit = 50,
+    int? cursor,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      final qp = <String, String>{
+        'unread_only': unreadOnly ? 'true' : 'false',
+        'limit': limit.toString(),
+      };
+      if (cursor != null) qp['cursor'] = cursor.toString();
+      final uri = Uri.parse('$baseURL/notifications').replace(queryParameters: qp);
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 15));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed to load notifications'};
+    } catch (e) {
+      if (kDebugMode) print('getNotifications error [${e.runtimeType}]: $e');
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUnreadNotificationCount() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(Uri.parse('$baseURL/notifications/unread-count'), headers: headers)
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> markNotificationRead(
+    int notificationId, {
+    bool read = true,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      headers['Content-Type'] = 'application/json';
+      final response = await http
+          .post(
+            Uri.parse('$baseURL/notifications/$notificationId/read'),
+            headers: headers,
+            body: jsonEncode({'read': read}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return {'success': true, 'data': data};
+      return {'success': false, 'error': data['detail'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // AUTH (your existing methods — unchanged)
   // ─────────────────────────────────────────────
 
