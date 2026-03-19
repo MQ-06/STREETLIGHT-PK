@@ -32,6 +32,12 @@ def init_firebase() -> bool:
     if not creds_path:
         logger.warning("FCM disabled: GOOGLE_APPLICATION_CREDENTIALS not set")
         return False
+    if not os.path.exists(creds_path):
+        logger.warning(
+            "FCM disabled: service-account file not found at "
+            f"{creds_path}"
+        )
+        return False
 
     try:
         import firebase_admin  # type: ignore[import-not-found]

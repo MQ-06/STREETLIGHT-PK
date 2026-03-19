@@ -21,6 +21,10 @@ secret.py
 *.key
 *.pem
 
+# Firebase Admin / FCM service account (DO NOT COMMIT)
+*service-account*.json
+firebase-service-account*.json
+
 # Python packages
 *.egg-info/
 dist/
