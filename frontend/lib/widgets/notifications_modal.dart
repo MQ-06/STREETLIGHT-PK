@@ -1,0 +1,290 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../models/notification_model.dart';
+import '../services/api_service.dart';
+import '../theme/app_colors.dart';
+
+/// Shows notifications in a modal bottom sheet.
+/// Pass [onDismiss] to refresh unread count when modal closes.
+void showNotificationsModal(
+  BuildContext context, {
+  VoidCallback? onDismiss,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Notifications',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      onDismiss?.call();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: NotificationsModalContent(
+                scrollController: controller,
+                onDismiss: () {
+                  Navigator.pop(ctx);
+                  onDismiss?.call();
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ).whenComplete(() => onDismiss?.call());
+}
+
+class NotificationsModalContent extends StatefulWidget {
+  final ScrollController scrollController;
+  final VoidCallback? onDismiss;
+
+  const NotificationsModalContent({
+    super.key,
+    required this.scrollController,
+    this.onDismiss,
+  });
+
+  @override
+  State<NotificationsModalContent> createState() =>
+      _NotificationsModalContentState();
+}
+
+class _NotificationsModalContentState extends State<NotificationsModalContent> {
+  bool _loading = true;
+  String? _error;
+  List<AppNotification> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final res = await ApiService.getNotifications(limit: 100);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      final data = res['data'] as Map<String, dynamic>;
+      final list = (data['notifications'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => AppNotification.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      setState(() {
+        _items = list;
+        _loading = false;
+      });
+    } else {
+      setState(() {
+        _error = (res['error'] ?? 'Failed').toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _markRead(AppNotification n, bool read) async {
+    final res = await ApiService.markNotificationRead(n.id, read: read);
+    if (res['success'] == true) {
+      await _load();
+    }
+  }
+
+  Future<void> _open(AppNotification n) async {
+    if (!n.isRead) {
+      await _markRead(n, true);
+    }
+    if (!mounted) return;
+    Navigator.pop(context); // close the modal
+    widget.onDismiss?.call();
+    if (!mounted) return;
+    if (n.type == 'VERIFY_REQUEST') {
+      Navigator.pushNamed(context, '/verification');
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(local);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${local.day}/${local.month}/${local.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _error!,
+            style: GoogleFonts.roboto(color: Colors.white70),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_off_outlined,
+                size: 52, color: Colors.white.withOpacity(0.5)),
+            const SizedBox(height: 10),
+            Text(
+              "You're all caught up!",
+              style: GoogleFonts.roboto(color: Colors.white70, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        itemBuilder: (context, index) {
+          final n = _items[index];
+          return InkWell(
+            onTap: () => _open(n),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: n.isRead
+                    ? AppColors.darkBrown.withOpacity(0.55)
+                    : AppColors.darkBrown,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: n.isRead
+                      ? Colors.transparent
+                      : AppColors.goldSecondary.withOpacity(0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.only(top: 6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: n.isRead
+                          ? Colors.white24
+                          : AppColors.goldSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          n.title,
+                          style: GoogleFonts.roboto(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if ((n.body ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            n.body!,
+                            style: GoogleFonts.roboto(
+                              fontSize: 12,
+                              color: Colors.white70,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Text(
+                              _formatTime(n.createdAt),
+                              style: GoogleFonts.roboto(
+                                fontSize: 11,
+                                color: Colors.white54,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () => _markRead(n, !n.isRead),
+                              child: Text(
+                                n.isRead ? 'Mark unread' : 'Mark read',
+                                style: GoogleFonts.roboto(
+                                  fontSize: 11,
+                                  color: AppColors.goldSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemCount: _items.length,
+      ),
+    );
+  }
+}

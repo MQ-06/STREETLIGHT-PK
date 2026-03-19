@@ -46,7 +46,9 @@ class LayerOrchestrator:
 
         # Supported model filenames — add more if teammate uses different name
         backend_root = Path(__file__).resolve().parent.parent
-        models_dir = backend_root / "ai_layers" / "layer1_ai_engine" / "model"
+        layer1_root = backend_root / "ai_layers" / "layer1_ai_engine"
+        # Check both "model" and "models" (common naming variations)
+        model_dirs = [layer1_root / "model", layer1_root / "models"]
 
         possible_model_names = [
             "best_model.pth",   # original expected name
@@ -57,11 +59,16 @@ class LayerOrchestrator:
         ]
 
         model_path = None
-        for name in possible_model_names:
-            candidate = models_dir / name
-            if candidate.exists():
-                model_path = candidate
-                logger.info(f"✓ Found model file: {name}")
+        for models_dir in model_dirs:
+            if not models_dir.exists():
+                continue
+            for name in possible_model_names:
+                candidate = models_dir / name
+                if candidate.exists():
+                    model_path = candidate
+                    logger.info(f"✓ Found model file: {name} in {models_dir.name}/")
+                    break
+            if model_path is not None:
                 break
 
         if model_path is not None:
@@ -73,7 +80,7 @@ class LayerOrchestrator:
                 logger.warning(f"⚠️  Layer 1 failed to load model: {e}")
                 logger.warning("⚠️  Running in FALLBACK mode — AI scoring disabled")
         else:
-            logger.warning(f"⚠️  No model file found in: {models_dir}")
+            logger.warning(f"⚠️  No model file found in: model/ or models/")
             logger.warning("⚠️  Searched for: " + ", ".join(possible_model_names))
             logger.warning("⚠️  Layer 1 DISABLED — server running in fallback mode")
             logger.warning("⚠️  ACTION NEEDED: Get model file from your teammate!")
@@ -183,7 +190,14 @@ class LayerOrchestrator:
                     'final_score': 50.0,
                     'is_valid_issue': True,
                     'message': 'AI model not loaded — manual review required',
-                    'fallback_mode': True
+                    'fallback_mode': True,
+                    'image_hash': None,
+                    'gps_verification': {
+                        'verification_status': 'no_gps_in_photo',
+                        'has_photo_gps': False,
+                        'distance_km': None,
+                        'is_spoofed': False,
+                    },
                 },
                 'final_score': 50.0,          # Score 50 → goes to REVIEW queue
                 'agent_decision': 'REVIEW',

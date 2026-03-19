@@ -1,5 +1,6 @@
 # backendMain/routers/flutter/mobile_auth.py
 from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Body
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import Optional
@@ -45,6 +46,36 @@ image_storage = ImageStorage()
 logger.info("AI Agent ready to process reports")
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+class FcmTokenRequest(BaseModel):
+    fcm_token: str
+
+
+@router.post("/fcm-token")
+def update_fcm_token(
+    body: FcmTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Store FCM device token for push notifications. Also exposed at /users/fcm-token."""
+    try:
+        profile = (
+            db.query(UserProfile)
+            .filter(UserProfile.user_id == current_user.id)
+            .first()
+        )
+        if profile is None:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        profile.fcm_token = body.fcm_token.strip()
+        db.commit()
+        logger.info(f"🔔 FCM token updated for user ID={current_user.id}")
+        return {"success": True, "message": "FCM token updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ update_fcm_token error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 
 def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
@@ -178,11 +209,16 @@ def create_report(
         ai_result = processing_result['layer1']
         ai_category = ai_result['predicted_class'].upper()
 
+        # Fallback mode (model unavailable): default to GARBAGE for manual review
         if ai_category not in ["POTHOLE", "GARBAGE"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"AI could not identify a civic issue. Detected: {ai_category}"
-            )
+            if ai_result.get("fallback_mode"):
+                logger.info("📋 Fallback mode: defaulting to GARBAGE for officer review")
+                ai_category = "GARBAGE"
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"AI could not identify a civic issue. Detected: {ai_category}"
+                )
 
         issue_category = IssueCategory.POTHOLE if ai_category == "POTHOLE" else IssueCategory.TRASH
 
@@ -449,7 +485,8 @@ def create_report(
         final_score_val = ai_result['final_score']
         # Hard-reject only truly low-quality submissions here; leave lifecycle
         # status to Layer 5 so there is a single source of truth.
-        if final_score_val < 60:
+        # Skip when in fallback mode (model unavailable) — report goes to manual review
+        if not ai_result.get("fallback_mode") and final_score_val < 60:
             raise HTTPException(
                 status_code=400,
                 detail={

@@ -63,7 +63,7 @@ class ApiService {
       headers['Content-Type'] = 'application/json';
       final response = await http
           .post(
-            Uri.parse('$baseURL/users/fcm-token'),
+            Uri.parse('$baseURL/reports/fcm-token'),
             headers: headers,
             body: jsonEncode({'fcm_token': token}),
           )

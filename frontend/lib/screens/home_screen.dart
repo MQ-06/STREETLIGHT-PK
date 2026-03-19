@@ -7,7 +7,7 @@ import '../models/report_model.dart';
 // Verification feed moved to Notifications screen; keep home focused on feed.
 import '../services/api_service.dart';
 import 'report_issue_screen.dart';
-import 'notifications_screen.dart';
+import '../widgets/notifications_modal.dart';
 
 class HomeColors {
   static const backgroundColor = Color(0xFFFFF8E7);
@@ -501,12 +501,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined,
                       color: HomeColors.textSecondary),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                    );
-                    _loadUnreadNotificationCount();
+                  onPressed: () {
+                    showNotificationsModal(context, onDismiss: _loadUnreadNotificationCount);
                   },
                 ),
                 if (_unreadNotificationCount > 0)
@@ -514,15 +510,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     right: 6,
                     top: 6,
                     child: Container(
-                      width: 18,
-                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                       decoration: const BoxDecoration(
                         color: HomeColors.statusOrange,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
-                          '$_unreadNotificationCount',
+                          _unreadNotificationCount > 99 ? '99+' : '$_unreadNotificationCount',
                           style: GoogleFonts.roboto(
                             fontSize: 10,
                             color: Colors.white,
