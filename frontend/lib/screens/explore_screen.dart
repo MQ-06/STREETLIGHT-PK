@@ -226,7 +226,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     final q = query.toLowerCase();
     return source.where((complaint) {
-      return complaint.location.toLowerCase().contains(query) ||
+      return complaint.location.toLowerCase().contains(q) ||
              complaint.referenceId.toLowerCase().contains(q) ||
              complaint.title.toLowerCase().contains(q) ||
              complaint.address.toLowerCase().contains(q);

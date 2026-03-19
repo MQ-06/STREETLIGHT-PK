@@ -257,9 +257,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       // can incorrectly report "denied" on some devices when permission is granted.
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
+        maxWidth: 3840,
+        maxHeight: 3840,
+        imageQuality: 95,
       );
       if (pickedFile != null) {
         setState(() => _selectedImage = File(pickedFile.path));

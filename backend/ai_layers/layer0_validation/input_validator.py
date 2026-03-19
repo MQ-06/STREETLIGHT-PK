@@ -132,7 +132,7 @@ class InputValidator:
         # Collect errors and warnings
         for check in checks:
             if not check['passed']:
-                if check['name'] in ['File Validity', 'Resolution', 'Blur Detection', 'Brightness', 'GPS Validation']:
+                if check['name'] in ['File Validity', 'Resolution', 'Blur Detection', 'Brightness', 'GPS Validation', 'Screenshot Detection']:
                     errors.append(check['message'])
                 else:
                     warnings.append(check['message'])
@@ -778,14 +778,24 @@ class InputValidator:
             # Check if EXIF data is missing or minimal
             has_minimal_exif = exif_data is None or len(exif_data) < 5
             
-            # Warn if both conditions are met
+            # BLOCK 1: Screenshot ratio + minimal EXIF (typical screenshot)
             if is_screenshot_ratio and has_minimal_exif:
-                logger.warning(f"⚠ Possible screenshot detected: {aspect_ratio:.2f} ratio, minimal EXIF")
+                logger.warning(f"🚫 Screenshot detected and BLOCKED: {aspect_ratio:.2f} ratio, minimal EXIF")
                 return {
                     'name': 'Screenshot Detection',
-                    'passed': True,
-                    'score': 60.0,
-                    'message': f'Warning: Image appears to be a screenshot (aspect ratio {aspect_ratio:.2f}, no camera EXIF). Please submit original photos.'
+                    'passed': False,
+                    'score': 0.0,
+                    'message': 'Screenshots are not allowed. Please take an original photo with your camera at the location.'
+                }
+            
+            # BLOCK 2: No camera EXIF at all (downloaded/copied images, cropped screenshots)
+            if exif_data is None or len(exif_data) < 3:
+                logger.warning(f"🚫 No camera metadata — BLOCKED (likely downloaded/fake image)")
+                return {
+                    'name': 'Screenshot Detection',
+                    'passed': False,
+                    'score': 0.0,
+                    'message': 'Photo must be taken with your device camera. Downloaded images and screenshots are not allowed.'
                 }
             
             logger.info(f"✓ Screenshot detection passed: likely original photo")

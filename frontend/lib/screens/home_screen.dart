@@ -376,6 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return r.title.toLowerCase().contains(q) ||
             r.description.toLowerCase().contains(q) ||
             r.location.toLowerCase().contains(q) ||
+            r.locationCity.toLowerCase().contains(q) ||
             r.reporterName.toLowerCase().contains(q);
       }).toList();
     }
