@@ -19,6 +19,7 @@ from model.verification import VerificationRequest, VerificationVote
 from utils.image_storage import ImageStorage
 from script.migrate_add_report_contribution_and_fields import migrate as migrate_report_fields
 from script.migrate_notifications import run_migration as migrate_notifications
+from utils.push import init_firebase
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +75,9 @@ async def startup_event():
         logger.info("Initializing image storage...")
         storage = ImageStorage()
         logger.info("✓ Image storage initialized")
+
+        # Best-effort init for push notifications (Phase 2)
+        init_firebase()
         
         # Clean up old temp files from previous crashes
         logger.info("Cleaning up old temp files...")
