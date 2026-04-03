@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, Users, ChevronDown } from 'lucide-react'
-import { clearAuthData, getApiBaseUrl, setAuthData } from '../utils/auth'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { getApiBaseUrl, setAuthData, clearAuthData } from '../utils/auth'
 
 function SignIn() {
   const [showPassword, setShowPassword] = useState(false)
-  const [role, setRole] = useState('municipal_officer')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
+  const [isLoading,    setIsLoading]    = useState(false)
+  const [error,        setError]        = useState('')
   const navigate = useNavigate()
 
   async function handleSignIn(event) {
@@ -17,27 +16,23 @@ function SignIn() {
     setError('')
 
     if (!email.trim() || !password.trim()) {
-      setError('Please enter email and password.')
+      setError('Please enter your email and password.')
       return
     }
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${getApiBaseUrl()}/admin/auth/login`, {
-        method: 'POST',
+      const res = await fetch(`${getApiBaseUrl()}/admin/auth/login`, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+        body:    JSON.stringify({ email: email.trim(), password }),
       })
 
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.detail || 'Sign in failed.')
-      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Sign in failed.')
 
       clearAuthData()
+      // data.user now includes role, city, department from backend
       setAuthData(data.access_token, data.user)
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -71,18 +66,11 @@ function SignIn() {
             Streetlight
           </span>
         </div>
-        <button
-          className="w-9 h-9 rounded-full flex items-center justify-center text-base"
-          style={{ backgroundColor: '#2d2d2d', color: '#fff' }}
-        >
-          🌙
-        </button>
       </header>
 
       {/* MAIN */}
       <main className="flex-1 flex flex-col items-center justify-center px-4">
 
-        {/* Icon circle */}
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
           style={{ backgroundColor: '#ede8dc' }}
@@ -99,15 +87,13 @@ function SignIn() {
           Welcome Back
         </h1>
         <p className="text-sm text-gray-500 text-center mb-5 leading-relaxed">
-          Manage your city reports and impact from your dashboard.
+          Manage city reports and accountability from your dashboard.
         </p>
 
-        {/* FORM CARD */}
         <form
           onSubmit={handleSignIn}
           className="bg-white rounded-3xl shadow-md px-8 py-6 w-full max-w-md flex flex-col gap-4"
         >
-
           {/* Email */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-semibold text-gray-800">Email Address</label>
@@ -116,8 +102,8 @@ function SignIn() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john.doe@city.com"
+                onChange={e => setEmail(e.target.value)}
+                placeholder="officer@streetlight.local"
                 className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
                 autoComplete="email"
               />
@@ -126,25 +112,20 @@ function SignIn() {
 
           {/* Password */}
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-gray-800">Password</label>
-              <a href="#" className="text-sm font-medium" style={{ color: '#b85c2a' }}>
-                Forgot password?
-              </a>
-            </div>
+            <label className="text-sm font-semibold text-gray-800">Password</label>
             <div className="flex items-center gap-3 bg-gray-100 rounded-full px-4 py-2.5">
               <Lock size={15} className="text-gray-400 shrink-0" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
                 autoComplete="current-password"
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword(p => !p)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -152,47 +133,18 @@ function SignIn() {
             </div>
           </div>
 
-          {/* Account Role */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-gray-800">Account Role</label>
-            <div className="relative flex items-center bg-gray-100 rounded-full px-4 py-2.5">
-              <Users size={15} className="text-gray-400 shrink-0 mr-3" />
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="flex-1 bg-transparent text-sm text-gray-700 outline-none appearance-none cursor-pointer"
-              >
-                <option value="municipal_officer">Municipal Officer</option>
-                <option value="department_head">Department Head</option>
-                <option value="city_planner">City Planner / Analyst</option>
-                <option value="system_admin">System Administrator</option>
-              </select>
-              <ChevronDown size={15} className="text-gray-400 absolute right-4 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Sign In Button */}
           <button
             type="submit"
             disabled={isLoading}
             className="w-full py-3 rounded-full text-white font-semibold text-sm tracking-wide transition hover:opacity-90 active:scale-95"
             style={{ backgroundColor: '#b85c2a' }}
           >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? 'Signing In…' : 'Sign In'}
           </button>
 
           {error && (
             <p className="text-sm text-red-600 text-center">{error}</p>
           )}
-
-          {/* Create Account */}
-          <p className="text-center text-sm text-gray-500">
-            Don't have an account?{' '}
-            <a href="#" className="font-bold" style={{ color: '#b85c2a' }}>
-              Create Account
-            </a>
-          </p>
-
         </form>
       </main>
 
