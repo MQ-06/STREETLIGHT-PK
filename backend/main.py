@@ -16,9 +16,13 @@ from model.users import User
 from model.user_profile import UserProfile
 from model.report import Report, ReportInteraction
 from model.verification import VerificationRequest, VerificationVote
+from model.routing_table import RoutingTable
+from model.report_logs import ReportLog
+from model.field_worker_tokens import FieldWorkerToken
 from utils.image_storage import ImageStorage
 from script.migrate_add_report_contribution_and_fields import migrate as migrate_report_fields
 from script.migrate_notifications import run_migration as migrate_notifications
+from script.migrate_admin_schema import run_migration as migrate_admin_schema
 from utils.push import init_firebase
 
 # Configure logging
@@ -66,6 +70,7 @@ async def startup_event():
         logger.info("Ensuring database schema is up to date...")
         migrate_report_fields()
         migrate_notifications()
+        migrate_admin_schema()
         logger.info("✓ Database schema ensured")
 
         # AI layers are initialized when mobile_auth module loads
