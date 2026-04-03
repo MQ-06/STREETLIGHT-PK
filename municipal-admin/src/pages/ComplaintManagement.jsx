@@ -1,90 +1,61 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Bell, Plus, Filter, Search, ChevronDown, Eye, Timer, Smile } from 'lucide-react'
+import { authFetch } from '../utils/auth'
 
 const NAV_LINKS = [
   { label: 'Complaints',  path: '/complaint-management' },
   { label: 'Analytics',   path: '/analytics' },
   { label: 'Departments', path: '/departments' },
-  { label: 'Settings',    path: '/settings' },
 ]
 
-const COMPLAINTS = [
-  {
-    id: '#SR-9921',
-    icon: '💡',
-    iconBg: '#fff7ed',
-    title: 'Broken Streetlight',
-    location: '5th Ave, Downtown',
-    department: 'Electricity',
-    severity: 'High',
-    severityBg: '#fef2f2',
-    severityColor: '#ef4444',
-    status: 'In Progress',
-    statusDot: '#f97316',
-    statusColor: '#f97316',
-  },
-  {
-    id: '#SR-9922',
-    icon: '💧',
-    iconBg: '#eff6ff',
-    title: 'Water Leakage',
-    location: 'Main Square',
-    department: 'Public Works',
-    severity: 'Medium',
-    severityBg: '#fff7ed',
-    severityColor: '#f97316',
-    status: 'Pending Review',
-    statusDot: '#f97316',
-    statusColor: '#f97316',
-  },
-  {
-    id: '#SR-9920',
-    icon: '🎨',
-    iconBg: '#f0fdf4',
-    title: 'Graffiti Removal',
-    location: 'Park Lane',
-    department: 'Sanitation',
-    severity: 'Low',
-    severityBg: '#f0fdf4',
-    severityColor: '#22c55e',
-    status: 'Resolved',
-    statusDot: '#22c55e',
-    statusColor: '#22c55e',
-  },
-  {
-    id: '#SR-9918',
-    icon: '🔧',
-    iconBg: '#faf5ff',
-    title: 'Major Pothole',
-    location: 'Bridge Road',
-    department: 'Urban Planning',
-    severity: 'High',
-    severityBg: '#fef2f2',
-    severityColor: '#ef4444',
-    status: 'In Progress',
-    statusDot: '#f97316',
-    statusColor: '#f97316',
-  },
+const STAGE_OPTIONS = [
+  { label: 'New',                  value: 'NEW' },
+  { label: 'Pending Verification', value: 'PENDING_VERIFICATION' },
+  { label: 'Verified',             value: 'VERIFIED' },
+  { label: 'In Progress',          value: 'IN_PROGRESS' },
+  { label: 'Awaiting Feedback',    value: 'AWAITING_FEEDBACK' },
+  { label: 'Resolved',             value: 'RESOLVED' },
 ]
-
-const STATUS_OPTIONS = ['In Progress', 'Pending Review', 'Resolved']
 
 export default function ComplaintManagement() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [searchVal, setSearchVal]   = useState('')
-  const [statuses, setStatuses]     = useState(['In Progress', 'Pending Review'])
-  const [department, setDepartment] = useState('All Departments')
-  const [dateRange, setDateRange]   = useState('')
-  const [activePage, setActivePage] = useState(1)
+  const [searchVal,    setSearchVal]    = useState('')
+  const [stageFilter,  setStageFilter]  = useState('')
+  const [dateRange,    setDateRange]    = useState('')
+  const [activePage,   setActivePage]   = useState(1)
+  const [complaints,   setComplaints]   = useState([])
+  const [total,        setTotal]        = useState(0)
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(null)
 
-  const toggleStatus = (s) => {
-    setStatuses(prev =>
-      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
-    )
-  }
+  const LIMIT = 20
+
+  const fetchComplaints = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const skip   = (activePage - 1) * LIMIT
+      const params = new URLSearchParams({ skip, limit: LIMIT })
+      if (stageFilter)  params.set('stage',  stageFilter)
+      if (searchVal.trim()) params.set('search', searchVal.trim())
+
+      const res  = await authFetch(`/admin/reports?${params}`)
+      const data = await res.json()
+      setComplaints(data.reports || [])
+      setTotal(data.total || 0)
+    } catch (e) {
+      setError('Failed to load complaints.')
+    } finally {
+      setLoading(false)
+    }
+  }, [activePage, stageFilter, searchVal])
+
+  useEffect(() => { fetchComplaints() }, [fetchComplaints])
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#f7f6e8' }}>
@@ -190,46 +161,19 @@ export default function ComplaintManagement() {
                 </div>
               </div>
 
-              {/* Status */}
+              {/* Stage */}
               <div>
-                <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Status</p>
-                <div className="flex flex-col gap-2">
-                  {STATUS_OPTIONS.map(s => (
-                    <label key={s} className="flex items-center gap-2 cursor-pointer">
-                      <div
-                        onClick={() => toggleStatus(s)}
-                        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all"
-                        style={{
-                          backgroundColor: statuses.includes(s) ? '#b85c2a' : 'transparent',
-                          border: statuses.includes(s) ? 'none' : '2px solid #d1d5db',
-                        }}
-                      >
-                        {statuses.includes(s) && (
-                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                      <span className="text-sm text-gray-700">{s}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Department */}
-              <div>
-                <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Department</p>
+                <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Stage</p>
                 <div className="relative">
                   <select
-                    value={department}
-                    onChange={e => setDepartment(e.target.value)}
+                    value={stageFilter}
+                    onChange={e => { setStageFilter(e.target.value); setActivePage(1) }}
                     className="w-full bg-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-700 outline-none appearance-none cursor-pointer"
                   >
-                    <option>All Departments</option>
-                    <option>Electricity</option>
-                    <option>Public Works</option>
-                    <option>Sanitation</option>
-                    <option>Urban Planning</option>
+                    <option value="">All Stages</option>
+                    {STAGE_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </select>
                   <ChevronDown size={13} className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
                 </div>
@@ -250,9 +194,9 @@ export default function ComplaintManagement() {
               <button
                 onClick={() => {
                   setSearchVal('')
-                  setStatuses(['In Progress', 'Pending Review'])
-                  setDepartment('All Departments')
+                  setStageFilter('')
                   setDateRange('')
+                  setActivePage(1)
                 }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50"
                 style={{ color: '#b85c2a', borderColor: '#e5e7eb' }}
@@ -261,18 +205,17 @@ export default function ComplaintManagement() {
               </button>
             </div>
 
-            {/* Active Tickets card — click → analytics */}
+            {/* Active Tickets card */}
             <div
               className="bg-white rounded-2xl p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => navigate('/analytics')}
             >
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-bold tracking-widest text-gray-400 uppercase">Active Tickets</p>
-                <span className="text-xs font-bold text-green-500">+12%</span>
+                <p className="text-xs font-bold tracking-widest text-gray-400 uppercase">Total Loaded</p>
               </div>
-              <p className="text-4xl font-extrabold text-gray-900 mb-3">482</p>
+              <p className="text-4xl font-extrabold text-gray-900 mb-3">{total}</p>
               <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full rounded-full w-2/5" style={{ backgroundColor: '#b85c2a' }} />
+                <div className="h-full rounded-full" style={{ backgroundColor: '#b85c2a', width: '60%' }} />
               </div>
             </div>
           </div>
@@ -293,20 +236,38 @@ export default function ComplaintManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {COMPLAINTS.map((c, i) => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400">
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-red-500">
+                        {error}
+                      </td>
+                    </tr>
+                  ) : complaints.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400">
+                        No complaints found.
+                      </td>
+                    </tr>
+                  ) : complaints.map(c => (
                     <tr
-                      key={i}
+                      key={c.id}
                       className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
                       style={{ borderColor: '#f9f9f9' }}
-                      onClick={() => navigate('/complaint-detail')}
+                      onClick={() => navigate(`/complaint-detail/${c.id}`)}
                     >
                       <td className="px-5 py-4">
-                        <span className="text-sm font-extrabold text-gray-800">{c.id}</span>
+                        <span className="text-sm font-extrabold text-gray-800">{c.display_id}</span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0"
-                            style={{ backgroundColor: c.iconBg }}>
+                            style={{ backgroundColor: '#fff7ed' }}>
                             {c.icon}
                           </div>
                           <div>
@@ -315,24 +276,28 @@ export default function ComplaintManagement() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm text-gray-600">{c.department}</td>
+                      <td className="px-5 py-4 text-sm text-gray-600 capitalize">
+                        {c.assigned_department ?? '—'}
+                      </td>
                       <td className="px-5 py-4">
                         <span
                           className="text-xs font-bold px-3 py-1 rounded-full"
-                          style={{ backgroundColor: c.severityBg, color: c.severityColor }}
+                          style={{ backgroundColor: c.severity_bg, color: c.severity_color }}
                         >
                           {c.severity}
                         </span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.statusDot }} />
-                          <span className="text-sm font-medium" style={{ color: c.statusColor }}>{c.status}</span>
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.stage_dot }} />
+                          <span className="text-sm font-medium" style={{ color: c.stage_dot }}>
+                            {c.kanban_stage.replace(/_/g, ' ')}
+                          </span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <button
-                          onClick={e => { e.stopPropagation(); navigate('/complaint-detail') }}
+                          onClick={e => { e.stopPropagation(); navigate(`/complaint-detail/${c.id}`) }}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           <Eye size={18} />
@@ -346,32 +311,40 @@ export default function ComplaintManagement() {
               {/* Pagination */}
               <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: '1px solid #f3f4f6' }}>
                 <p className="text-sm text-gray-500">
-                  Showing <span className="font-bold text-gray-800">1 – 10</span> of{' '}
-                  <span className="font-bold text-gray-800">2,482</span> complaints
+                  Showing{' '}
+                  <span className="font-bold text-gray-800">
+                    {Math.min((activePage - 1) * LIMIT + 1, total)} – {Math.min(activePage * LIMIT, total)}
+                  </span>{' '}
+                  of <span className="font-bold text-gray-800">{total}</span> complaints
                 </p>
                 <div className="flex items-center gap-1.5">
-                  <button className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700">Previous</button>
-                  {[1, 2, 3].map(p => (
+                  <button
+                    disabled={activePage === 1}
+                    onClick={() => setActivePage(p => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
                     <button
                       key={p}
                       onClick={() => setActivePage(p)}
                       className="w-8 h-8 rounded-lg text-sm font-bold transition-all"
                       style={{
                         backgroundColor: activePage === p ? '#b85c2a' : 'transparent',
-                        color: activePage === p ? '#fff' : '#6b7280',
+                        color:           activePage === p ? '#fff'    : '#6b7280',
                       }}
                     >
                       {p}
                     </button>
                   ))}
-                  <span className="text-gray-400 text-sm">...</span>
                   <button
-                    onClick={() => setActivePage(248)}
-                    className="w-8 h-8 rounded-lg text-sm font-bold text-gray-500 hover:bg-gray-100"
+                    disabled={activePage === totalPages}
+                    onClick={() => setActivePage(p => Math.min(totalPages, p + 1))}
+                    className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40"
                   >
-                    248
+                    Next
                   </button>
-                  <button className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700">Next</button>
                 </div>
               </div>
             </div>
