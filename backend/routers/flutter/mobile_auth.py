@@ -34,6 +34,7 @@ from utils.impact_score import (
     POINTS_REPORT_CREATED,
     POINTS_VOTE_CAST,
 )
+from services.routing.routing_service import route_report
 # Notifications/push are handled at later lifecycle stages (e.g. RESOLVED).
 
 # Configure logging
@@ -603,6 +604,46 @@ def create_report(
             score_result = {"combined_score": None, "verification_status": "PENDING"}
 
         # ==========================================
+        # STEP 9c: AUTO-ROUTING (Phase 1)
+        # Non-blocking — routes the report to the correct Department Officer
+        # based on GPS city detection and issue type → department mapping.
+        # Writes kanban_stage=NEW and an audit log entry.
+        # ==========================================
+        routing_result = {}
+        try:
+            issue_type_for_routing = (
+                ai_result.get("predicted_class", "").lower()
+                or issue_category.value.lower()
+            )
+            routing_result = route_report(
+                db=db,
+                report=report,
+                lat=location_lat,
+                lng=location_lng,
+                issue_type=issue_type_for_routing,
+            )
+            db.commit()   # commit routing fields + audit log in one shot
+            db.refresh(report)
+            if routing_result.get("success"):
+                logger.info(
+                    f"🚦 Routing: report ID={report.id} → "
+                    f"city={routing_result['city']}, "
+                    f"dept={routing_result['department']}, "
+                    f"officer='{routing_result['officer_name']}'"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ Routing incomplete for report ID={report.id}: "
+                    f"{routing_result.get('note')}"
+                )
+        except Exception as routing_exc:
+            logger.error(
+                f"❌ Routing failed (non-blocking) for report ID={report.id}: "
+                f"{routing_exc}",
+                exc_info=True,
+            )
+
+        # ==========================================
         # STEP 10: RETURN SUCCESS
         # ==========================================
         return {
@@ -639,6 +680,13 @@ def create_report(
             },
             "trust_check": trust_result,
             "final_score_result": score_result,
+            "routing": {
+                "success":      routing_result.get("success", False),
+                "city":         routing_result.get("city"),
+                "department":   routing_result.get("department"),
+                "officer_id":   routing_result.get("officer_id"),
+                "officer_name": routing_result.get("officer_name"),
+            },
         }
 
     except HTTPException:

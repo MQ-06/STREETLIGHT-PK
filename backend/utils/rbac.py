@@ -3,6 +3,11 @@ from model.users import User
 from utils.auth_utils import get_current_user
 
 ADMIN_ROLES = {
+    # Phase 1 roles (new)
+    "super_admin",
+    "city_admin",
+    "dept_officer",
+    # Legacy roles kept for backward compatibility with existing seed accounts
     "municipal_officer",
     "department_head",
     "city_planner",
