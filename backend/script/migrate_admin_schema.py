@@ -175,12 +175,15 @@ BEGIN
 
 
     -- ================================================================
-    -- 5. New roles in users.role — add check constraint if not present
-    --    (Postgres stores role as VARCHAR — no enum type change needed)
+    -- 5. city column on users (for city_admin scope)
     -- ================================================================
-    -- Nothing to alter: roles are stored as plain VARCHAR on users.role.
-    -- New valid values: 'super_admin', 'city_admin', 'dept_officer'
-    -- These are enforced at application layer (rbac.py), not DB level.
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'city'
+    ) THEN
+        ALTER TABLE users ADD COLUMN city VARCHAR(50);
+        RAISE NOTICE 'Added column: users.city';
+    END IF;
 
 END;
 $$;
