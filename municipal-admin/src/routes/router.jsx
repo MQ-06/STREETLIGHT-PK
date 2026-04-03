@@ -10,46 +10,86 @@ import Analytics from '../pages/Analytics'
 import Transparency from '../pages/Transparency'
 import Departments from '../pages/Departments'
 import UserRoles from '../pages/UserRoles'
-import { isAuthenticated } from '../utils/auth'
+import { AuthProvider } from '../context/AuthContext'
+import { isAuthenticated, hasRole } from '../utils/auth'
 
-function ProtectedRoute({ children }) {
-  if (!isAuthenticated()) {
-    return <Navigate to="/signin" replace />
-  }
+// ── Guards ───────────────────────────────────────────────────────────────────
+
+function ProtectedRoute({ children, roles }) {
+  if (!isAuthenticated()) return <Navigate to="/signin" replace />
+  if (roles && !hasRole(...roles)) return <Navigate to="/dashboard" replace />
   return children
 }
 
 function PublicOnlyRoute({ children }) {
-  if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
   return children
 }
 
-const router = createBrowserRouter([
-  // ── Public — no layout
-  { path: '/signin', element: <PublicOnlyRoute><SignIn /></PublicOnlyRoute> },
+// ── AuthProvider wrapper (needs to be inside RouterProvider for useNavigate) ─
 
-  // ── Authenticated — inside layout
+function WithAuth({ children }) {
+  return <AuthProvider>{children}</AuthProvider>
+}
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
+const router = createBrowserRouter([
+  // Public
+  {
+    path: '/signin',
+    element: (
+      <WithAuth>
+        <PublicOnlyRoute><SignIn /></PublicOnlyRoute>
+      </WithAuth>
+    ),
+  },
+
+  // Authenticated — inside layout
   {
     path: '/',
-    element: <ProtectedRoute><Layout /></ProtectedRoute>,
+    element: (
+      <WithAuth>
+        <ProtectedRoute><Layout /></ProtectedRoute>
+      </WithAuth>
+    ),
     children: [
-      { index: true,                  element: <Navigate to="/dashboard" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+
+      // All admin roles
       { path: 'dashboard',            element: <Dashboard /> },
-      { path: 'hotspot-map',          element: <HotspotMap /> },
-      { path: 'complaint-detail',     element: <ComplaintDetail /> },
       { path: 'complaint-management', element: <ComplaintManagement /> },
+      { path: 'complaint-detail/:id', element: <ComplaintDetail /> },
+      { path: 'complaint-detail',     element: <ComplaintDetail /> },
       { path: 'resolution-board',     element: <ResolutionBoard /> },
+      { path: 'hotspot-map',          element: <HotspotMap /> },
       { path: 'analytics',            element: <Analytics /> },
       { path: 'transparency',         element: <Transparency /> },
-      { path: 'departments',          element: <Departments /> },
-      { path: 'user-roles',           element: <UserRoles /> },
-      { path: '*',                    element: <Navigate to="/dashboard" replace /> },
+
+      // super_admin + city_admin only
+      {
+        path: 'departments',
+        element: (
+          <ProtectedRoute roles={['super_admin', 'city_admin']}>
+            <Departments />
+          </ProtectedRoute>
+        ),
+      },
+
+      // super_admin only
+      {
+        path: 'user-roles',
+        element: (
+          <ProtectedRoute roles={['super_admin']}>
+            <UserRoles />
+          </ProtectedRoute>
+        ),
+      },
+
+      { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],
   },
 
-  // ── Catch all — redirect to signin
   { path: '*', element: <Navigate to="/signin" replace /> },
 ])
 
