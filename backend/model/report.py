@@ -18,6 +18,16 @@ class ReportStatus(str, enum.Enum):
     RESOLVED = "RESOLVED"
 
 
+class KanbanStage(str, enum.Enum):
+    """Admin-side lifecycle stage — separate from citizen-facing ReportStatus."""
+    NEW                 = "NEW"
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    VERIFIED            = "VERIFIED"
+    IN_PROGRESS         = "IN_PROGRESS"
+    AWAITING_FEEDBACK   = "AWAITING_FEEDBACK"
+    RESOLVED            = "RESOLVED"
+
+
 class IssueCategory(str, enum.Enum):
     POTHOLE = "POTHOLE"
     TRASH = "TRASH"
@@ -118,6 +128,20 @@ class Report(Base):
     combined_score = Column(Float, nullable=True, comment="Weighted combination of AI, community, and trust scores")
     verification_status = Column(String(20), nullable=True, default="PENDING", comment="AUTO_VERIFIED | REVIEW_NEEDED | REJECTED | PENDING")
 
+    # ==========================================
+    # ADMIN ROUTING (Phase 1)
+    # ==========================================
+    assigned_city        = Column(String(50),  nullable=True, comment="Detected city: lahore | faisalabad")
+    assigned_department  = Column(String(50),  nullable=True, comment="Mapped dept: lmc | lwmc | fmc | fwmc")
+    assigned_officer_id  = Column(Integer, ForeignKey("users.id"), nullable=True, comment="FK to the Department Officer assigned")
+    assigned_at          = Column(DateTime(timezone=True), nullable=True, comment="Timestamp when auto-routing completed")
+    kanban_stage         = Column(
+        SAEnum(KanbanStage),
+        nullable=True,
+        default=KanbanStage.NEW,
+        comment="Admin Kanban pipeline stage"
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -129,7 +153,8 @@ class Report(Base):
     )
 
     # Relationships
-    reporter = relationship("User", backref="reports")
+    reporter = relationship("User", foreign_keys=[user_id], backref="reports")
+    assigned_officer = relationship("User", foreign_keys=[assigned_officer_id])
     interactions = relationship(
         "ReportInteraction",
         back_populates="report",
