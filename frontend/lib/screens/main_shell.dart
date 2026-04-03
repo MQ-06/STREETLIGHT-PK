@@ -17,15 +17,28 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   late final List<Widget> _pages;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   @override
   void initState() {
     super.initState();
     // Create once so state inside each tab is preserved via IndexedStack
-    _pages = const [
-      HomeScreen(),
+    _pages = [
+      HomeScreen(key: _homeKey),
       ExploreScreen(),
-      ReportIssueScreen(),
+      ReportIssueScreen(
+        fromTab: true,
+        onBack: () {
+          setState(() => _currentIndex = 0);
+        },
+        onSubmitted: () {
+          // Switch back to Home and refresh the feed so the new report appears.
+          setState(() => _currentIndex = 0);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _homeKey.currentState?.reloadFeed();
+          });
+        },
+      ),
       ProfileScreen(),
     ];
   }

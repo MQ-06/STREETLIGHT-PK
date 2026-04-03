@@ -23,9 +23,13 @@ class ApiService {
 
   /// Build full URL for images (backend returns relative paths like "reports/2026/02/27/uuid.jpg")
   static String imageUrl(String path) {
-    if (path.isEmpty) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    final p = path.startsWith('/') ? path : '/uploads/$path';
+    final p0 = path.trim();
+    if (p0.isEmpty) return '';
+    if (p0.startsWith('http://') || p0.startsWith('https://')) return p0;
+    // If backend accidentally includes spaces/newlines around cloudinary URLs,
+    // trim+detect before falling back to local `/uploads`.
+    if (p0.contains('cloudinary.com/')) return p0;
+    final p = p0.startsWith('/') ? p0 : '/uploads/$p0';
     return '$baseURL$p';
   }
 

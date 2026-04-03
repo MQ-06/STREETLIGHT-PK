@@ -29,7 +29,19 @@ class ReportIssueColors {
 }
 
 class ReportIssueScreen extends StatefulWidget {
-  const ReportIssueScreen({super.key});
+  /// When this screen is shown as a tab inside [MainShell],
+  /// we should NOT call [Navigator.pop] after submit.
+  /// Instead, we switch back to the Home tab via callbacks.
+  final bool fromTab;
+  final VoidCallback? onSubmitted;
+  final VoidCallback? onBack;
+
+  const ReportIssueScreen({
+    super.key,
+    this.fromTab = false,
+    this.onSubmitted,
+    this.onBack,
+  });
 
   @override
   State<ReportIssueScreen> createState() => _ReportIssueScreenState();
@@ -352,6 +364,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
     if (result['success'] == true) {
       await UserSession.incrementTotalReported();
+      if (!mounted) return; // context might be disposed while awaiting prefs
 
       if (result['merged'] == true) {
         showAppToast(
@@ -370,9 +383,22 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         );
       }
 
+      // Reset local form state so the image disappears after a successful submit.
+      setState(() {
+        _selectedImage = null;
+        _descriptionController.clear();
+      });
+
       // Wait a beat then pop back — pass true so HomeScreen refreshes feed
       await Future.delayed(const Duration(milliseconds: 1200));
-      if (mounted) Navigator.pop(context, true);
+      if (!mounted) return;
+
+      if (widget.fromTab) {
+        // When inside MainShell tab, switch tab + refresh feed via callback.
+        widget.onSubmitted?.call();
+      } else {
+        Navigator.pop(context, true);
+      }
     } else {
       // Show "Invalid Report" with basic error message
       String errorMsg = 'Invalid Report';
@@ -455,7 +481,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (widget.onBack != null) {
+                widget.onBack!();
+              } else {
+                Navigator.pop(context);
+              }
+            },
             icon: const Icon(Icons.arrow_back_ios,
                 color: ReportIssueColors.textPrimary, size: 20),
           ),

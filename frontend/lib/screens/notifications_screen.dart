@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/notifications_modal.dart';
+import '../theme/app_colors.dart';
 
 /// Route wrapper: shows the notifications modal when navigated to (e.g. from push tap).
 /// When modal is dismissed, pops this route.
@@ -23,8 +24,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (mounted) Navigator.pop(context);
       });
     });
+    // This route exists mainly to host the modal.
+    // Use a real background to avoid a "blank/black screen" if the modal
+    // isn't shown immediately.
     return const Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: SizedBox.shrink(),
     );
   }

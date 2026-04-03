@@ -26,21 +26,22 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   List<ReportModel> _reports = [];
   String _searchQuery = '';
   bool _isLoading = true;
-  bool _isLoadingMore = false;
   String? _errorMessage;
-  int _currentSkip = 0;
+  int _pageIndex = 1;
   static const int _pageSize = 20;
   bool _hasMore = true;
+  // Prevent older feed requests from overwriting fresher results.
+  int _feedRequestId = 0;
 
   int _unreadNotificationCount = 0;
 
@@ -48,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadFeed(refresh: true);
-    _scrollController.addListener(_onScroll);
     _loadUnreadNotificationCount();
   }
 
@@ -76,38 +76,35 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─────────────────────────────────────────────
 
   Future<void> _loadFeed({bool refresh = false}) async {
+    final requestId = ++_feedRequestId;
     if (refresh) {
       setState(() {
         _isLoading = true;
-        _currentSkip = 0;
         _hasMore = true;
         _errorMessage = null;
         // keep existing _reports so UI doesn't go blank on transient errors
       });
-      // Fetch nearby verification requests in parallel with the feed
+      // Refresh unread count in parallel with the feed.
       _loadUnreadNotificationCount();
     }
 
+    final skip = (_pageIndex - 1) * _pageSize;
     final result = await ApiService.getReportsFeed(
-      skip: refresh ? 0 : _currentSkip,
+      skip: skip,
       limit: _pageSize,
     );
 
     if (!mounted) return;
+    if (requestId != _feedRequestId) return; // stale response
 
     if (result['success'] == true) {
       final raw = result['data']['reports'] as List<dynamic>;
       final newReports = raw.map((r) => ReportModel.fromJson(r)).toList();
       setState(() {
-        if (refresh) {
-          _reports = newReports;
-        } else {
-          _reports.addAll(newReports);
-        }
-        _currentSkip = _reports.length;
+        // Pagination: always replace current page content.
+        _reports = newReports;
         _hasMore = newReports.length == _pageSize;
         _isLoading = false;
-        _isLoadingMore = false;
       });
     } else {
       // Session expired → unified logout flow
@@ -122,22 +119,27 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return;
       }
+      if (requestId != _feedRequestId) return; // stale response
       setState(() {
         _errorMessage = result['error'];
         _isLoading = false;
-        _isLoadingMore = false;
       });
     }
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore &&
-        _hasMore) {
-      setState(() => _isLoadingMore = true);
-      _loadFeed();
-    }
+  Future<void> _goToPage(int pageIndex) async {
+    if (pageIndex < 1) return;
+    if (pageIndex == _pageIndex) return;
+    if (pageIndex == _pageIndex + 1 && !_hasMore) return;
+
+    setState(() => _pageIndex = pageIndex);
+    await _loadFeed(refresh: true);
+  }
+
+  /// Used by [MainShell] when the report form is submitted from the tab.
+  Future<void> reloadFeed() async {
+    setState(() => _pageIndex = 1);
+    await _loadFeed(refresh: true);
   }
 
   // ─────────────────────────────────────────────
@@ -347,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildAppHeader(),
             _buildSearchBar(),
+            _buildPaginationControls(),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -357,10 +360,82 @@ class _HomeScreenState extends State<HomeScreen> {
             context,
             MaterialPageRoute(builder: (_) => const ReportIssueScreen()),
           );
-          if (result == true) _loadFeed(refresh: true);
+          if (result == true) {
+            setState(() => _pageIndex = 1);
+            await _loadFeed(refresh: true);
+          }
         },
         backgroundColor: HomeColors.statusOrange,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    if (_searchQuery.isNotEmpty) return const SizedBox.shrink();
+
+    final int current = _pageIndex;
+    final bool canPrev = current > 1;
+    final bool canNext = _hasMore;
+
+    final List<int> pages;
+    if (current == 1) {
+      pages = const [1, 2, 3];
+    } else {
+      pages = [current - 1, current, current + 1].where((p) => p >= 1).toList();
+    }
+
+    Widget pageButton(int p) {
+      final bool isActive = p == current;
+      final bool disabled = (p == current + 1 && !canNext) || (p == 0);
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          onTap: disabled ? null : () => _goToPage(p),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isActive ? HomeColors.statusOrange : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive
+                    ? HomeColors.statusOrange
+                    : HomeColors.statusOrange.withOpacity(0.35),
+              ),
+            ),
+            child: Text(
+              '$p',
+              style: GoogleFonts.roboto(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                color: isActive ? Colors.white : HomeColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: canPrev ? () => _goToPage(current - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+            color: HomeColors.statusOrange,
+            constraints: const BoxConstraints(),
+          ),
+          for (final p in pages) pageButton(p),
+          IconButton(
+            onPressed: canNext ? () => _goToPage(current + 1) : null,
+            icon: const Icon(Icons.chevron_right),
+            color: HomeColors.statusOrange,
+            constraints: const BoxConstraints(),
+          ),
+        ],
       ),
     );
   }
@@ -447,19 +522,8 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: visibleReports.length + (_isLoadingMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == visibleReports.length) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child:
-                    CircularProgressIndicator(color: HomeColors.statusOrange),
-              ),
-            );
-          }
-          return _buildReportCard(index);
-        },
+        itemCount: visibleReports.length,
+        itemBuilder: (context, index) => _buildReportCard(index),
       ),
     );
   }
@@ -701,12 +765,12 @@ class _HomeScreenState extends State<HomeScreen> {
           // Buttons
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-            child: Row(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 _buildSupportButton(index),
-                const SizedBox(width: 12),
                 _buildVerifyButton(index),
-                const SizedBox(width: 12),
                 _buildCommentButton(index),
               ],
             ),
@@ -779,6 +843,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Text(
               ' · ${report.timeAgo}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
               style: GoogleFonts.roboto(
                   fontSize: 12, color: HomeColors.textGray),
             ),
@@ -894,6 +961,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       : HomeColors.statusOrange,
                   fontWeight: FontWeight.w600,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
               ),
             ],
           ),
@@ -944,6 +1014,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       : HomeColors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
               ),
             ],
           ),
