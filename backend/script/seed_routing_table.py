@@ -66,6 +66,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "CityAdmin",
         "cnic":       "3520100000002",
         "role":       "city_admin",
+        "city":       "lahore",
     },
     {
         "email":      "faisalabad_ca@streetlight.local",
@@ -73,6 +74,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "CityAdmin",
         "cnic":       "3310100000003",
         "role":       "city_admin",
+        "city":       "faisalabad",
     },
     {
         "email":      "ahmad.raza@streetlight.local",
@@ -80,6 +82,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "Raza",
         "cnic":       "3520100000004",
         "role":       "dept_officer",
+        "city":       "lahore",
     },
     {
         "email":      "sara.khan@streetlight.local",
@@ -87,6 +90,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "Khan",
         "cnic":       "3520100000005",
         "role":       "dept_officer",
+        "city":       "lahore",
     },
     {
         "email":      "bilal.chaudhry@streetlight.local",
@@ -94,6 +98,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "Chaudhry",
         "cnic":       "3310100000006",
         "role":       "dept_officer",
+        "city":       "faisalabad",
     },
     {
         "email":      "ayesha.nawaz@streetlight.local",
@@ -101,6 +106,7 @@ ADMIN_ACCOUNTS = [
         "last_name":  "Nawaz",
         "cnic":       "3310100000007",
         "role":       "dept_officer",
+        "city":       "faisalabad",
     },
 ]
 
@@ -161,7 +167,8 @@ def seed() -> None:
                             last_name       = :ln,
                             cnic            = :cnic,
                             hashed_password = :pw,
-                            role            = :role
+                            role            = :role,
+                            city            = :city
                         WHERE email = :email
                     """),
                     {
@@ -170,6 +177,7 @@ def seed() -> None:
                         "cnic":  acc["cnic"],
                         "pw":    hashed_pw,
                         "role":  acc["role"],
+                        "city":  acc.get("city"),
                         "email": acc["email"],
                     },
                 )
@@ -178,9 +186,9 @@ def seed() -> None:
                 conn.execute(
                     text("""
                         INSERT INTO public.users
-                            (first_name, last_name, cnic, email, hashed_password, role, created_at)
+                            (first_name, last_name, cnic, email, hashed_password, role, city, created_at)
                         VALUES
-                            (:fn, :ln, :cnic, :email, :pw, :role, :created_at)
+                            (:fn, :ln, :cnic, :email, :pw, :role, :city, :created_at)
                     """),
                     {
                         "fn":         acc["first_name"],
@@ -189,6 +197,7 @@ def seed() -> None:
                         "email":      acc["email"],
                         "pw":         hashed_pw,
                         "role":       acc["role"],
+                        "city":       acc.get("city"),
                         "created_at": now,
                     },
                 )
