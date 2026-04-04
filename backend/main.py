@@ -10,6 +10,7 @@ from routers.flutter import notifications
 from routers.admin import auth as admin_auth
 from routers.admin import dashboard as admin_dashboard
 from routers.admin import reports as admin_reports
+from routers.admin import users as admin_users
 from middleware.cors import setup_cors
 import logging
 
@@ -56,6 +57,7 @@ app.include_router(notifications.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_reports.router)
+app.include_router(admin_users.router)
 
 
 @app.on_event("startup")
