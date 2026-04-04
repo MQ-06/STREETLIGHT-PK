@@ -47,16 +47,9 @@ export default function Sidebar() {
         className="flex items-center gap-2.5 px-6 py-5 cursor-pointer shrink-0"
         onClick={() => navigate('/dashboard')}
       >
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary shadow-sm shadow-primary/30">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <rect x="2"  y="10" width="3" height="11" rx="0.5" fill="#fff" />
-            <rect x="7"  y="6"  width="3" height="15" rx="0.5" fill="#fff" />
-            <rect x="12" y="8"  width="3" height="13" rx="0.5" fill="#fff" />
-            <rect x="17" y="4"  width="3" height="17" rx="0.5" fill="#fff" />
-          </svg>
-        </div>
+        <img src="/logo.jpg" alt="StreetLight" className="w-9 h-9 rounded-xl object-cover shadow-sm" />
         <div>
-          <span className="font-black text-base tracking-tight text-primary">Streetlight</span>
+          <span className="font-black text-base tracking-tight text-primary">StreetLight</span>
           <p className="text-xs text-gray-400 -mt-0.5">Admin Portal</p>
         </div>
       </div>

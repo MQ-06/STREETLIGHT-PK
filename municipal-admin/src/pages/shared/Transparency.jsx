@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { ClipboardList, CheckCircle, CalendarDays, Building2, Activity } from 'lucide-react'
 import { authFetch } from '../../utils/auth'
 import PageHeader from '../../components/PageHeader'
 
 const CITY_META = {
-  lahore:     { label: 'Lahore',     flag: '🏙️', depts: ['LMC', 'LWMC'] },
-  faisalabad: { label: 'Faisalabad', flag: '🏭', depts: ['FMC', 'FWMC'] },
+  lahore:     { label: 'Lahore',     depts: ['LMC', 'LWMC'] },
+  faisalabad: { label: 'Faisalabad', depts: ['FMC', 'FWMC'] },
 }
 
 const STAGE_LABELS = {
@@ -19,8 +20,8 @@ const STAGE_COLORS = {
 function StatCard({ icon, label, value, sub, color }) {
   return (
     <div className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex flex-col gap-3">
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-           style={{ backgroundColor: (color || '#B85C2E') + '18' }}>{icon}</div>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+           style={{ backgroundColor: (color || '#B85C2E') + '18', color: color || '#B85C2E' }}>{icon}</div>
       <div>
         <p className="text-xs text-gray-400 mb-1">{label}</p>
         <p className="text-2xl font-black text-gray-900">{value}</p>
@@ -77,22 +78,22 @@ export default function Transparency() {
       >
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold"
              style={{ backgroundColor: '#F0FDF4', color: '#22C55E' }}>
-          🟢 Live Data
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Live Data
         </div>
       </PageHeader>
 
       {/* Top KPIs */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard icon="📋" label="Total Reports (All Time)" color="#B85C2E"
+        <StatCard icon={<ClipboardList size={18} />} label="Total Reports (All Time)" color="#B85C2E"
           value={loading ? '…' : String(total)}
           sub="submitted by citizens" />
-        <StatCard icon="✅" label="Issues Resolved" color="#22C55E"
+        <StatCard icon={<CheckCircle size={18} />} label="Issues Resolved" color="#22C55E"
           value={loading ? '…' : String(resolved)}
           sub={loading ? '' : resRate + '% resolution rate'} />
-        <StatCard icon="📅" label="Reports This Month" color="#3B82F6"
+        <StatCard icon={<CalendarDays size={18} />} label="Reports This Month" color="#3B82F6"
           value={loading ? '…' : String(last30Total)}
           sub={loading ? '' : last30Resolved + ' resolved'} />
-        <StatCard icon="🏙️" label="Cities Covered" color="#8B5CF6"
+        <StatCard icon={<Building2 size={18} />} label="Cities Covered" color="#8B5CF6"
           value="2"
           sub="Lahore · Faisalabad" />
       </div>
@@ -233,7 +234,9 @@ export default function Transparency() {
           return (
             <div key={cityKey} className="bg-white rounded-3xl p-6 shadow-sm border border-warm-border">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl">{meta.flag}</span>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}>
+                  <Building2 size={18} />
+                </div>
                 <div>
                   <h3 className="text-base font-bold text-gray-900">{meta.label}</h3>
                   <p className="text-xs text-gray-400">{meta.depts.join(' · ')}</p>

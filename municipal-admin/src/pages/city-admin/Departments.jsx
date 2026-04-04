@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users } from 'lucide-react'
+import { Building2, Users, Settings } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import EmptyState from '../../components/EmptyState'
 import { getCity } from '../../utils/auth'
@@ -48,7 +48,7 @@ export default function CityAdminDepartments() {
         ))}
       </div>
 
-      <EmptyState icon="⚙️" title="Department Management Coming Soon" description="Edit issue type mappings and officer assignments from this panel." phase={3} />
+      <EmptyState icon={<Settings size={32} />} title="Department Management Coming Soon" description="Edit issue type mappings and officer assignments from this panel." phase={3} />
     </div>
   )
 }
