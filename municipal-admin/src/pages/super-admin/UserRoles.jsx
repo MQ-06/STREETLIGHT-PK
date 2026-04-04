@@ -1,53 +1,117 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, ChevronDown, SlidersHorizontal, Shield, Pencil, UserPlus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, ChevronDown, SlidersHorizontal, Shield, Pencil, UserPlus, X } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-
-const ROLE_STATS = [
-  { label: 'Super Admins',   value: '1',  icon: '🛡', iconBg: '#FFF3EB', filter: 'super_admin'  },
-  { label: 'City Admins',    value: '2',  icon: '🏙', iconBg: '#EFF6FF', filter: 'city_admin'   },
-  { label: 'Dept. Officers', value: '4',  icon: '👤', iconBg: '#F0FDF4', filter: 'dept_officer' },
-]
+import { authFetch } from '../../utils/auth'
 
 const ROLE_BADGE = {
-  super_admin:  { bg: '#FEF2F2', color: '#E05555', label: 'Super Admin'  },
-  city_admin:   { bg: '#EFF6FF', color: '#3B6EF0', label: 'City Admin'   },
-  dept_officer: { bg: '#FEF3E2', color: '#D4860B', label: 'Dept. Officer'},
+  super_admin:  { bg: '#FEF2F2', color: '#E05555', label: 'Super Admin'   },
+  city_admin:   { bg: '#EFF6FF', color: '#3B6EF0', label: 'City Admin'    },
+  dept_officer: { bg: '#FEF3E2', color: '#D4860B', label: 'Dept. Officer' },
 }
 
-const SEED_USERS = [
-  { name: 'Super Admin', email: 'super@streetlight.local', role: 'super_admin', city: null,        dept: null,   status: 'Active' },
-  { name: 'Lahore Admin', email: 'lahore@streetlight.local', role: 'city_admin', city: 'Lahore',   dept: null,   status: 'Active' },
-  { name: 'FSD Admin',    email: 'fsd@streetlight.local',    role: 'city_admin', city: 'Faisalabad', dept: null, status: 'Active' },
-  { name: 'LMC Officer',  email: 'lmc@streetlight.local',    role: 'dept_officer', city: 'Lahore', dept: 'LMC',  status: 'Active' },
-  { name: 'LWMC Officer', email: 'lwmc@streetlight.local',   role: 'dept_officer', city: 'Lahore', dept: 'LWMC', status: 'Active' },
-  { name: 'FMC Officer',  email: 'fmc@streetlight.local',    role: 'dept_officer', city: 'Faisalabad', dept: 'FMC', status: 'Active' },
-  { name: 'FWMC Officer', email: 'fwmc@streetlight.local',   role: 'dept_officer', city: 'Faisalabad', dept: 'FWMC', status: 'Active' },
-]
+const CITY_DEPTS = {
+  lahore:      ['lmc', 'lwmc'],
+  faisalabad:  ['fmc', 'fwmc'],
+}
+
+const EMPTY_FORM = {
+  first_name: '', last_name: '', email: '', password: '',
+  role: 'dept_officer', city: 'lahore', department: 'lmc',
+}
 
 export default function UserRoles() {
-  const navigate = useNavigate()
+  const [users,      setUsers]      = useState([])
+  const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
+  const [showModal,  setShowModal]  = useState(false)
+  const [form,       setForm]       = useState(EMPTY_FORM)
+  const [saving,     setSaving]     = useState(false)
+  const [formError,  setFormError]  = useState('')
 
-  const filtered = SEED_USERS.filter(u => {
-    const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-    const matchRole = roleFilter === 'All' || u.role === roleFilter
+  function loadUsers() {
+    setLoading(true)
+    authFetch('/admin/users')
+      .then(r => r.json())
+      .then(d => { setUsers(Array.isArray(d) ? d : (d.users || [])); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => { loadUsers() }, [])
+
+  const roleCounts = users.reduce((acc, u) => {
+    acc[u.role] = (acc[u.role] || 0) + 1
+    return acc
+  }, {})
+
+  const ROLE_STATS = [
+    { label: 'Super Admins',   value: roleCounts.super_admin  || 0, icon: '🛡', iconBg: '#FFF3EB', filter: 'super_admin'  },
+    { label: 'City Admins',    value: roleCounts.city_admin   || 0, icon: '🏙', iconBg: '#EFF6FF', filter: 'city_admin'   },
+    { label: 'Dept. Officers', value: roleCounts.dept_officer || 0, icon: '👤', iconBg: '#F0FDF4', filter: 'dept_officer' },
+  ]
+
+  const filtered = users.filter(u => {
+    const name  = ((u.first_name || '') + ' ' + (u.last_name || '')).toLowerCase()
+    const email = (u.email || '').toLowerCase()
+    const term  = search.toLowerCase()
+    const matchSearch = name.includes(term) || email.includes(term)
+    const matchRole   = roleFilter === 'All' || u.role === roleFilter
     return matchSearch && matchRole
   })
+
+  async function handleCreateUser(e) {
+    e.preventDefault()
+    setFormError('')
+    if (!form.first_name || !form.last_name || !form.email || !form.password) {
+      setFormError('All fields are required.')
+      return
+    }
+    setSaving(true)
+    const body = {
+      first_name: form.first_name,
+      last_name:  form.last_name,
+      email:      form.email,
+      password:   form.password,
+      role:       form.role,
+    }
+    if (form.role === 'city_admin' || form.role === 'dept_officer') body.city = form.city
+    if (form.role === 'dept_officer') body.department = form.department
+
+    try {
+      const res = await authFetch('/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setFormError(err.detail || 'Failed to create user.')
+        setSaving(false)
+        return
+      }
+      setShowModal(false)
+      setForm(EMPTY_FORM)
+      loadUsers()
+    } catch {
+      setFormError('Network error. Please try again.')
+    }
+    setSaving(false)
+  }
+
+  const depts = CITY_DEPTS[form.city] || []
 
   return (
     <div className="p-6 flex flex-col gap-6">
       <PageHeader title="User & Role Management" subtitle="Control access levels and manage municipal officer accounts.">
         <button
-          onClick={() => setRoleFilter('All')}
+          onClick={() => { setShowModal(true); setFormError('') }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark transition-colors"
         >
           <UserPlus size={15} /> Add New User
         </button>
       </PageHeader>
 
+      {/* Role Stats */}
       <div className="grid grid-cols-3 gap-4">
         {ROLE_STATS.map(s => (
           <div
@@ -60,12 +124,13 @@ export default function UserRoles() {
             </div>
             <div>
               <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-1">{s.label}</p>
-              <p className="text-3xl font-black text-gray-900">{s.value}</p>
+              <p className="text-3xl font-black text-gray-900">{loading ? '…' : s.value}</p>
             </div>
           </div>
         ))}
       </div>
 
+      {/* User Table */}
       <div className="bg-white rounded-3xl shadow-sm border border-warm-border overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-warm-border">
           <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2.5 w-80">
@@ -105,14 +170,21 @@ export default function UserRoles() {
         </div>
 
         <div className="flex flex-col divide-y divide-gray-50">
-          {filtered.map((u, i) => {
-            const badge = ROLE_BADGE[u.role] || { bg: '#F3F4F6', color: '#6B7280', label: u.role }
-            const initials = u.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+          {loading ? (
+            <div className="py-12 text-center text-sm text-gray-400">Loading users…</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-12 text-center text-sm text-gray-400">No users found.</div>
+          ) : filtered.map((u, i) => {
+            const badge    = ROLE_BADGE[u.role] || { bg: '#F3F4F6', color: '#6B7280', label: u.role }
+            const fullName = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || u.email
+            const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+            const isActive = u.is_active !== false
+            const city     = u.city       || null
+            const dept     = u.department || null
             return (
               <div
-                key={i}
-                className="grid grid-cols-5 gap-4 items-center px-6 py-4 hover:bg-gray-50 cursor-pointer"
-                onClick={() => navigate('/complaint-management')}
+                key={u.id || i}
+                className="grid grid-cols-5 gap-4 items-center px-6 py-4 hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -122,7 +194,7 @@ export default function UserRoles() {
                     {initials}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{u.name}</p>
+                    <p className="text-sm font-bold text-gray-900">{fullName}</p>
                     <p className="text-xs text-gray-400">{u.email}</p>
                   </div>
                 </div>
@@ -132,27 +204,21 @@ export default function UserRoles() {
                   </span>
                 </div>
                 <div className="text-sm text-gray-600">
-                  {u.city && <p>{u.city}</p>}
-                  {u.dept && <p className="text-xs text-gray-400 uppercase">{u.dept}</p>}
-                  {!u.city && !u.dept && <p className="text-gray-400">—</p>}
+                  {city && <p className="capitalize">{city}</p>}
+                  {dept && <p className="text-xs text-gray-400 uppercase">{dept}</p>}
+                  {!city && !dept && <p className="text-gray-400">—</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: u.status === 'Active' ? '#22C55E' : '#9CA3AF' }} />
-                  <span className="text-sm font-medium" style={{ color: u.status === 'Active' ? '#22C55E' : '#9CA3AF' }}>
-                    {u.status}
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isActive ? '#22C55E' : '#9CA3AF' }} />
+                  <span className="text-sm font-medium" style={{ color: isActive ? '#22C55E' : '#9CA3AF' }}>
+                    {isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500"
-                    onClick={e => { e.stopPropagation(); navigate('/departments') }}
-                  >
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500">
                     <Shield size={15} />
                   </button>
-                  <button
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500"
-                    onClick={e => { e.stopPropagation(); navigate('/resolution-board') }}
-                  >
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500">
                     <Pencil size={15} />
                   </button>
                 </div>
@@ -164,10 +230,134 @@ export default function UserRoles() {
         <div className="flex items-center justify-between px-6 py-4 border-t border-warm-border">
           <p className="text-sm text-gray-500">
             Showing <span className="font-bold text-gray-800">{filtered.length}</span> of{' '}
-            <span className="font-bold text-gray-800">{SEED_USERS.length}</span> users
+            <span className="font-bold text-gray-800">{users.length}</span> users
           </p>
         </div>
       </div>
+
+      {/* Create User Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-warm-border">
+              <h2 className="text-lg font-black text-gray-900">Add New User</h2>
+              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="p-6 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">First Name</label>
+                  <input
+                    type="text" required
+                    value={form.first_name}
+                    onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="Ali"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">Last Name</label>
+                  <input
+                    type="text" required
+                    value={form.last_name}
+                    onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="Hassan"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-500">Email</label>
+                <input
+                  type="email" required
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="officer@streetlight.local"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-500">Password</label>
+                <input
+                  type="password" required
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-500">Role</label>
+                <select
+                  value={form.role}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value, department: CITY_DEPTS[f.city]?.[0] || '' }))}
+                  className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                >
+                  <option value="dept_officer">Dept. Officer</option>
+                  <option value="city_admin">City Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+
+              {(form.role === 'city_admin' || form.role === 'dept_officer') && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">City</label>
+                  <select
+                    value={form.city}
+                    onChange={e => setForm(f => ({ ...f, city: e.target.value, department: CITY_DEPTS[e.target.value]?.[0] || '' }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                  >
+                    <option value="lahore">Lahore</option>
+                    <option value="faisalabad">Faisalabad</option>
+                  </select>
+                </div>
+              )}
+
+              {form.role === 'dept_officer' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">Department</label>
+                  <select
+                    value={form.department}
+                    onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                  >
+                    {depts.map(d => (
+                      <option key={d} value={d}>{d.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formError && (
+                <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-xl">{formError}</p>
+              )}
+
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-warm-border text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-60"
+                >
+                  {saving ? 'Creating…' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
