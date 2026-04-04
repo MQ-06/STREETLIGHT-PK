@@ -26,6 +26,7 @@ from model.routing_table import RoutingTable
 from model.report_logs import ReportLog
 from services.routing.city_detector import detect_city, get_city_display_name
 from services.routing.dept_mapper import map_issue_to_department, get_department_display_name
+from utils.email_service import send_new_report_notification
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,26 @@ def route_report(
             f"✅ routing: report ID={report.id} → "
             f"city={city}, dept={dept}, officer='{officer_name}' (id={officer_id})"
         )
+
+        # ── Step 6: Email notification (non-blocking) ─────────────��────
+        notif_email = getattr(officer, "notification_email", None)
+        if notif_email:
+            try:
+                send_new_report_notification(
+                    to_email     = notif_email,
+                    officer_name = officer_name,
+                    report_id    = report.id,
+                    display_id   = getattr(report, "display_id", None) or f"SL-{report.id:05d}",
+                    category     = report.category.value if report.category else "OTHER",
+                    severity     = getattr(report, "severity", None) or "unknown",
+                    city         = city,
+                    department   = dept,
+                    description  = getattr(report, "description", None),
+                    lat          = lat,
+                    lng          = lng,
+                )
+            except Exception as email_exc:
+                logger.warning(f"⚠️ Email notification failed (non-blocking): {email_exc}")
 
     except Exception as exc:
         result["note"] = f"Routing failed (non-blocking): {exc}"
