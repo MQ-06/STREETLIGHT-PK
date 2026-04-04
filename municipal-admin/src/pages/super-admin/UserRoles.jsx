@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, ChevronDown, SlidersHorizontal, Shield, Pencil, UserPlus, X } from 'lucide-react'
+import { Search, ChevronDown, SlidersHorizontal, Shield, Pencil, UserPlus, X, ShieldCheck, Building2, User } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import { authFetch } from '../../utils/auth'
 
@@ -52,9 +52,9 @@ export default function UserRoles() {
   }, {})
 
   const ROLE_STATS = [
-    { label: 'Super Admins',   value: roleCounts.super_admin  || 0, icon: '🛡', iconBg: '#FFF3EB', filter: 'super_admin'  },
-    { label: 'City Admins',    value: roleCounts.city_admin   || 0, icon: '🏙', iconBg: '#EFF6FF', filter: 'city_admin'   },
-    { label: 'Dept. Officers', value: roleCounts.dept_officer || 0, icon: '👤', iconBg: '#F0FDF4', filter: 'dept_officer' },
+    { label: 'Super Admins',   value: roleCounts.super_admin  || 0, icon: <ShieldCheck size={20} />, iconBg: '#FFF3EB', iconColor: '#B85C2E', filter: 'super_admin'  },
+    { label: 'City Admins',    value: roleCounts.city_admin   || 0, icon: <Building2   size={20} />, iconBg: '#EFF6FF', iconColor: '#3B82F6', filter: 'city_admin'   },
+    { label: 'Dept. Officers', value: roleCounts.dept_officer || 0, icon: <User        size={20} />, iconBg: '#F0FDF4', iconColor: '#22C55E', filter: 'dept_officer' },
   ]
 
   const filtered = users.filter(u => {
@@ -167,7 +167,7 @@ export default function UserRoles() {
             className="bg-white rounded-3xl px-6 py-5 shadow-sm border border-warm-border flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setRoleFilter(s.filter)}
           >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: s.iconBg }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: s.iconBg, color: s.iconColor }}>
               {s.icon}
             </div>
             <div>
