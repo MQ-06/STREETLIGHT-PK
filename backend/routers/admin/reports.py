@@ -23,6 +23,8 @@ from model.report_logs import ReportLog
 from model.users import User
 from utils.auth_utils import get_current_user
 from utils.rbac import require_roles
+from utils.email_service import send_resolved_notification
+from utils.push import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +291,40 @@ def update_stage(
     db.refresh(report)
 
     logger.info(f"Stage update: report {report_id} → {new_stage.value} by user {current_user.id}")
+
+    # ── Notify citizen when resolved ─────────────────────────────────────────
+    if new_stage == KanbanStage.RESOLVED and report.reporter:
+        citizen       = report.reporter
+        citizen_name  = f"{citizen.first_name} {citizen.last_name}"
+        display_id    = f"#SR-{report.id:04d}"
+        category_val  = report.category.value if report.category else "OTHER"
+
+        # Email notification
+        try:
+            send_resolved_notification(
+                to_email    = citizen.email,
+                citizen_name= citizen_name,
+                report_id   = report.id,
+                display_id  = display_id,
+                category    = category_val,
+                city        = report.assigned_city or "",
+                department  = report.assigned_department or "",
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Resolved email failed (non-blocking): {e}")
+
+        # FCM push notification
+        try:
+            send_push_to_user(
+                db,
+                user_id = citizen.id,
+                title   = "Issue Resolved! ✅",
+                body    = f"Your report {display_id} has been resolved by the municipal team.",
+                data    = {"report_id": str(report.id), "type": "RESOLVED"},
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Push notification failed (non-blocking): {e}")
+
     return {"success": True, "stage": new_stage.value, "note": note}
 
 

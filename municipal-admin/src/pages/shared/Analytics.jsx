@@ -116,8 +116,44 @@ export default function Analytics() {
             </button>
           ))}
         </div>
-        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark">
-          <Download size={14} /> Export
+        <button
+          onClick={() => {
+            if (!analytics) return
+            const rows = [
+              ['Metric', 'Value'],
+              ['Days', String(days)],
+              ['Total Reports', String(analytics.total ?? 0)],
+              ['Resolved', String(analytics.resolved ?? 0)],
+              ['Resolution Rate', analytics.total ? ((analytics.resolved / analytics.total) * 100).toFixed(1) + '%' : '0%'],
+              [],
+              ['--- Daily Trend ---'],
+              ['Date', 'Total'],
+              ...(analytics.trend || []).map(t => [t.date, String(t.total)]),
+              [],
+              ['--- Category Breakdown ---'],
+              ['Category', 'Count'],
+              ...Object.entries(analytics.category_breakdown || {}).map(([k, v]) => [k, String(v)]),
+              [],
+              ['--- Department Breakdown ---'],
+              ['Department', 'Total', 'Resolved'],
+              ...Object.entries(analytics.dept_breakdown || {}).map(([d, t]) => [d.toUpperCase(), String(t), String(analytics.dept_resolved?.[d] || 0)]),
+              [],
+              ['--- Stage Distribution ---'],
+              ['Stage', 'Count'],
+              ...Object.entries(analytics.stage_distribution || {}).map(([s, c]) => [s, String(c)]),
+            ]
+            const csv  = rows.map(r => r.join(',')).join('\n')
+            const blob = new Blob([csv], { type: 'text/csv' })
+            const url  = URL.createObjectURL(blob)
+            const a    = document.createElement('a')
+            a.href     = url
+            a.download = 'streetlight-analytics-' + days + 'd.csv'
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark"
+        >
+          <Download size={14} /> Export CSV
         </button>
       </PageHeader>
 
