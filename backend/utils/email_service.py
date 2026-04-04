@@ -171,6 +171,99 @@ def _build_html(
 """
 
 
+def send_resolved_notification(
+    *,
+    to_email: str,
+    citizen_name: str,
+    report_id: int,
+    display_id: str,
+    category: str,
+    city: str,
+    department: str,
+    admin_url: Optional[str] = None,
+) -> bool:
+    """Send a 'your report has been resolved' email to the citizen."""
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_pass = os.getenv("SMTP_PASSWORD", "").strip()
+    from_name = os.getenv("SMTP_FROM_NAME", "StreetLight")
+    base_url  = admin_url or os.getenv("ADMIN_BASE_URL", "http://localhost:5173").rstrip("/")
+
+    if not smtp_user or not smtp_pass:
+        logger.warning("Email skipped: SMTP_USER / SMTP_PASSWORD not set in .env")
+        return False
+    if not to_email or "@" not in to_email:
+        return False
+
+    category_display = (category or "").replace("_", " ").title()
+    city_display     = (city or "").capitalize()
+    dept_display     = (department or "").upper()
+    subject          = f"[StreetLight] Your Report Has Been Resolved — {display_id}"
+
+    html = f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F7F6E8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F6E8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:#22C55E;padding:28px 32px;">
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;">✅ Issue Resolved!</h1>
+            <p style="margin:6px 0 0 0;color:#dcfce7;font-size:13px;">StreetLight Municipal Platform</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 16px 0;color:#111827;font-size:15px;">Dear <strong>{citizen_name}</strong>,</p>
+            <p style="margin:0 0 20px 0;color:#374151;font-size:14px;line-height:1.6;">
+              Great news! The civic issue you reported has been resolved by the
+              <strong>{dept_display}</strong> department in <strong>{city_display}</strong>.
+              Thank you for helping improve your city.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#F7F6E8;border-radius:12px;border:1px solid #EDE8DC;margin-bottom:24px;">
+              <tr><td style="padding:20px 24px;">
+                <p style="margin:0 0 12px 0;font-size:11px;font-weight:700;letter-spacing:2px;color:#9CA3AF;text-transform:uppercase;">Report Details</p>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#374151;"><span style="color:#6B7280;display:inline-block;width:120px;">Report ID</span><strong>{display_id}</strong></p>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#374151;"><span style="color:#6B7280;display:inline-block;width:120px;">Category</span>{category_display}</p>
+                <p style="margin:0;font-size:13px;color:#374151;"><span style="color:#6B7280;display:inline-block;width:120px;">Resolved by</span>{dept_display}, {city_display}</p>
+              </td></tr>
+            </table>
+            <p style="margin:0;color:#9CA3AF;font-size:12px;line-height:1.6;">
+              If the issue persists, please submit a new report via the StreetLight app.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F7F6E8;border-top:1px solid #EDE8DC;padding:16px 32px;">
+            <p style="margin:0;color:#9CA3AF;font-size:11px;text-align:center;">StreetLight — AI-Powered Civic Issue Reporting System</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>
+"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"{from_name} <{smtp_user}>"
+    msg["To"]      = to_email
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [to_email], msg.as_string())
+        logger.info(f"✅ Resolved email sent → {to_email} for report {display_id}")
+        return True
+    except Exception as exc:
+        logger.warning(f"⚠️ Resolved email failed → {to_email}: {exc}")
+        return False
+
+
 def send_new_report_notification(
     *,
     to_email: str,
