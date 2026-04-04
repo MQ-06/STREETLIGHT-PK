@@ -10,6 +10,7 @@ import ResolutionBoard     from '../pages/shared/ResolutionBoard'
 import HotspotMap          from '../pages/shared/HotspotMap'
 import Analytics           from '../pages/shared/Analytics'
 import Transparency        from '../pages/shared/Transparency'
+import ErrorBoundary       from '../components/ErrorBoundary'
 import { AuthProvider }    from '../context/AuthContext'
 import { isAuthenticated, hasRole } from '../utils/auth'
 
@@ -32,10 +33,12 @@ const router = createBrowserRouter([
   {
     path: '/signin',
     element: <WithAuth><PublicOnlyRoute><SignIn /></PublicOnlyRoute></WithAuth>,
+    errorElement: <ErrorBoundary />,
   },
   {
     path: '/',
     element: <WithAuth><ProtectedRoute><Layout /></ProtectedRoute></WithAuth>,
+    errorElement: <ErrorBoundary />,
     children: [
       { index: true,                       element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard',                 element: <Dashboard /> },
