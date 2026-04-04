@@ -30,6 +30,12 @@ export default function UserRoles() {
   const [saving,     setSaving]     = useState(false)
   const [formError,  setFormError]  = useState('')
 
+  // Edit modal state
+  const [editUser,    setEditUser]    = useState(null)
+  const [editForm,    setEditForm]    = useState({})
+  const [editSaving,  setEditSaving]  = useState(false)
+  const [editError,   setEditError]   = useState('')
+
   function loadUsers() {
     setLoading(true)
     authFetch('/admin/users')
@@ -59,6 +65,46 @@ export default function UserRoles() {
     const matchRole   = roleFilter === 'All' || u.role === roleFilter
     return matchSearch && matchRole
   })
+
+  function openEdit(u) {
+    setEditUser(u)
+    setEditError('')
+    setEditForm({
+      notification_email: u.notification_email || '',
+      city:               u.city               || '',
+      department:         u.department          || '',
+      is_active:          u.is_active !== false,
+    })
+  }
+
+  async function handleEditSave(e) {
+    e.preventDefault()
+    setEditError('')
+    setEditSaving(true)
+    const body = {}
+    if (editForm.notification_email !== (editUser.notification_email || '')) body.notification_email = editForm.notification_email
+    if (editForm.city        !== (editUser.city       || '')) body.city        = editForm.city
+    if (editForm.department  !== (editUser.department || '')) body.department  = editForm.department
+    if (editForm.is_active   !== (editUser.is_active !== false)) body.is_active = editForm.is_active
+    try {
+      const res = await authFetch('/admin/users/' + editUser.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setEditError(err.detail || 'Failed to update user.')
+        setEditSaving(false)
+        return
+      }
+      setEditUser(null)
+      loadUsers()
+    } catch {
+      setEditError('Network error.')
+    }
+    setEditSaving(false)
+  }
 
   async function handleCreateUser(e) {
     e.preventDefault()
@@ -220,7 +266,10 @@ export default function UserRoles() {
                   <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500">
                     <Shield size={15} />
                   </button>
-                  <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500">
+                  <button
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-500"
+                    onClick={e => { e.stopPropagation(); openEdit(u) }}
+                  >
                     <Pencil size={15} />
                   </button>
                 </div>
@@ -236,6 +285,84 @@ export default function UserRoles() {
           </p>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-warm-border">
+              <div>
+                <h2 className="text-lg font-black text-gray-900">Edit User</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{editUser.email}</p>
+              </div>
+              <button onClick={() => setEditUser(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                <X size={15} />
+              </button>
+            </div>
+            <form onSubmit={handleEditSave} className="p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-500">Notification Email</label>
+                <input type="email" value={editForm.notification_email}
+                  onChange={e => setEditForm(f => ({ ...f, notification_email: e.target.value }))}
+                  className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="officer@gmail.com" />
+              </div>
+
+              {(editUser.role === 'city_admin' || editUser.role === 'dept_officer') && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">City</label>
+                  <select value={editForm.city}
+                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value, department: CITY_DEPTS[e.target.value]?.[0] || '' }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                    <option value="lahore">Lahore</option>
+                    <option value="faisalabad">Faisalabad</option>
+                  </select>
+                </div>
+              )}
+
+              {editUser.role === 'dept_officer' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-500">Department</label>
+                  <select value={editForm.department}
+                    onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))}
+                    className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                    {(CITY_DEPTS[editForm.city] || []).map(d => (
+                      <option key={d} value={d}>{d.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-3 rounded-xl border border-warm-border">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Account Active</p>
+                  <p className="text-xs text-gray-400">Inactive users cannot log in</p>
+                </div>
+                <button type="button"
+                  onClick={() => setEditForm(f => ({ ...f, is_active: !f.is_active }))}
+                  className="relative w-11 h-6 rounded-full transition-colors"
+                  style={{ backgroundColor: editForm.is_active ? '#22C55E' : '#D1D5DB' }}>
+                  <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
+                        style={{ left: editForm.is_active ? '22px' : '2px' }} />
+                </button>
+              </div>
+
+              {editError && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-xl">{editError}</p>}
+
+              <div className="flex gap-3 mt-1">
+                <button type="button" onClick={() => setEditUser(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-warm-border text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editSaving}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-60">
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create User Modal */}
       {showModal && (
