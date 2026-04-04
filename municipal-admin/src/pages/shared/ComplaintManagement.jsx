@@ -28,14 +28,7 @@ export default function ComplaintManagement() {
 
   return (
     <div className="p-6 flex flex-col gap-5">
-      <PageHeader title="Complaint Management" subtitle="Manage and track municipal issues reported by citizens.">
-        <button
-          onClick={() => navigate('/complaint-detail')}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold bg-primary hover:bg-primary-dark transition-colors"
-        >
-          <Plus size={15} /> New Complaint
-        </button>
-      </PageHeader>
+      <PageHeader title="Complaint Management" subtitle="Manage and track municipal issues reported by citizens." />
 
       <div className="flex gap-5">
         {/* Filters */}
