@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Download, MapPin, TrendingUp, TrendingDown } from 'lucide-react'
+import { Calendar, Download, MapPin, TrendingUp, TrendingDown, ClipboardList, CheckCircle, Inbox, RefreshCw } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import { authFetch } from '../../utils/auth'
 
@@ -96,10 +96,10 @@ export default function Analytics() {
   const deptMax       = Math.max(...deptEntries.map(d => d[1]), 1)
 
   const STATS = [
-    { icon: '📋', iconBg: '#FFF7ED', label: 'Total Reports',   value: loading ? '…' : String(total),   change: null },
-    { icon: '✅', iconBg: '#F0FDF4', label: 'Resolution Rate', value: loading ? '…' : resRate + '%',   change: null },
-    { icon: '📥', iconBg: '#EFF6FF', label: 'New',             value: loading ? '…' : String(analytics?.stage_distribution?.NEW ?? 0),         change: null },
-    { icon: '🔄', iconBg: '#FEF3E2', label: 'In Progress',     value: loading ? '…' : String(analytics?.stage_distribution?.IN_PROGRESS ?? 0), change: null },
+    { icon: <ClipboardList size={18} />, iconBg: '#FFF7ED', iconColor: '#B85C2E', label: 'Total Reports',   value: loading ? '…' : String(total)   },
+    { icon: <CheckCircle  size={18} />, iconBg: '#F0FDF4', iconColor: '#22C55E', label: 'Resolution Rate', value: loading ? '…' : resRate + '%'   },
+    { icon: <Inbox        size={18} />, iconBg: '#EFF6FF', iconColor: '#3B82F6', label: 'New',             value: loading ? '…' : String(analytics?.stage_distribution?.NEW ?? 0)         },
+    { icon: <RefreshCw    size={18} />, iconBg: '#FEF3E2', iconColor: '#F97316', label: 'In Progress',     value: loading ? '…' : String(analytics?.stage_distribution?.IN_PROGRESS ?? 0) },
   ]
 
   return (
@@ -161,7 +161,7 @@ export default function Analytics() {
       <div className="grid grid-cols-4 gap-4">
         {STATS.map(s => (
           <div key={s.label} className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex flex-col gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: s.iconBg }}>{s.icon}</div>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: s.iconBg, color: s.iconColor }}>{s.icon}</div>
             <div>
               <p className="text-xs text-gray-400 mb-1">{s.label}</p>
               <p className="text-2xl font-black text-gray-900">{s.value}</p>

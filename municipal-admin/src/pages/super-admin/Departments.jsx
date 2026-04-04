@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, CheckCircle } from 'lucide-react'
+import { Building2, Users, CheckCircle, Settings } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import EmptyState from '../../components/EmptyState'
 
@@ -104,7 +104,7 @@ export default function SuperAdminDepartments() {
       </div>
 
       <EmptyState
-        icon="⚙️"
+        icon={<Settings size={32} />}
         title="Department CRUD Coming Soon"
         description="Add, edit, and deactivate departments and routing rules from this panel."
         phase={3}
