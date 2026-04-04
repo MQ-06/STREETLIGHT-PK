@@ -155,71 +155,83 @@ function SignIn() {
       </div>
 
       {/* ── Right panel (Form Theme) ── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 overflow-y-auto relative z-0">
+        
+        {/* Subtle grid pattern background */}
+        <div className="absolute inset-0 z-[-1] opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#B85C2E 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }}></div>
 
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2.5 mb-8">
-          <img src="/logo.jpg" alt="StreetLight" className="w-10 h-10 rounded-xl object-cover" />
+          <img src="/logo.jpg" alt="StreetLight" className="w-10 h-10 rounded-xl object-cover shadow-sm bg-black" />
           <span className="font-black text-xl text-gray-900 tracking-tight">StreetLight</span>
         </div>
 
         {/* Desktop form container elements */}
-        <div className="w-full max-w-[400px] flex flex-col items-center">
-          <div className="hidden lg:flex mb-8 items-center justify-center w-20 h-20 rounded-3xl shadow-sm border border-warm-border overflow-hidden bg-white">
-            <img src="/logo.jpg" alt="StreetLight" className="w-full h-full object-cover" />
+        <div className="w-full max-w-[420px] flex flex-col items-center relative z-10">
+          
+          <div className="hidden lg:flex mb-8 items-center justify-center w-24 h-24 rounded-[30px] shadow-2xl shadow-[#B85C2E]/20 overflow-hidden bg-[#060913] border-[6px] border-white transition-transform hover:scale-105 duration-300 relative group">
+             <div className="absolute inset-0 bg-[#B85C2E] opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+            <img src="/logo.jpg" alt="StreetLight" className="w-[85%] h-[85%] object-cover rounded-[20px]" />
           </div>
 
-          <h2 className="text-3xl font-black text-gray-900 mb-2 tracking-tight text-center">Welcome back</h2>
-          <p className="text-sm text-gray-500 mb-8 text-center">Sign in to your municipal admin account</p>
+          <h2 className="text-4xl font-black text-gray-900 mb-3 tracking-tighter text-center">Welcome back</h2>
+          <p className="text-sm text-gray-500 mb-10 text-center font-medium">Sign in to your municipal admin account</p>
 
-          <form onSubmit={handleSignIn} className="bg-white rounded-3xl shadow-sm border border-warm-border p-8 w-full flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">Email</label>
-              <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-3 border border-warm-border focus-within:border-[#B85C2E] focus-within:ring-2 focus-within:ring-[#B85C2E]/10 transition-all">
-                <Mail size={15} className="text-gray-400 shrink-0" />
+          <form onSubmit={handleSignIn} className="bg-white/70 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white p-10 w-full flex flex-col gap-6 relative overflow-hidden">
+            
+            {/* Subtle glow rim inside form */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#B85C2E]/40 to-transparent"></div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-extrabold text-gray-700 ml-1">Email address</label>
+              <div className="flex items-center gap-3 bg-gray-50/80 rounded-2xl px-4 h-14 border border-gray-200 transition-all duration-300 focus-within:bg-white focus-within:border-[#B85C2E] focus-within:ring-4 focus-within:ring-[#B85C2E]/10 focus-within:shadow-sm group">
+                <Mail size={18} className="text-gray-400 group-focus-within:text-[#B85C2E] transition-colors shrink-0" />
                 <input
                   type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="officer@streetlight.local"
-                  className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none w-full"
+                  className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none w-full font-medium"
                   autoComplete="email"
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">Password</label>
-              <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-3 border border-warm-border focus-within:border-[#B85C2E] focus-within:ring-2 focus-within:ring-[#B85C2E]/10 transition-all">
-                <Lock size={15} className="text-gray-400 shrink-0" />
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-sm font-extrabold text-gray-700">Password</label>
+               
+              </div>
+              <div className="flex items-center gap-3 bg-gray-50/80 rounded-2xl px-4 h-14 border border-gray-200 transition-all duration-300 focus-within:bg-white focus-within:border-[#B85C2E] focus-within:ring-4 focus-within:ring-[#B85C2E]/10 focus-within:shadow-sm group">
+                <Lock size={18} className="text-gray-400 group-focus-within:text-[#B85C2E] transition-colors shrink-0" />
                 <input
                   type={showPassword ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none w-full"
+                  className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none w-full font-medium tracking-wider"
                   autoComplete="current-password"
                 />
-                <button type="button" onClick={() => setShowPassword(p => !p)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                <button type="button" onClick={() => setShowPassword(p => !p)} className="text-gray-400 hover:text-gray-700 transition-colors">
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                <span className="text-xs font-medium text-red-600">{error}</span>
+              <div className="flex items-center gap-2 bg-red-50/80 border border-red-100 rounded-2xl px-4 py-3 animate-[fadeIn_0.2s_ease-out]">
+                <span className="text-xs font-bold text-red-600">{error}</span>
               </div>
             )}
 
             <button
               type="submit" disabled={isLoading}
-              className="w-full py-3.5 mt-2 rounded-2xl text-white font-bold text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 shadow-sm"
-              style={{ backgroundColor: '#B85C2E', boxShadow: '0 4px 14px rgba(184,92,46,0.3)' }}
+              className="w-full h-14 mt-4 rounded-2xl text-white font-extrabold text-[15px] tracking-wide transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_25px_-5px_rgba(184,92,46,0.5)] active:scale-[0.98] disabled:opacity-60 disabled:hover:translate-y-0"
+              style={{ backgroundColor: '#B85C2E', boxShadow: '0 6px 15px -3px rgba(184,92,46,0.3)' }}
             >
               {isLoading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
 
-          <p className="mt-8 text-xs text-gray-400 text-center">
-            StreetLight Civic Platform · Municipal Admin v2.0
+          <p className="mt-10 text-[11px] font-bold text-gray-400/80 text-center tracking-widest uppercase">
+            StreetLight Civic Platform · Admin v2.0
           </p>
         </div>
       </div>
