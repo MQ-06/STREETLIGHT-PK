@@ -14,8 +14,9 @@ class User(Base):
     email=Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(String(50), nullable=False, default="citizen")
-    reset_token = Column(String, nullable=True)
-    city = Column(String(50), nullable=True)   # set for city_admin and dept_officer
+    reset_token        = Column(String, nullable=True)
+    city               = Column(String(50),  nullable=True)   # set for city_admin and dept_officer
+    notification_email = Column(String(255), nullable=True)   # real email for alert notifications
 
     created_at = Column(
         DateTime(timezone=True),
