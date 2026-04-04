@@ -77,36 +77,40 @@ ADMIN_ACCOUNTS = [
         "city":       "faisalabad",
     },
     {
-        "email":      "ahmad.raza@streetlight.local",
-        "first_name": "Ahmad",
-        "last_name":  "Raza",
-        "cnic":       "3520100000004",
-        "role":       "dept_officer",
-        "city":       "lahore",
+        "email":              "ahmad.raza@streetlight.local",
+        "first_name":         "Ahmad",
+        "last_name":          "Raza",
+        "cnic":               "3520100000004",
+        "role":               "dept_officer",
+        "city":               "lahore",
+        "notification_email": "bitf22m006@pucit.edu.pk",
     },
     {
-        "email":      "sara.khan@streetlight.local",
-        "first_name": "Sara",
-        "last_name":  "Khan",
-        "cnic":       "3520100000005",
-        "role":       "dept_officer",
-        "city":       "lahore",
+        "email":              "sara.khan@streetlight.local",
+        "first_name":         "Sara",
+        "last_name":          "Khan",
+        "cnic":               "3520100000005",
+        "role":               "dept_officer",
+        "city":               "lahore",
+        "notification_email": "bitf22m044@pucit.edu.pk",
     },
     {
-        "email":      "bilal.chaudhry@streetlight.local",
-        "first_name": "Bilal",
-        "last_name":  "Chaudhry",
-        "cnic":       "3310100000006",
-        "role":       "dept_officer",
-        "city":       "faisalabad",
+        "email":              "bilal.chaudhry@streetlight.local",
+        "first_name":         "Bilal",
+        "last_name":          "Chaudhry",
+        "cnic":               "3310100000006",
+        "role":               "dept_officer",
+        "city":               "faisalabad",
+        "notification_email": "bitf22m011@pucit.edu.pk",
     },
     {
-        "email":      "ayesha.nawaz@streetlight.local",
-        "first_name": "Ayesha",
-        "last_name":  "Nawaz",
-        "cnic":       "3310100000007",
-        "role":       "dept_officer",
-        "city":       "faisalabad",
+        "email":              "ayesha.nawaz@streetlight.local",
+        "first_name":         "Ayesha",
+        "last_name":          "Nawaz",
+        "cnic":               "3310100000007",
+        "role":               "dept_officer",
+        "city":               "faisalabad",
+        "notification_email": "bitf22m015@pucit.edu.pk",
     },
 ]
 
@@ -163,22 +167,24 @@ def seed() -> None:
                 conn.execute(
                     text("""
                         UPDATE public.users
-                        SET first_name      = :fn,
-                            last_name       = :ln,
-                            cnic            = :cnic,
-                            hashed_password = :pw,
-                            role            = :role,
-                            city            = :city
+                        SET first_name         = :fn,
+                            last_name          = :ln,
+                            cnic               = :cnic,
+                            hashed_password    = :pw,
+                            role               = :role,
+                            city               = :city,
+                            notification_email = :notif_email
                         WHERE email = :email
                     """),
                     {
-                        "fn":    acc["first_name"],
-                        "ln":    acc["last_name"],
-                        "cnic":  acc["cnic"],
-                        "pw":    hashed_pw,
-                        "role":  acc["role"],
-                        "city":  acc.get("city"),
-                        "email": acc["email"],
+                        "fn":          acc["first_name"],
+                        "ln":          acc["last_name"],
+                        "cnic":        acc["cnic"],
+                        "pw":          hashed_pw,
+                        "role":        acc["role"],
+                        "city":        acc.get("city"),
+                        "notif_email": acc.get("notification_email"),
+                        "email":       acc["email"],
                     },
                 )
                 logger.info(f"  updated  {acc['email']}  ({acc['role']})")
@@ -186,19 +192,20 @@ def seed() -> None:
                 conn.execute(
                     text("""
                         INSERT INTO public.users
-                            (first_name, last_name, cnic, email, hashed_password, role, city, created_at)
+                            (first_name, last_name, cnic, email, hashed_password, role, city, notification_email, created_at)
                         VALUES
-                            (:fn, :ln, :cnic, :email, :pw, :role, :city, :created_at)
+                            (:fn, :ln, :cnic, :email, :pw, :role, :city, :notif_email, :created_at)
                     """),
                     {
-                        "fn":         acc["first_name"],
-                        "ln":         acc["last_name"],
-                        "cnic":       acc["cnic"],
-                        "email":      acc["email"],
-                        "pw":         hashed_pw,
-                        "role":       acc["role"],
-                        "city":       acc.get("city"),
-                        "created_at": now,
+                        "fn":          acc["first_name"],
+                        "ln":          acc["last_name"],
+                        "cnic":        acc["cnic"],
+                        "email":       acc["email"],
+                        "pw":          hashed_pw,
+                        "role":        acc["role"],
+                        "city":        acc.get("city"),
+                        "notif_email": acc.get("notification_email"),
+                        "created_at":  now,
                     },
                 )
                 logger.info(f"  created  {acc['email']}  ({acc['role']})")

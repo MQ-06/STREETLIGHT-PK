@@ -17,6 +17,7 @@ const CITY_DEPTS = {
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', password: '',
   role: 'dept_officer', city: 'lahore', department: 'lmc',
+  notification_email: '',
 }
 
 export default function UserRoles() {
@@ -76,6 +77,7 @@ export default function UserRoles() {
     }
     if (form.role === 'city_admin' || form.role === 'dept_officer') body.city = form.city
     if (form.role === 'dept_officer') body.department = form.department
+    if (form.notification_email) body.notification_email = form.notification_email
 
     try {
       const res = await authFetch('/admin/users', {
@@ -289,6 +291,19 @@ export default function UserRoles() {
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="••••••••"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-500">
+                  Notification Email <span className="text-gray-400 font-normal">(real inbox for alerts)</span>
+                </label>
+                <input
+                  type="email"
+                  value={form.notification_email}
+                  onChange={e => setForm(f => ({ ...f, notification_email: e.target.value }))}
+                  className="px-3 py-2.5 rounded-xl border border-warm-border text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="officer@gmail.com"
                 />
               </div>
 

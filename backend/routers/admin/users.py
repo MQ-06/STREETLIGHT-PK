@@ -54,16 +54,17 @@ def _user_dict(u: User, db: Session) -> dict:
             .first()
         )
     return {
-        "id":         u.id,
-        "first_name": u.first_name,
-        "last_name":  u.last_name,
-        "email":      u.email,
-        "role":       u.role,
-        "city":       u.city,
-        "department": routing.department if routing else None,
-        "dept_name":  routing.department_name if routing else None,
-        "is_active":  True,
-        "created_at": u.created_at.isoformat() if u.created_at else None,
+        "id":                 u.id,
+        "first_name":         u.first_name,
+        "last_name":          u.last_name,
+        "email":              u.email,
+        "role":               u.role,
+        "city":               u.city,
+        "department":         routing.department if routing else None,
+        "dept_name":          routing.department_name if routing else None,
+        "notification_email": u.notification_email,
+        "is_active":          True,
+        "created_at":         u.created_at.isoformat() if u.created_at else None,
     }
 
 
@@ -89,14 +90,15 @@ def list_users(
 # ── POST /admin/users ───────────────────────────────────────────────────────
 
 class CreateUserBody(BaseModel):
-    first_name: str
-    last_name:  str
-    email:      str
-    password:   str
-    role:       str          # city_admin | dept_officer
-    city:       Optional[str] = None
-    department: Optional[str] = None
-    dept_name:  Optional[str] = None
+    first_name:         str
+    last_name:          str
+    email:              str
+    password:           str
+    role:               str          # city_admin | dept_officer
+    city:               Optional[str] = None
+    department:         Optional[str] = None
+    dept_name:          Optional[str] = None
+    notification_email: Optional[str] = None
 
 
 @router.post("")
@@ -117,13 +119,14 @@ def create_user(
             break
 
     user = User(
-        first_name      = body.first_name.strip(),
-        last_name       = body.last_name.strip(),
-        email           = body.email.strip().lower(),
-        cnic            = cnic,
-        hashed_password = hash_password(body.password),
-        role            = body.role,
-        city            = body.city.lower() if body.city else None,
+        first_name         = body.first_name.strip(),
+        last_name          = body.last_name.strip(),
+        email              = body.email.strip().lower(),
+        cnic               = cnic,
+        hashed_password    = hash_password(body.password),
+        role               = body.role,
+        city               = body.city.lower() if body.city else None,
+        notification_email = body.notification_email.strip() if body.notification_email else None,
     )
     db.add(user)
     db.flush()
@@ -147,9 +150,10 @@ def create_user(
 # ── PATCH /admin/users/{id} ─────────────────────────────────────────────────
 
 class UpdateUserBody(BaseModel):
-    city:       Optional[str]  = None
-    department: Optional[str]  = None
-    is_active:  Optional[bool] = None
+    city:               Optional[str]  = None
+    department:         Optional[str]  = None
+    is_active:          Optional[bool] = None
+    notification_email: Optional[str]  = None
 
 
 @router.patch("/{user_id}")
@@ -167,6 +171,9 @@ def update_user(
 
     if body.city is not None:
         user.city = body.city.lower()
+
+    if body.notification_email is not None:
+        user.notification_email = body.notification_email.strip() or None
 
     # Deactivate routing rows if officer is being deactivated
     if body.is_active is False:
