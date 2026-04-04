@@ -71,13 +71,13 @@ export default function Sidebar() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all w-full text-left"
-              style={{
-                backgroundColor: active ? '#B85C2E' : 'transparent',
-                color:           active ? '#fff'    : '#6B7280',
-              }}
+              className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 w-full text-left active:scale-[0.98] ${
+                active 
+                  ? 'bg-[#B85C2E] text-white shadow-md shadow-[#B85C2E]/20' 
+                  : 'text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm hover:-translate-y-px'
+              }`}
             >
-              <Icon size={15} />
+              <Icon size={15} className={`transition-colors ${active ? 'text-white' : 'text-gray-400 group-hover:text-[#B85C2E]'}`} />
               {label}
             </button>
           )
@@ -104,9 +104,9 @@ export default function Sidebar() {
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:bg-white hover:text-gray-700 transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm hover:-translate-y-px transition-all active:scale-[0.98] group"
         >
-          <LogOut size={14} />
+          <LogOut size={14} className="group-hover:text-red-500 transition-colors" />
           Sign Out
         </button>
       </div>
