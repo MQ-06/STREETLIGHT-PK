@@ -21,7 +21,7 @@ export default function Topbar({ showNewReport = true }) {
       style={{ backgroundColor: '#fff', borderBottom: '1px solid #EDE8DC' }}
     >
       {/* Search */}
-      <div className="flex items-center gap-3 flex-1 max-w-lg bg-gray-50 rounded-2xl px-4 py-2.5 border border-warm-border">
+      <div className="flex items-center gap-3 flex-1 max-w-lg bg-gray-50 rounded-2xl px-4 py-2.5 border border-warm-border transition-all duration-200 focus-within:bg-white focus-within:border-[#B85C2E] focus-within:ring-2 focus-within:ring-[#B85C2E]/20 focus-within:shadow-md">
         <Search size={14} className="text-gray-400 shrink-0" />
         <input
           type="text"
@@ -36,27 +36,16 @@ export default function Topbar({ showNewReport = true }) {
       <div className="flex items-center gap-3">
         {/* Bell */}
         <button
-          className="w-9 h-9 rounded-xl bg-gray-50 border border-warm-border flex items-center justify-center relative hover:bg-white transition-colors"
+          className="w-9 h-9 rounded-xl bg-gray-50 border border-warm-border flex items-center justify-center relative hover:bg-white hover:shadow-sm hover:-translate-y-px active:scale-[0.95] transition-all"
           onClick={() => navigate('/complaint-management')}
         >
           <Bell size={15} className="text-gray-500" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary border-2 border-white" />
         </button>
 
-        {/* New report */}
-        {showNewReport && (
-          <button
-            onClick={() => navigate('/complaint-management')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark transition-colors shadow-sm shadow-primary/20"
-          >
-            <Plus size={14} />
-            New Report
-          </button>
-        )}
-
         {/* User pill */}
         <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-gray-50 hover:shadow-sm hover:-translate-y-px active:scale-[0.98] transition-all border border-transparent hover:border-warm-border"
           onClick={() => navigate('/user-roles')}
         >
           <div

@@ -31,8 +31,8 @@ export default function StatCard({
 
   return (
     <div
-      className={`rounded-3xl p-6 flex flex-col gap-3 shadow-sm border transition-shadow
-        ${dark ? 'border-transparent shadow-primary/20' : 'border-warm-border hover:shadow-md'}
+      className={`group rounded-3xl p-6 flex flex-col gap-3 shadow-sm border transition-all duration-300
+        ${dark ? 'border-transparent shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1' : 'border-warm-border hover:border-[#B85C2E]/20 hover:shadow-lg hover:-translate-y-1'}
         ${onClick ? 'cursor-pointer' : ''}`}
       style={cardStyle}
       onClick={onClick}

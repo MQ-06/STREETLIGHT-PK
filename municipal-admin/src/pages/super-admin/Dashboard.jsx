@@ -92,7 +92,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       <div className="flex gap-5">
-        <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-warm-border">
+        <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-warm-border transition-all hover:shadow-md">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-base font-bold text-gray-900">System Trends</h2>
@@ -113,7 +113,7 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
 
-        <div className="w-72 shrink-0 bg-white rounded-3xl p-5 shadow-sm border border-warm-border">
+        <div className="w-72 shrink-0 bg-white rounded-3xl p-5 shadow-sm border border-warm-border transition-all hover:shadow-md">
           <h2 className="text-base font-bold text-gray-900 mb-4">City Breakdown</h2>
           {CITIES.map(c => (
             <div key={c.name} className="mb-4 last:mb-0">
@@ -145,21 +145,25 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-warm-border overflow-hidden">
-        <div className="px-6 py-4 flex items-center justify-between border-b border-warm-border">
+      <div className="bg-white rounded-3xl shadow-sm border border-warm-border overflow-hidden transition-all hover:shadow-md">
+        <div className="px-6 py-4 flex items-center justify-between border-b border-warm-border bg-gray-50/50">
           <h2 className="text-base font-bold text-gray-900">Recent Complaints</h2>
           <button onClick={() => navigate('/complaint-management')} className="text-xs font-bold text-primary hover:underline">
             View All
           </button>
         </div>
         {rLoading ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-400">Loading…</div>
+          <div className="px-6 py-4 flex flex-col gap-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="w-full h-12 bg-gray-100 animate-pulse rounded-2xl"></div>
+            ))}
+          </div>
         ) : reports.length === 0 ? (
           <div className="px-6 py-8 text-center text-sm text-gray-400">No complaints yet.</div>
         ) : (
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-50">
+            <thead className="bg-gray-50/50">
+              <tr className="border-b border-gray-100">
                 {['ID', 'Issue', 'City', 'Department', 'Stage', ''].map(h => (
                   <th key={h} className="text-left text-xs font-bold tracking-widest text-gray-400 px-6 py-3">{h}</th>
                 ))}
