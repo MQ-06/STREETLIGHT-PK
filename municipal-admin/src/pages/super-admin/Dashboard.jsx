@@ -6,10 +6,6 @@ import StageBadge from '../../components/StageBadge'
 import { useDashboard } from '../../hooks/useDashboard'
 import { useReports } from '../../hooks/useReports'
 
-const CITIES = [
-  { name: 'Lahore',     depts: ['LMC', 'LWMC'] },
-  { name: 'Faisalabad', depts: ['FMC', 'FWMC'] },
-]
 const DAYS  = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const BAR_H = [35, 60, 45, 85, 50, 65, 40]
 
@@ -27,6 +23,9 @@ export default function SuperAdminDashboard() {
   const resolvePct  = totalCount ? Math.min(100, Math.round((resolved   / totalCount) * 100)) : 0
   const pendingPct  = totalCount ? Math.min(100, Math.round((pending    / totalCount) * 100)) : 0
   const progressPct = totalCount ? Math.min(100, Math.round((inProgress / totalCount) * 100)) : 0
+
+  const cityBreakdown = data?.city_breakdown || {}
+  const cityEntries   = Object.entries(cityBreakdown).filter(([, v]) => v.total > 0)
 
   return (
     <div className="p-6 flex flex-col gap-6">
@@ -115,27 +114,34 @@ export default function SuperAdminDashboard() {
 
         <div className="w-72 shrink-0 bg-white rounded-3xl p-5 shadow-sm border border-warm-border transition-all hover:shadow-md">
           <h2 className="text-base font-bold text-gray-900 mb-4">City Breakdown</h2>
-          {CITIES.map(c => (
-            <div key={c.name} className="mb-4 last:mb-0">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold text-gray-800">{c.name}</span>
-                <div className="flex gap-1">
-                  {c.depts.map(d => (
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {[1, 2].map(i => <div key={i} className="h-10 bg-gray-100 animate-pulse rounded-xl" />)}
+            </div>
+          ) : cityEntries.length === 0 ? (
+            <p className="text-xs text-gray-400">No data yet.</p>
+          ) : cityEntries.map(([city, counts]) => {
+            const pct = counts.total ? Math.round((counts.resolved / counts.total) * 100) : 0
+            return (
+              <div key={city} className="mb-4 last:mb-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-gray-800 capitalize">{city}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{counts.resolved}/{counts.total}</span>
                     <span
-                      key={d}
                       className="text-xs font-bold px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}
                     >
-                      {d}
+                      {pct}%
                     </span>
-                  ))}
+                  </div>
+                </div>
+                <div className="h-1.5 rounded-full bg-gray-100">
+                  <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: pct + '%' }} />
                 </div>
               </div>
-              <div className="h-1.5 rounded-full bg-gray-100">
-                <div className="h-full rounded-full bg-primary" style={{ width: '50%' }} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
           <button
             onClick={() => navigate('/departments')}
             className="mt-4 w-full py-2 rounded-xl text-xs font-bold text-primary border border-warm-border hover:bg-gray-50"
