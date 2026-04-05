@@ -57,10 +57,20 @@ def dashboard_overview(
         r.kanban_stage.value if r.kanban_stage else "NEW" for r in reports
     )
 
+    city_breakdown = {}
+    if role == "super_admin":
+        for r in reports:
+            city = r.assigned_city or "unknown"
+            if city not in city_breakdown:
+                city_breakdown[city] = {"total": 0, "resolved": 0}
+            city_breakdown[city]["total"] += 1
+            if r.kanban_stage and r.kanban_stage.value == "RESOLVED":
+                city_breakdown[city]["resolved"] += 1
+
     return {
-        "viewer_role": role,
-        "viewer_city": current_user.city,
-        "total": len(reports),
+        "viewer_role":   role,
+        "viewer_city":   current_user.city,
+        "total":         len(reports),
         "totals": {
             "reports":     len(reports),
             "pending":     status_counts.get("PENDING", 0),
@@ -69,6 +79,7 @@ def dashboard_overview(
             "resolved":    status_counts.get("RESOLVED", 0),
         },
         "kanban_counts": dict(stage_counts),
+        "city_breakdown": city_breakdown,
     }
 
 

@@ -32,7 +32,8 @@ ALL_ADMIN = require_roles(
     "super_admin", "city_admin", "dept_officer",
     "municipal_officer", "department_head", "city_planner", "system_admin",
 )
-SA_ONLY = require_roles("super_admin")
+SA_ONLY   = require_roles("super_admin")
+SA_OR_CA  = require_roles("super_admin", "city_admin")
 
 ADMIN_ROLES = {"super_admin", "city_admin", "dept_officer"}
 
@@ -104,9 +105,20 @@ class CreateUserBody(BaseModel):
 @router.post("")
 def create_user(
     body:         CreateUserBody,
-    current_user: User    = Depends(SA_ONLY),
+    current_user: User    = Depends(SA_OR_CA),
     db:           Session = Depends(get_db),
 ):
+    caller_role = (current_user.role or "").lower()
+
+    # city_admin can only create dept_officer accounts for their own city
+    if caller_role == "city_admin":
+        if body.role != "dept_officer":
+            raise HTTPException(403, "City admins may only create dept_officer accounts")
+        if body.city and body.city.lower() != (current_user.city or "").lower():
+            raise HTTPException(403, "City admins may only create accounts for their own city")
+        # Force city to caller's city
+        body = CreateUserBody(**{**body.dict(), "city": current_user.city})
+
     if body.role not in ADMIN_ROLES:
         raise HTTPException(400, f"role must be one of {sorted(ADMIN_ROLES)}")
     if db.query(User).filter(User.email == body.email).first():
@@ -160,14 +172,28 @@ class UpdateUserBody(BaseModel):
 def update_user(
     user_id:      int,
     body:         UpdateUserBody,
-    current_user: User    = Depends(SA_ONLY),
+    current_user: User    = Depends(ALL_ADMIN),
     db:           Session = Depends(get_db),
 ):
+    caller_role = (current_user.role or "").lower()
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    if user.id == current_user.id:
-        raise HTTPException(400, "Cannot modify your own account here")
+
+    # Users may update only their own notification_email
+    is_self = user.id == current_user.id
+    if is_self and caller_role not in ("super_admin", "city_admin"):
+        # dept_officer: only allow notification_email update on self
+        allowed_fields = {"notification_email"}
+        payload = body.dict(exclude_none=True)
+        if not payload.keys() <= allowed_fields:
+            raise HTTPException(403, "Officers may only update their notification email")
+    elif not is_self and caller_role not in ("super_admin", "city_admin"):
+        raise HTTPException(403, "Insufficient permissions to modify other users")
+    elif not is_self and caller_role == "city_admin":
+        # city_admin can only edit dept_officers in their own city
+        if user.city != current_user.city or (user.role or "") != "dept_officer":
+            raise HTTPException(403, "City admins may only modify officers in their own city")
 
     if body.city is not None:
         user.city = body.city.lower()
