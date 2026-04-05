@@ -136,6 +136,7 @@ def list_reports(
     category:   Optional[str] = Query(None),
     city:       Optional[str] = Query(None),
     search:     Optional[str] = Query(None),
+    date_from:  Optional[str] = Query(None),
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
@@ -152,6 +153,12 @@ def list_reports(
         q = q.filter(Report.assigned_city == city.lower())
     if search:
         q = q.filter(Report.title.ilike(f"%{search}%"))
+    if date_from:
+        try:
+            from datetime import datetime as dt
+            q = q.filter(Report.created_at >= dt.fromisoformat(date_from))
+        except ValueError:
+            pass
 
     total = q.count()
     reports = q.order_by(desc(Report.created_at)).offset(skip).limit(limit).all()
