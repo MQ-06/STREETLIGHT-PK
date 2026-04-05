@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Filter, Search, ChevronDown, Eye, Timer, Smile } from 'lucide-react'
+import { Filter, Search, ChevronDown, Eye, Timer, Smile, Download } from 'lucide-react'
 import { authFetch } from '../../utils/auth'
 import { useReports } from '../../hooks/useReports'
 import PageHeader from '../../components/PageHeader'
@@ -21,14 +21,70 @@ export default function ComplaintManagement() {
   const [stageFilter, setStageFilter] = useState('')
   const [dateRange,   setDateRange]   = useState('')
   const [page,        setPage]        = useState(1)
+  const [exporting,   setExporting]   = useState(false)
 
   const LIMIT = 20
-  const { reports, total, loading, error } = useReports({ page, stage: stageFilter, search: searchVal, limit: LIMIT })
+  const { reports, total, loading, error } = useReports({
+    page,
+    stage:     stageFilter,
+    search:    searchVal,
+    limit:     LIMIT,
+    date_from: dateRange,
+  })
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ skip: 0, limit: 1000 })
+      if (stageFilter)      params.set('stage',     stageFilter)
+      if (searchVal.trim()) params.set('search',    searchVal.trim())
+      if (dateRange.trim()) params.set('date_from', dateRange.trim())
+      const res  = await authFetch(`/admin/reports?${params}`)
+      const data = await res.json()
+      const rows = data.reports || []
+
+      const headers = ['ID', 'Title', 'Location', 'Department', 'Severity', 'Stage', 'City', 'Created At']
+      const csv = [
+        headers.join(','),
+        ...rows.map(r => [
+          r.display_id,
+          `"${(r.title       || '').replace(/"/g, '""')}"`,
+          `"${(r.location    || '').replace(/"/g, '""')}"`,
+          r.assigned_department || '',
+          r.severity || '',
+          r.kanban_stage || '',
+          r.assigned_city || '',
+          r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+        ].join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `complaints-export-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silently fail
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="p-6 flex flex-col gap-5">
-      <PageHeader title="Complaint Management" subtitle="Manage and track municipal issues reported by citizens." />
+      <PageHeader title="Complaint Management" subtitle="Manage and track municipal issues reported by citizens.">
+        <button
+          onClick={handleExport}
+          disabled={exporting || loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <Download size={14} />
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </button>
+      </PageHeader>
 
       <div className="flex gap-5">
         {/* Filters */}
@@ -44,7 +100,7 @@ export default function ComplaintManagement() {
                 <Search size={13} className="text-gray-400 shrink-0" />
                 <input
                   type="text" placeholder="ID or type"
-                  value={searchVal} onChange={e => setSearchVal(e.target.value)}
+                  value={searchVal} onChange={e => { setSearchVal(e.target.value); setPage(1) }}
                   className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
                 />
               </div>
@@ -61,8 +117,8 @@ export default function ComplaintManagement() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Date</p>
-              <input type="date" value={dateRange} onChange={e => setDateRange(e.target.value)}
+              <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">From Date</p>
+              <input type="date" value={dateRange} onChange={e => { setDateRange(e.target.value); setPage(1) }}
                 className="w-full bg-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-500 outline-none" />
             </div>
             <button onClick={() => { setSearchVal(''); setStageFilter(''); setDateRange(''); setPage(1) }}
@@ -158,7 +214,7 @@ export default function ComplaintManagement() {
                 <p className="text-xs text-gray-400 mb-2">Based on resolution feedback</p>
                 <div className="flex items-end gap-2">
                   <span className="text-3xl font-black text-gray-900">4.8/5.0</span>
-                  <span className="text-xs font-bold text-primary mb-1">★ Top City</span>
+                  <span className="text-xs font-bold text-primary mb-1">Top City</span>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF7ED' }}>
