@@ -13,6 +13,7 @@ from routers.admin import reports as admin_reports
 from routers.admin import users as admin_users
 from routers.admin import routing as admin_routing
 from routers.admin import audit as admin_audit
+from routers.admin import notifications as admin_notifications
 from middleware.cors import setup_cors
 import logging
 
@@ -62,6 +63,7 @@ app.include_router(admin_reports.router)
 app.include_router(admin_users.router)
 app.include_router(admin_routing.router)
 app.include_router(admin_audit.router)
+app.include_router(admin_notifications.router)
 
 
 @app.on_event("startup")
