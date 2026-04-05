@@ -11,6 +11,8 @@ from routers.admin import auth as admin_auth
 from routers.admin import dashboard as admin_dashboard
 from routers.admin import reports as admin_reports
 from routers.admin import users as admin_users
+from routers.admin import routing as admin_routing
+from routers.admin import audit as admin_audit
 from middleware.cors import setup_cors
 import logging
 
@@ -58,6 +60,8 @@ app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_reports.router)
 app.include_router(admin_users.router)
+app.include_router(admin_routing.router)
+app.include_router(admin_audit.router)
 
 
 @app.on_event("startup")
