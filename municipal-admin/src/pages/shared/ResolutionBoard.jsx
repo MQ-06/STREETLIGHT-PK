@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { RefreshCw, ExternalLink } from 'lucide-react'
+import { RefreshCw, ExternalLink, MapPin } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import { authFetch } from '../../utils/auth'
 import { STAGE_MAP } from '../../utils/theme'
@@ -59,7 +59,9 @@ function KanbanCard({ card, index, navigate }) {
           </div>
           <p className="text-sm font-semibold text-gray-800 leading-snug mb-1 line-clamp-2">{card.title}</p>
           {card.location && (
-            <p className="text-xs text-gray-400 mb-2 truncate">📍 {card.location}</p>
+            <p className="text-xs text-gray-400 mb-2 truncate flex items-center gap-1">
+              <MapPin size={10} className="shrink-0" />{card.location}
+            </p>
           )}
           <div className="flex items-center justify-between">
             {days !== null && (

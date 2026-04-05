@@ -31,12 +31,12 @@ export const SEVERITY_MAP = {
   low:    { bg: '#F0FDF4', text: '#22C55E', label: 'Low'    },
 }
 
-// ── Category → emoji icon ─────────────────────────────────────────────────────
+// ── Category → lucide icon name ───────────────────────────────────────────────
 export const CATEGORY_ICON = {
-  POTHOLE: '🕳️',
-  TRASH:   '🗑️',
-  GARBAGE: '🗑️',
-  default: '📋',
+  POTHOLE: 'AlertTriangle',
+  TRASH:   'Trash2',
+  GARBAGE: 'Trash2',
+  default: 'ClipboardList',
 }
 
 // ── Role labels ───────────────────────────────────────────────────────────────
