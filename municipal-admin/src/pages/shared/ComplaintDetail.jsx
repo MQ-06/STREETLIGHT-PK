@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { MapPin, ZoomIn, ExternalLink } from 'lucide-react'
+import { MapPin, ZoomIn, ExternalLink, FileText, ClipboardList, Target, Pencil, Layers, AlertTriangle, Bot, User, Send } from 'lucide-react'
 import { authFetch } from '../../utils/auth'
 import StageBadge from '../../components/StageBadge'
 
@@ -11,13 +11,43 @@ export default function ComplaintDetail() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
 
-  useEffect(() => {
+  const [note,        setNote]        = useState('')
+  const [noteLoading, setNoteLoading] = useState(false)
+  const [noteError,   setNoteError]   = useState('')
+
+  function loadReport() {
     if (!id) { setLoading(false); return }
     authFetch('/admin/reports/' + id)
       .then(r => r.json())
       .then(d => { setReport(d); setLoading(false) })
       .catch(() => { setError('Failed to load report.'); setLoading(false) })
-  }, [id])
+  }
+
+  useEffect(() => { loadReport() }, [id])
+
+  async function handleAddNote(e) {
+    e.preventDefault()
+    if (!note.trim()) return
+    setNoteLoading(true)
+    setNoteError('')
+    try {
+      const res = await authFetch('/admin/reports/' + id + '/note', {
+        method: 'POST',
+        body:   JSON.stringify({ note: note.trim() }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setNoteError(d.detail || 'Failed to add note.')
+        setNoteLoading(false)
+        return
+      }
+      setNote('')
+      loadReport()
+    } catch {
+      setNoteError('Network error.')
+    }
+    setNoteLoading(false)
+  }
 
   if (loading) return <div className="p-6 text-center text-sm text-gray-400">Loading report…</div>
   if (error || !report) return (
@@ -64,7 +94,7 @@ export default function ComplaintDetail() {
 
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-base">📄</span>
+              <FileText size={16} className="text-gray-500" />
               <span className="font-bold text-gray-800">Citizen Description</span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">{report.description || 'No description provided.'}</p>
@@ -75,9 +105,50 @@ export default function ComplaintDetail() {
             </div>
           </div>
 
+          {/* Notes / Add note */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-base">📋</span>
+              <ClipboardList size={16} className="text-gray-500" />
+              <span className="font-bold text-gray-800">Internal Notes</span>
+            </div>
+            <form onSubmit={handleAddNote} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Add an internal note or comment…"
+                className="flex-1 text-sm px-3 py-2.5 rounded-xl border border-warm-border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={noteLoading || !note.trim()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 shrink-0"
+              >
+                <Send size={13} />
+                {noteLoading ? '…' : 'Post'}
+              </button>
+            </form>
+            {noteError && <p className="text-xs text-red-500 mb-3">{noteError}</p>}
+
+            {/* Note entries from audit log (notes only — no stage transitions) */}
+            {(report.logs || []).filter(l => l.note && !l.new_stage).length === 0 ? (
+              <p className="text-sm text-gray-400">No notes yet.</p>
+            ) : (report.logs || []).filter(l => l.note && !l.new_stage).map((log, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-xl mb-2 last:mb-0" style={{ backgroundColor: '#F9F9F9' }}>
+                <div className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: log.ai_managed ? '#F0FDF4' : '#FFF3EB' }}>
+                  {log.ai_managed ? <Bot size={12} className="text-green-600" /> : <User size={12} className="text-primary" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-700">{log.note}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{log.created_at ? new Date(log.created_at).toLocaleString() : ''}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers size={16} className="text-gray-500" />
               <span className="font-bold text-gray-800">Audit Log</span>
             </div>
             {(report.logs || []).length === 0 ? (
@@ -85,9 +156,13 @@ export default function ComplaintDetail() {
             ) : (report.logs || []).map((log, i) => (
               <div key={i} className="flex items-start justify-between p-3 rounded-xl mb-2 last:mb-0" style={{ backgroundColor: '#F9F9F9' }}>
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 text-sm">{log.ai_managed ? '🤖' : '👤'}</span>
+                  <div className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: log.ai_managed ? '#F0FDF4' : '#FFF3EB' }}>
+                    {log.ai_managed ? <Bot size={12} className="text-green-600" /> : <User size={12} className="text-primary" />}
+                  </div>
                   <div>
-                    {log.new_stage && <p className="text-xs font-semibold text-gray-800">{log.previous_stage ?? '—'} → {log.new_stage}</p>}
+                    {log.new_stage && (
+                      <p className="text-xs font-semibold text-gray-800">{log.previous_stage ?? '—'} → {log.new_stage}</p>
+                    )}
                     <p className="text-xs text-gray-500 mt-0.5">{log.note}</p>
                   </div>
                 </div>
@@ -102,17 +177,17 @@ export default function ComplaintDetail() {
         {/* Right */}
         <div className="w-80 shrink-0 flex flex-col gap-4">
           <div className="flex gap-3">
-            <button onClick={() => navigate('/resolution-board')} className="flex-1 py-2.5 rounded-xl bg-white shadow-sm text-sm font-semibold text-gray-700 hover:bg-gray-50 border border-warm-border">
-              ✏️ Update Status
+            <button onClick={() => navigate('/resolution-board')} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white shadow-sm text-sm font-semibold text-gray-700 hover:bg-gray-50 border border-warm-border">
+              <Pencil size={14} /> Update Status
             </button>
-            <button onClick={() => navigate('/resolution-board')} className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark">
-              📋 View Board
+            <button onClick={() => navigate('/resolution-board')} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark">
+              <Layers size={14} /> View Board
             </button>
           </div>
 
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border text-center">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-base">🎯</span>
+              <Target size={16} className="text-gray-500" />
               <span className="font-bold text-gray-800">AI Confidence</span>
             </div>
             <div className="flex items-center justify-center mb-3">
@@ -141,7 +216,12 @@ export default function ComplaintDetail() {
             {report.assigned_city       && <p className="text-xs text-gray-500 mt-2 capitalize">City: {report.assigned_city}</p>}
             {report.assigned_department && <p className="text-xs text-gray-500 uppercase">Dept: {report.assigned_department}</p>}
             {report.assigned_at         && <p className="text-xs text-gray-400 mt-1">Routed: {new Date(report.assigned_at).toLocaleString()}</p>}
-            {report.is_flagged_for_spam && <p className="text-xs text-red-500 font-semibold mt-2">⚠ Flagged for spam review</p>}
+            {report.is_flagged_for_spam && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <AlertTriangle size={13} className="text-red-500" />
+                <p className="text-xs text-red-500 font-semibold">Flagged for spam review</p>
+              </div>
+            )}
           </div>
 
           {report.lat && report.lng && (
