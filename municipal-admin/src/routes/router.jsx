@@ -10,6 +10,8 @@ import ResolutionBoard     from '../pages/shared/ResolutionBoard'
 import HotspotMap          from '../pages/shared/HotspotMap'
 import Analytics           from '../pages/shared/Analytics'
 import Transparency        from '../pages/shared/Transparency'
+import AuditLog            from '../pages/shared/AuditLog'
+import MyProfile           from '../pages/shared/MyProfile'
 import ErrorBoundary       from '../components/ErrorBoundary'
 import { AuthProvider }    from '../context/AuthContext'
 import { isAuthenticated, hasRole } from '../utils/auth'
@@ -49,13 +51,18 @@ const router = createBrowserRouter([
       { path: 'hotspot-map',               element: <HotspotMap /> },
       { path: 'analytics',                 element: <Analytics /> },
       { path: 'transparency',              element: <Transparency /> },
+      { path: 'my-profile',                element: <MyProfile /> },
       {
         path: 'departments',
         element: <ProtectedRoute roles={['super_admin', 'city_admin']}><Departments /></ProtectedRoute>,
       },
       {
         path: 'user-roles',
-        element: <ProtectedRoute roles={['super_admin']}><UserRoles /></ProtectedRoute>,
+        element: <ProtectedRoute roles={['super_admin', 'city_admin']}><UserRoles /></ProtectedRoute>,
+      },
+      {
+        path: 'audit-log',
+        element: <ProtectedRoute roles={['super_admin', 'city_admin', 'dept_officer']}><AuditLog /></ProtectedRoute>,
       },
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],

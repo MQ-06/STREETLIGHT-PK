@@ -2,19 +2,22 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   BarChart2, ClipboardList, Map, FileText,
   Users, Eye, LogOut, Layers, Building2, ShieldCheck,
+  ScrollText, UserCircle,
 } from 'lucide-react'
 import { clearAuthData, getCurrentUser, getRole } from '../utils/auth'
 import { ROLE_LABEL, DEPT_LABEL } from '../utils/theme'
 
 const NAV = [
-  { label: 'Overview',          icon: BarChart2,    path: '/dashboard',             roles: null },
-  { label: 'All Complaints',    icon: ClipboardList,path: '/complaint-management',  roles: null },
-  { label: 'Resolution Board',  icon: Layers,       path: '/resolution-board',      roles: null },
-  { label: 'Live Map',          icon: Map,          path: '/hotspot-map',           roles: null },
-  { label: 'Analytics',         icon: FileText,     path: '/analytics',             roles: null },
-  { label: 'Departments',       icon: Building2,    path: '/departments',           roles: ['super_admin', 'city_admin'] },
-  { label: 'User Roles',        icon: Users,        path: '/user-roles',            roles: ['super_admin'] },
-  { label: 'Transparency',      icon: Eye,          path: '/transparency',          roles: ['super_admin', 'city_admin'] },
+  { label: 'Overview',         icon: BarChart2,    path: '/dashboard',            roles: null },
+  { label: 'All Complaints',   icon: ClipboardList,path: '/complaint-management', roles: null },
+  { label: 'Resolution Board', icon: Layers,       path: '/resolution-board',     roles: null },
+  { label: 'Live Map',         icon: Map,          path: '/hotspot-map',          roles: null },
+  { label: 'Analytics',        icon: FileText,     path: '/analytics',            roles: null },
+  { label: 'Departments',      icon: Building2,    path: '/departments',          roles: ['super_admin', 'city_admin'] },
+  { label: 'User Roles',       icon: Users,        path: '/user-roles',           roles: ['super_admin', 'city_admin'] },
+  { label: 'Transparency',     icon: Eye,          path: '/transparency',         roles: ['super_admin', 'city_admin'] },
+  { label: 'Audit Log',        icon: ScrollText,   path: '/audit-log',            roles: null },
+  { label: 'My Profile',       icon: UserCircle,   path: '/my-profile',           roles: null },
 ]
 
 export default function Sidebar() {
@@ -72,8 +75,8 @@ export default function Sidebar() {
               key={path}
               onClick={() => navigate(path)}
               className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 w-full text-left active:scale-[0.98] ${
-                active 
-                  ? 'bg-[#B85C2E] text-white shadow-md shadow-[#B85C2E]/20' 
+                active
+                  ? 'bg-[#B85C2E] text-white shadow-md shadow-[#B85C2E]/20'
                   : 'text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm hover:-translate-y-px'
               }`}
             >
