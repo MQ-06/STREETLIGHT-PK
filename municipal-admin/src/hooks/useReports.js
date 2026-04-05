@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { authFetch } from '../utils/auth'
 
-export function useReports({ page = 1, stage = '', search = '', limit = 20 } = {}) {
+export function useReports({ page = 1, stage = '', search = '', limit = 20, date_from = '' } = {}) {
   const [reports, setReports] = useState([])
   const [total,   setTotal]   = useState(0)
   const [loading, setLoading] = useState(true)
@@ -13,8 +13,9 @@ export function useReports({ page = 1, stage = '', search = '', limit = 20 } = {
     try {
       const skip   = (page - 1) * limit
       const params = new URLSearchParams({ skip, limit })
-      if (stage)        params.set('stage',  stage)
-      if (search.trim()) params.set('search', search.trim())
+      if (stage)           params.set('stage',     stage)
+      if (search.trim())   params.set('search',    search.trim())
+      if (date_from.trim()) params.set('date_from', date_from.trim())
       const res  = await authFetch(`/admin/reports?${params}`)
       const data = await res.json()
       setReports(data.reports || [])
@@ -24,7 +25,7 @@ export function useReports({ page = 1, stage = '', search = '', limit = 20 } = {
     } finally {
       setLoading(false)
     }
-  }, [page, stage, search, limit])
+  }, [page, stage, search, limit, date_from])
 
   useEffect(() => { load() }, [load])
 
