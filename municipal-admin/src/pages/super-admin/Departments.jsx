@@ -1,26 +1,33 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, CheckCircle, Settings } from 'lucide-react'
+import { Building2, Users, CheckCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import EmptyState from '../../components/EmptyState'
-
-const ROUTING_TABLE = [
-  { city: 'Lahore',     dept: 'LMC',  deptFull: 'Lahore Metropolitan Corp.',   issueTypes: ['road', 'pothole', 'infrastructure'], officer: 'LMC Officer', active: true  },
-  { city: 'Lahore',     dept: 'LWMC', deptFull: 'Lahore Waste Management Co.', issueTypes: ['garbage', 'trash', 'waste'],          officer: 'LWMC Officer', active: true },
-  { city: 'Faisalabad', dept: 'FMC',  deptFull: 'Faisalabad Metropolitan Corp.', issueTypes: ['road', 'pothole', 'infrastructure'], officer: 'FMC Officer', active: true },
-  { city: 'Faisalabad', dept: 'FWMC', deptFull: 'Faisalabad Waste Mgmt. Co.', issueTypes: ['garbage', 'trash', 'waste'],            officer: 'FWMC Officer', active: true },
-]
+import { authFetch } from '../../utils/auth'
 
 export default function SuperAdminDepartments() {
   const navigate = useNavigate()
+  const [rows,    setRows]    = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    authFetch('/admin/routing')
+      .then(r => r.json())
+      .then(d => { setRows(d.routing || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const activeDepts  = rows.filter(r => r.is_active).length
+  const cities       = [...new Set(rows.map(r => r.city))].length
+  const officersSet  = new Set(rows.filter(r => r.is_active && r.officer_id).map(r => r.officer_id))
 
   return (
     <div className="p-6 flex flex-col gap-6">
-      <PageHeader title="Department Management" subtitle="Configure city-department routing and officer assignments.">
+      <PageHeader title="Department Management" subtitle="City-department routing and officer assignments.">
         <button
           onClick={() => navigate('/user-roles')}
-          className="px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600"
         >
-          <Users size={14} className="inline mr-1.5" />
+          <Users size={14} />
           User Roles
         </button>
       </PageHeader>
@@ -32,7 +39,7 @@ export default function SuperAdminDepartments() {
           </div>
           <div>
             <p className="text-xs font-bold tracking-widest text-gray-400 uppercase">Active Depts</p>
-            <p className="text-3xl font-black text-gray-900">4</p>
+            <p className="text-3xl font-black text-gray-900">{loading ? '—' : activeDepts}</p>
           </div>
         </div>
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center gap-4">
@@ -41,7 +48,7 @@ export default function SuperAdminDepartments() {
           </div>
           <div>
             <p className="text-xs font-bold tracking-widest text-gray-400 uppercase">Cities Covered</p>
-            <p className="text-3xl font-black text-gray-900">2</p>
+            <p className="text-3xl font-black text-gray-900">{loading ? '—' : cities}</p>
           </div>
         </div>
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center gap-4">
@@ -50,7 +57,7 @@ export default function SuperAdminDepartments() {
           </div>
           <div>
             <p className="text-xs font-bold tracking-widest text-gray-400 uppercase">Assigned Officers</p>
-            <p className="text-3xl font-black text-gray-900">4</p>
+            <p className="text-3xl font-black text-gray-900">{loading ? '—' : officersSet.size}</p>
           </div>
         </div>
       </div>
@@ -58,57 +65,51 @@ export default function SuperAdminDepartments() {
       <div className="bg-white rounded-3xl shadow-sm border border-warm-border overflow-hidden">
         <div className="px-6 py-4 border-b border-warm-border">
           <h2 className="text-base font-bold text-gray-900">Routing Table</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Complaint auto-routing configuration</p>
+          <p className="text-xs text-gray-400 mt-0.5">Live complaint auto-routing configuration</p>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-50">
-              {['City', 'Department', 'Full Name', 'Issue Types', 'Officer', 'Status'].map(h => (
-                <th key={h} className="text-left text-xs font-bold tracking-widest text-gray-400 px-6 py-3">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ROUTING_TABLE.map((row, i) => (
-              <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-semibold text-gray-800 capitalize">{row.city}</td>
-                <td className="px-6 py-4">
-                  <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}
-                  >
-                    {row.dept}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{row.deptFull}</td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {row.issueTypes.map(t => (
-                      <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">{t}</span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{row.officer}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.active ? '#22C55E' : '#9CA3AF' }} />
-                    <span className="text-xs font-medium" style={{ color: row.active ? '#22C55E' : '#9CA3AF' }}>
-                      {row.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </td>
-              </tr>
+        {loading ? (
+          <div className="px-6 py-4 flex flex-col gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-12 bg-gray-100 animate-pulse rounded-2xl" />
             ))}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-50">
+                {['City', 'Department', 'Full Name', 'Officer', 'Notification Email', 'Status'].map(h => (
+                  <th key={h} className="text-left text-xs font-bold tracking-widest text-gray-400 px-6 py-3">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">No routing entries found.</td></tr>
+              ) : rows.map((row) => (
+                <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-800 capitalize">{row.city}</td>
+                  <td className="px-6 py-4">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}>
+                      {row.department?.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{row.department_name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{row.officer_name || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-400">{row.officer_email || '—'}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.is_active ? '#22C55E' : '#9CA3AF' }} />
+                      <span className="text-xs font-medium" style={{ color: row.is_active ? '#22C55E' : '#9CA3AF' }}>
+                        {row.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-
-      <EmptyState
-        icon={<Settings size={32} />}
-        title="Department CRUD Coming Soon"
-        description="Add, edit, and deactivate departments and routing rules from this panel."
-        phase={3}
-      />
     </div>
   )
 }
