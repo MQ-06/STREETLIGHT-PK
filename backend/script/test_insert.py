@@ -20,7 +20,7 @@ report = Report(
     category="POTHOLE",
     location_address="Test Street",
     status=ReportStatus.PENDING,
-    combined_score=90  
+    combined_score=45  
 )
 
 db.add(report)

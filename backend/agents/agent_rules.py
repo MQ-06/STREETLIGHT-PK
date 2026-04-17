@@ -1,6 +1,6 @@
 # backend/agents/agent_rules.py
 
-from model.report import Report
+from model.report import Report, ReportStatus  # ✅ import the enum
 
 
 def decide_action(report: Report):
@@ -10,7 +10,11 @@ def decide_action(report: Report):
     community = report.community_score or 0
 
     # ── NEW REPORT RULES ─────────────────────
-    if status == "PENDING":
+    if status == ReportStatus.PENDING:  # ✅ use enum
+
+        # Community trigger takes priority
+        if community >= 3:
+            return {"action": "VERIFY_AND_ASSIGN"}
 
         if score >= 85:
             return {"action": "AUTO_VERIFY"}
@@ -21,13 +25,9 @@ def decide_action(report: Report):
         if 60 <= score < 85:
             return {"action": "MOVE_REVIEW"}
 
-    # ── COMMUNITY TRIGGER ────────────────────
-    if status == "PENDING" and community >= 3:
-        return {"action": "VERIFY_AND_ASSIGN"}
-
     # ── STUCK REPORTS ────────────────────────
-    if status == "IN_PROGRESS" and report_stalled(report):
-        return {"action": "ESCALATE"}
+    if status == ReportStatus.IN_PROGRESS and report_stalled(report):  # ✅
+        return {"action": "NEEDS_LLM"}  # ✅ LLM handles escalation note, one branch only
 
     # default
     return {"action": "NO_OP"}

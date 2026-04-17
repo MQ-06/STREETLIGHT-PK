@@ -30,6 +30,8 @@ from script.migrate_add_report_contribution_and_fields import migrate as migrate
 from script.migrate_notifications import run_migration as migrate_notifications
 from script.migrate_admin_schema import run_migration as migrate_admin_schema
 from utils.push import init_firebase
+from fastapi import FastAPI
+from routes.agent_test_route import router as agent_test_router
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +67,7 @@ app.include_router(admin_users.router)
 app.include_router(admin_routing.router)
 app.include_router(admin_audit.router)
 app.include_router(admin_notifications.router)
+app.include_router(agent_test_router)
 
 
 @app.on_event("startup")
