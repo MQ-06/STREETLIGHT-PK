@@ -17,6 +17,7 @@ from routers.admin import notifications as admin_notifications
 from middleware.cors import setup_cors
 import logging
 
+from agents.agent_scheduler import start_scheduler
 from model.users import User
 from model.user_profile import UserProfile
 from model.report import Report, ReportInteraction
@@ -107,6 +108,9 @@ async def startup_event():
         logger.info("📍 AI Agent is operational and ready to process reports")
         logger.info("=" * 70)
         
+        start_scheduler()
+        logger.info("🤖 Agent Scheduler Started")
+        
     except Exception as e:
         logger.error("=" * 70)
         logger.error(f"❌ STARTUP ERROR: {str(e)}")
@@ -137,3 +141,4 @@ def health_check():
         "service": "streetlight-api",
         "ai_agent": "operational"
     }
+    
