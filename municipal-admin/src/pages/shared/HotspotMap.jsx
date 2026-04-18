@@ -97,8 +97,8 @@ export default function HotspotMap() {
           <FilterSidebar
             filters={filters}
             setFilter={setFilter}
-            total={allReports.length}
-            filtered={filtered.length}
+            recentReports={filtered}
+            onReportClick={setSelectedReport}
           />
         </div>
       </div>
