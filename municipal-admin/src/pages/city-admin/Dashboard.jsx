@@ -7,15 +7,30 @@ import { useDashboard } from '../../hooks/useDashboard'
 import { useReports } from '../../hooks/useReports'
 import { getCity } from '../../utils/auth'
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-const BAR_H = [40, 65, 50, 80, 55, 70, 45]
+const DAY_ABBR = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+function buildChartDays(trend) {
+  const trendMap = Object.fromEntries(trend.map(t => [t.date, t.total]))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    return {
+      label: DAY_ABBR[d.getDay()],
+      count: trendMap[d.toISOString().split('T')[0]] || 0,
+    }
+  })
+}
 
 export default function CityAdminDashboard() {
   const navigate = useNavigate()
   const city = getCity()
   const cityLabel = city ? city.charAt(0).toUpperCase() + city.slice(1) : 'City'
-  const { data, loading } = useDashboard()
+  const { data, trend, loading } = useDashboard()
   const { reports, loading: rLoading } = useReports({ limit: 6 })
+
+  const chartDays = buildChartDays(trend)
+  const maxCount  = Math.max(...chartDays.map(d => d.count), 1)
+  const maxIdx    = chartDays.reduce((mi, d, i, arr) => d.count > arr[mi].count ? i : mi, 0)
   const kc = data?.kanban_counts || {}
   const totalCount = data?.total ?? 0
   const pending = (kc.NEW || 0) + (kc.PENDING_VERIFICATION || 0) + (kc.VERIFIED || 0)
@@ -48,13 +63,19 @@ export default function CityAdminDashboard() {
             </div>
             <button onClick={() => navigate('/analytics')} className="text-xs font-bold text-primary">Full Report</button>
           </div>
-          <div className="flex items-end justify-between gap-3 h-40 px-2">
-            {DAYS.map((day, i) => (
-              <div key={day} className="flex flex-col items-center gap-2 flex-1">
-                <div className="w-full rounded-t-lg" style={{ height: BAR_H[i] + '%', backgroundColor: i === 3 ? '#B85C2E' : '#EDE8DC' }} />
-                <span className="text-xs text-gray-400 font-medium">{day}</span>
-              </div>
-            ))}
+          <div className="flex justify-between gap-3 h-40 px-2">
+            {chartDays.map((item, i) => {
+              const pct = Math.round((item.count / maxCount) * 100)
+              return (
+                <div key={item.label + i} className="flex flex-col items-center justify-end gap-2 flex-1">
+                  <div
+                    className="w-full rounded-t-lg transition-all duration-500"
+                    style={{ height: (pct || 2) + '%', backgroundColor: i === maxIdx ? '#B85C2E' : '#EDE8DC' }}
+                  />
+                  <span className="text-xs text-gray-400 font-medium">{item.label}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
 

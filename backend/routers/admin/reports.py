@@ -54,10 +54,12 @@ def get_db():
         db.close()
 
 
-def _base_query(db: Session, user: User):
+def _base_query(db: Session, user: User, eager_reporter: bool = False):
     """Return a Report query pre-filtered by the caller's role scope."""
     role = (user.role or "").lower()
-    q = db.query(Report).options(joinedload(Report.reporter))
+    q = db.query(Report)
+    if eager_reporter:
+        q = q.options(joinedload(Report.reporter))
 
     if role == "dept_officer":
         routing = (
@@ -141,7 +143,7 @@ def list_reports(
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
-    q = _base_query(db, current_user)
+    q = _base_query(db, current_user, eager_reporter=True)
 
     if stage:
         try:
@@ -179,7 +181,7 @@ def kanban_board(
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
-    q = _base_query(db, current_user)
+    q = _base_query(db, current_user, eager_reporter=True)
     all_reports = q.order_by(desc(Report.created_at)).all()
 
     columns = {}
