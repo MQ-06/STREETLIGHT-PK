@@ -1,160 +1,109 @@
 /**
- * SuperAdminAnalytics — dark navy dashboard for super_admin role
+ * SuperAdminAnalytics — Super Admin dashboard (warm beige design system)
  *
  * Sections:
- *   A — City Intelligence Cards (city-level KPIs + risk)
- *   B — National KPI strip + Charts (donut + funnel)
- *   C — AI Insight Cards (forecast, bottleneck, health)
+ *   A — City-Wide KPI Strip
+ *   B — National Charts (donut + funnel)
+ *   C — AI Insight Cards
  *   D — Predictive Alerts feed
- *
- * Each section is built module-by-module; placeholders shown until done.
  */
 import { useState } from 'react'
-import { SA } from './sa-theme'
 import SectionA from './sa/SectionA'
 
 const DAYS_OPTIONS = [7, 30, 90]
 
-// ── Placeholder section card ─────────────────────────────────────────────────
+// ── Placeholder ───────────────────────────────────────────────────────────────
 function SectionPlaceholder({ label }) {
   return (
-    <div
-      style={{
-        ...SA.cardStyle,
-        padding: 32,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 160,
-      }}
-    >
-      <p style={{ color: SA.muted, fontSize: 14, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-        {label}
-      </p>
+    <div className="bg-white rounded-2xl border border-warm-border p-8 flex items-center justify-center min-h-40">
+      <p className="text-sm text-gray-400">{label}</p>
     </div>
   )
 }
 
-// ── Days filter pill strip ───────────────────────────────────────────────────
-function DaysFilter({ days, onChange }) {
+// ── Section label ─────────────────────────────────────────────────────────────
+function SectionLabel({ letter, title, sub }) {
   return (
-    <div style={{ display: 'flex', gap: 4, background: '#1C2A45', borderRadius: 10, padding: 4 }}>
-      {DAYS_OPTIONS.map(d => (
-        <button
-          key={d}
-          onClick={() => onChange(d)}
-          style={{
-            padding: '5px 14px',
-            borderRadius: 7,
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: 'Plus Jakarta Sans, sans-serif',
-            background: days === d ? SA.orange : 'transparent',
-            color:      days === d ? '#fff'    : SA.muted,
-            transition: 'all 0.15s',
-          }}
-        >
-          {d}d
-        </button>
-      ))}
+    <div className="flex items-baseline gap-2 mb-4">
+      <span className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-md tracking-wide">
+        {letter}
+      </span>
+      <span className="text-base font-bold text-gray-900">{title}</span>
+      <span className="text-xs text-gray-400">{sub}</span>
     </div>
   )
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function SuperAdminAnalytics() {
   const [days, setDays] = useState(30)
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: SA.bg,
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        color: SA.text,
-      }}
-    >
-      {/* ── Header bar ── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '20px 28px',
-          borderBottom: `1px solid ${SA.border}`,
-          background: SA.card,
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
+    <div className="p-6 space-y-6">
+
+      {/* ── Page header ── */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: SA.text, letterSpacing: '-0.3px' }}>
-            StreetLight-PK Super Admin Dashboard
-          </h1>
-          <p style={{ margin: '3px 0 0', fontSize: 13, color: SA.muted, fontWeight: 500 }}>
-            City Intelligence &nbsp;·&nbsp; All Municipal Areas
-          </p>
+          <h1 className="text-2xl font-black text-gray-900">Super Admin Dashboard</h1>
+          <p className="text-sm text-gray-400 mt-0.5">City Intelligence &nbsp;·&nbsp; All Municipal Areas</p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <DaysFilter days={days} onChange={setDays} />
+        {/* Days filter */}
+        <div className="flex gap-1 bg-white border border-warm-border rounded-xl p-1">
+          {DAYS_OPTIONS.map(d => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                days === d ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Scrollable content ── */}
-      <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* ── Section A — City-Wide KPI Strip ── */}
+      <section>
+        <SectionLabel
+          letter="A"
+          title="City Intelligence"
+          sub="City-wide aggregate KPIs across all municipal areas"
+        />
+        <SectionA days={days} />
+      </section>
 
-        {/* Section A — City-Wide KPI Strip */}
-        <section>
-          <SectionLabel letter="A" title="City Intelligence" sub="City-wide aggregate KPIs across all municipal areas" />
-          <SectionA days={days} />
-        </section>
+      {/* ── Section B — National Charts ── */}
+      <section>
+        <SectionLabel
+          letter="B"
+          title="National Overview"
+          sub="Issue breakdown · Pipeline lifecycle"
+        />
+        <SectionPlaceholder label="Section B — coming in Module 3" />
+      </section>
 
-        {/* Section B — National KPIs + Charts */}
-        <section>
-          <SectionLabel letter="B" title="National Overview" sub="Aggregate KPIs · Issue breakdown · Pipeline" />
-          <SectionPlaceholder label="Section B — coming in Module 3" />
-        </section>
+      {/* ── Section C — AI Insights ── */}
+      <section>
+        <SectionLabel
+          letter="C"
+          title="AI Insights"
+          sub="Forecast · Bottleneck signal · Citizen health index"
+        />
+        <SectionPlaceholder label="Section C — coming in Module 4" />
+      </section>
 
-        {/* Section C — AI Insight Cards */}
-        <section>
-          <SectionLabel letter="C" title="AI Insights" sub="Forecast · Bottleneck signal · Citizen health index" />
-          <SectionPlaceholder label="Section C — coming in Module 4" />
-        </section>
+      {/* ── Section D — Predictive Alerts ── */}
+      <section>
+        <SectionLabel
+          letter="D"
+          title="Predictive Alerts"
+          sub="Rule-based signals · Area warnings · Anomalies"
+        />
+        <SectionPlaceholder label="Section D — coming in Module 5" />
+      </section>
 
-        {/* Section D — Predictive Alerts */}
-        <section>
-          <SectionLabel letter="D" title="Predictive Alerts" sub="Rule-based signals · Area warnings · Anomalies" />
-          <SectionPlaceholder label="Section D — coming in Module 5" />
-        </section>
-
-      </div>
-    </div>
-  )
-}
-
-// ── Section label helper ─────────────────────────────────────────────────────
-function SectionLabel({ letter, title, sub }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14 }}>
-      <span
-        style={{
-          background: SA.orange,
-          color: '#fff',
-          fontSize: 11,
-          fontWeight: 800,
-          padding: '2px 7px',
-          borderRadius: 5,
-          letterSpacing: '0.5px',
-        }}
-      >
-        {letter}
-      </span>
-      <span style={{ fontSize: 15, fontWeight: 700, color: SA.text }}>{title}</span>
-      <span style={{ fontSize: 12, color: SA.muted }}>{sub}</span>
     </div>
   )
 }
