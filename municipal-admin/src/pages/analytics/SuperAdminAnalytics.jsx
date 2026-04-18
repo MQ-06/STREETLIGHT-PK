@@ -11,17 +11,9 @@ import { useState } from 'react'
 import SectionA from './sa/SectionA'
 import SectionB from './sa/SectionB'
 import SectionC from './sa/SectionC'
+import SectionD from './sa/SectionD'
 
 const DAYS_OPTIONS = [7, 30, 90]
-
-// ── Placeholder ───────────────────────────────────────────────────────────────
-function SectionPlaceholder({ label }) {
-  return (
-    <div className="bg-white rounded-2xl border border-warm-border p-8 flex items-center justify-center min-h-40">
-      <p className="text-sm text-gray-400">{label}</p>
-    </div>
-  )
-}
 
 // ── Section label ─────────────────────────────────────────────────────────────
 function SectionLabel({ letter, title, sub }) {
@@ -87,7 +79,7 @@ export default function SuperAdminAnalytics() {
       </section>
 
       {/* ── Section C — City-Wide Charts ── */}
-      <section>
+      <section id="sa-section-c">
         <SectionLabel
           letter="C"
           title="City-Wide Charts"
@@ -96,14 +88,14 @@ export default function SuperAdminAnalytics() {
         <SectionC days={days} />
       </section>
 
-      {/* ── Section D — Predictive Alerts ── */}
+      {/* ── Section D — Alerts & Actions ── */}
       <section>
         <SectionLabel
           letter="D"
-          title="Predictive Alerts"
-          sub="Rule-based signals · Area warnings · Anomalies"
+          title="Alerts & Actions"
+          sub="Cross-area signals ranked by severity"
         />
-        <SectionPlaceholder label="Section D — coming in Module 5" />
+        <SectionD days={days} />
       </section>
 
     </div>
