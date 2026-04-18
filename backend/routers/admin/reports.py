@@ -21,6 +21,7 @@ from db.database import SessionLocal
 from model.report import Report, KanbanStage, ReportStatus
 from model.report_logs import ReportLog
 from model.users import User
+from model.user_profile import UserProfile
 from utils.auth_utils import get_current_user
 from utils.rbac import require_roles
 from utils.email_service import send_resolved_notification
@@ -235,16 +236,24 @@ def get_report(
         for l in logs
     ]
 
+    # Fetch reporter's impact score from UserProfile
+    reporter_profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == report.user_id)
+        .first()
+    )
+
     summary = _report_summary(report)
     summary.update({
-        "validation_score":     report.validation_score,
-        "trust_score":          report.trust_score,
-        "community_score":      report.community_score,
-        "gps_verified":         report.gps_verified,
-        "gps_spoofing_detected":report.gps_spoofing_detected,
-        "is_flagged_for_spam":  report.is_flagged_for_spam,
-        "verification_status":  report.verification_status,
-        "logs":                 log_entries,
+        "validation_score":       report.validation_score,
+        "trust_score":            report.trust_score,
+        "community_score":        report.community_score,
+        "gps_verified":           report.gps_verified,
+        "gps_spoofing_detected":  report.gps_spoofing_detected,
+        "is_flagged_for_spam":    report.is_flagged_for_spam,
+        "verification_status":    report.verification_status,
+        "reporter_impact_score":  reporter_profile.impact_score if reporter_profile else None,
+        "logs":                   log_entries,
     })
     return summary
 
