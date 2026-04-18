@@ -9,6 +9,8 @@ class ReportModel {
   final DateTime timestamp;
   final String location;
   final String locationCity;
+  final double? locationLat;
+  final double? locationLng;
   final String issueCategory;
   final String title;
   final String description;
@@ -19,6 +21,7 @@ class ReportModel {
   final int commentCount;
   final String status;
   final double? combinedScore;
+  final double? aiConfidence;
   final String? verificationStatus;
   bool hasSupported;
   bool hasVerified;
@@ -32,6 +35,8 @@ class ReportModel {
     required this.timestamp,
     required this.location,
     required this.locationCity,
+    this.locationLat,
+    this.locationLng,
     required this.issueCategory,
     required this.title,
     required this.description,
@@ -42,6 +47,7 @@ class ReportModel {
     required this.commentCount,
     required this.status,
     this.combinedScore,
+    this.aiConfidence,
     this.verificationStatus,
     required this.hasSupported,
     required this.hasVerified,
@@ -57,6 +63,8 @@ class ReportModel {
       timestamp: DateTime.parse(json['timestamp'] as String),
       location: json['location'] as String,
       locationCity: json['location_city'] as String? ?? '',
+      locationLat: (json['location_lat'] as num?)?.toDouble(),
+      locationLng: (json['location_lng'] as num?)?.toDouble(),
       issueCategory: json['issue_category'] as String,
       title: json['title'] as String,
       description: json['description'] as String,
@@ -67,6 +75,7 @@ class ReportModel {
       commentCount: json['comment_count'] as int? ?? 0,
       status: json['status'] as String? ?? 'REPORTED',
       combinedScore: (json['combined_score'] as num?)?.toDouble(),
+      aiConfidence: (json['ai_confidence'] as num?)?.toDouble(),
       verificationStatus: json['verification_status'] as String?,
       hasSupported: json['has_supported'] as bool? ?? false,
       hasVerified: json['has_verified'] as bool? ?? false,

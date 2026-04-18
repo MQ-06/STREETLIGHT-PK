@@ -15,6 +15,14 @@ class CivicComplaint {
   final String timeAgo;
   final String region;
   final bool isPriority;
+  final String imageUrl;
+  final int supportCount;
+  final int verifyCount;
+  final double? combinedScore;
+  final double? aiConfidence;
+  final String? verificationStatus;
+  final String reporterName;
+  final String reporterInitials;
 
   CivicComplaint({
     required this.id,
@@ -32,6 +40,14 @@ class CivicComplaint {
     required this.timeAgo,
     required this.region,
     required this.isPriority,
+    this.imageUrl = '',
+    this.supportCount = 0,
+    this.verifyCount = 0,
+    this.combinedScore,
+    this.aiConfidence,
+    this.verificationStatus,
+    this.reporterName = '',
+    this.reporterInitials = '',
   });
 }
 

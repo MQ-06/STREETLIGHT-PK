@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../models/civic_complaint.dart';
 import '../models/report_model.dart';
 import '../services/api_service.dart';
 
-/// Color palette for Explore screen
 class ExploreColors {
   static const backgroundColor = Color(0xFFFFF8E7);
   static const cardBackground = Color(0xFFFFFFFF);
@@ -22,6 +24,20 @@ class ExploreColors {
   static const borderLight = Color(0xFFEEEEEE);
 }
 
+double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+  const r = 6371.0;
+  final dLat = _toRad(lat2 - lat1);
+  final dLng = _toRad(lng2 - lng1);
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(_toRad(lat1)) *
+          math.cos(_toRad(lat2)) *
+          math.sin(dLng / 2) *
+          math.sin(dLng / 2);
+  return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+}
+
+double _toRad(double deg) => deg * math.pi / 180;
+
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -30,237 +46,181 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  // View state
   bool _isMapView = true;
   String _selectedCategory = 'All Categories';
   String _searchQuery = '';
   Timer? _searchTimer;
   bool _isLoading = false;
   String? _errorMessage;
-  
-  // Map controller
-  final MapController _mapController = MapController();
-  
-  // Text controller for search
-  final TextEditingController _searchController = TextEditingController();
-  
-  // Bottom nav index
-  int _currentNavIndex = 1; // Explore is active
-  
-  // Draggable sheet controller
-  final DraggableScrollableController _sheetController = DraggableScrollableController();
 
-  // Hardcoded Lahore sample data (used as visual fallback when no backend data)
+  // GPS state
+  double? _userLat;
+  double? _userLng;
+  String _userCity = 'Lahore';
+  bool _showOnlyNearby = false;
+
+  final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+
   final List<CivicComplaint> _sampleComplaints = [
     CivicComplaint(
-      id: 'complaint_001',
-      referenceId: '#LHR-9921',
-      title: 'Deep Pothole',
+      id: 'complaint_001', referenceId: '#LHR-9921', title: 'Deep Pothole',
       description: 'Large pothole causing traffic hazards on main road',
-      category: 'POTHOLE',
-      priority: 'CRITICAL',
-      location: 'Gulberg III',
-      address: 'Gulberg III • Main Boulevard',
-      latitude: 31.5105,
-      longitude: 74.3436,
+      category: 'POTHOLE', priority: 'CRITICAL', location: 'Gulberg III',
+      address: 'Gulberg III • Main Boulevard', latitude: 31.5105, longitude: 74.3436,
       reportedDate: DateTime.now().subtract(const Duration(hours: 12)),
-      status: 'CRITICAL',
-      timeAgo: '12m ago',
-      region: 'LAHORE',
-      isPriority: true,
+      status: 'CRITICAL', timeAgo: '12m ago', region: 'LAHORE', isPriority: true,
     ),
     CivicComplaint(
-      id: 'complaint_002',
-      referenceId: '#LHR-0421',
-      title: 'Overflowing Bin',
+      id: 'complaint_002', referenceId: '#LHR-0421', title: 'Overflowing Bin',
       description: 'Trash overflowing from garbage bin near market',
-      category: 'GARBAGE',
-      priority: 'PENDING',
-      location: 'Liberty Market',
-      address: 'Liberty Market • Main Chowk',
-      latitude: 31.5127,
-      longitude: 74.3408,
+      category: 'GARBAGE', priority: 'PENDING', location: 'Liberty Market',
+      address: 'Liberty Market • Main Chowk', latitude: 31.5127, longitude: 74.3408,
       reportedDate: DateTime.now().subtract(const Duration(hours: 5)),
-      status: 'PENDING',
-      timeAgo: '5h ago',
-      region: 'LAHORE',
-      isPriority: false,
+      status: 'PENDING', timeAgo: '5h ago', region: 'LAHORE', isPriority: false,
     ),
     CivicComplaint(
-      id: 'complaint_003',
-      referenceId: '#LHR-8845',
-      title: 'Road Damage',
+      id: 'complaint_003', referenceId: '#LHR-8845', title: 'Road Damage',
       description: 'Multiple potholes on main avenue causing traffic hazard',
-      category: 'POTHOLE',
-      priority: 'CRITICAL',
-      location: 'DHA Phase 5',
-      address: 'DHA Phase 5 • Sector C',
-      latitude: 31.4697,
-      longitude: 74.4023,
+      category: 'POTHOLE', priority: 'CRITICAL', location: 'DHA Phase 5',
+      address: 'DHA Phase 5 • Sector C', latitude: 31.4697, longitude: 74.4023,
       reportedDate: DateTime.now().subtract(const Duration(days: 1)),
-      status: 'CRITICAL',
-      timeAgo: '1d ago',
-      region: 'LAHORE',
-      isPriority: true,
+      status: 'CRITICAL', timeAgo: '1d ago', region: 'LAHORE', isPriority: true,
     ),
     CivicComplaint(
-      id: 'complaint_004',
-      referenceId: '#LHR-7632',
-      title: 'Litter Accumulation',
+      id: 'complaint_004', referenceId: '#LHR-7632', title: 'Litter Accumulation',
       description: 'Excessive litter on sidewalk near shops',
-      category: 'GARBAGE',
-      priority: 'RESOLVED',
-      location: 'Model Town',
-      address: 'Model Town • Block C',
-      latitude: 31.4833,
-      longitude: 74.3167,
+      category: 'GARBAGE', priority: 'RESOLVED', location: 'Model Town',
+      address: 'Model Town • Block C', latitude: 31.4833, longitude: 74.3167,
       reportedDate: DateTime.now().subtract(const Duration(days: 2)),
-      status: 'RESOLVED',
-      timeAgo: '2d ago',
-      region: 'LAHORE',
-      isPriority: false,
+      status: 'RESOLVED', timeAgo: '2d ago', region: 'LAHORE', isPriority: false,
     ),
     CivicComplaint(
-      id: 'complaint_005',
-      referenceId: '#LHR-1122',
-      title: 'Street Crack',
+      id: 'complaint_005', referenceId: '#LHR-1122', title: 'Street Crack',
       description: 'Large crack forming on main road near school',
-      category: 'POTHOLE',
-      priority: 'PENDING',
-      location: 'Johar Town',
-      address: 'Johar Town • Block G',
-      latitude: 31.4697,
-      longitude: 74.2711,
+      category: 'POTHOLE', priority: 'PENDING', location: 'Johar Town',
+      address: 'Johar Town • Block G', latitude: 31.4697, longitude: 74.2711,
       reportedDate: DateTime.now().subtract(const Duration(hours: 8)),
-      status: 'PENDING',
-      timeAgo: '8h ago',
-      region: 'LAHORE',
-      isPriority: false,
+      status: 'PENDING', timeAgo: '8h ago', region: 'LAHORE', isPriority: false,
     ),
     CivicComplaint(
-      id: 'complaint_006',
-      referenceId: '#LHR-3344',
-      title: 'Dumped Waste',
+      id: 'complaint_006', referenceId: '#LHR-3344', title: 'Dumped Waste',
       description: 'Illegal dumping of construction waste near residential area',
-      category: 'GARBAGE',
-      priority: 'CRITICAL',
-      location: 'Bahria Town',
-      address: 'Bahria Town • Sector E',
-      latitude: 31.3685,
-      longitude: 74.1803,
+      category: 'GARBAGE', priority: 'CRITICAL', location: 'Bahria Town',
+      address: 'Bahria Town • Sector E', latitude: 31.3685, longitude: 74.1803,
       reportedDate: DateTime.now().subtract(const Duration(hours: 3)),
-      status: 'CRITICAL',
-      timeAgo: '3h ago',
-      region: 'LAHORE',
-      isPriority: true,
+      status: 'CRITICAL', timeAgo: '3h ago', region: 'LAHORE', isPriority: true,
     ),
     CivicComplaint(
-      id: 'complaint_007',
-      referenceId: '#LHR-5566',
-      title: 'Sewage Overflow',
+      id: 'complaint_007', referenceId: '#LHR-5566', title: 'Sewage Overflow',
       description: 'Sewage blocking road near hospital',
-      category: 'GARBAGE',
-      priority: 'CRITICAL',
-      location: 'Faisal Town',
-      address: 'Faisal Town • Block A',
-      latitude: 31.5000,
-      longitude: 74.3100,
+      category: 'GARBAGE', priority: 'CRITICAL', location: 'Faisal Town',
+      address: 'Faisal Town • Block A', latitude: 31.5000, longitude: 74.3100,
       reportedDate: DateTime.now().subtract(const Duration(hours: 2)),
-      status: 'CRITICAL',
-      timeAgo: '2h ago',
-      region: 'LAHORE',
-      isPriority: true,
+      status: 'CRITICAL', timeAgo: '2h ago', region: 'LAHORE', isPriority: true,
     ),
     CivicComplaint(
-      id: 'complaint_008',
-      referenceId: '#LHR-7788',
-      title: 'Broken Road',
+      id: 'complaint_008', referenceId: '#LHR-7788', title: 'Broken Road',
       description: 'Road severely damaged after rain',
-      category: 'POTHOLE',
-      priority: 'PENDING',
-      location: 'Garden Town',
-      address: 'Garden Town • Main Road',
-      latitude: 31.5120,
-      longitude: 74.3200,
+      category: 'POTHOLE', priority: 'PENDING', location: 'Garden Town',
+      address: 'Garden Town • Main Road', latitude: 31.5120, longitude: 74.3200,
       reportedDate: DateTime.now().subtract(const Duration(hours: 6)),
-      status: 'PENDING',
-      timeAgo: '6h ago',
-      region: 'LAHORE',
-      isPriority: false,
+      status: 'PENDING', timeAgo: '6h ago', region: 'LAHORE', isPriority: false,
     ),
   ];
 
-  // Backend-powered complaints list (preferred source when not empty)
   List<CivicComplaint> _backendComplaints = [];
 
-  // Stats computed from complaints
-  int get _criticalCount => _filteredComplaints.where((c) => c.status == 'CRITICAL').length;
-  int get _pendingCount => _filteredComplaints.where((c) => c.status == 'PENDING').length;
-  int get _resolvedCount => _filteredComplaints.where((c) => c.status == 'RESOLVED').length;
+  int get _criticalCount =>
+      _filteredComplaints.where((c) => c.status == 'CRITICAL').length;
+  int get _pendingCount =>
+      _filteredComplaints.where((c) => c.status == 'PENDING').length;
+  int get _resolvedCount =>
+      _filteredComplaints.where((c) => c.status == 'RESOLVED').length;
 
   List<CivicComplaint> get _activeSource =>
       _backendComplaints.isNotEmpty ? _backendComplaints : _sampleComplaints;
 
   List<CivicComplaint> get _filteredComplaints {
     var results = _searchComplaints(_searchQuery);
-    
     if (_selectedCategory != 'All Categories') {
       results = results.where((c) => c.category == _selectedCategory).toList();
     }
-    
-    // Sort: CRITICAL > PENDING > RESOLVED, then by date
+    if (_showOnlyNearby && _userLat != null && _userLng != null) {
+      results = results
+          .where((c) =>
+              _haversineKm(c.latitude, c.longitude, _userLat!, _userLng!) <= 10.0)
+          .toList();
+    }
     results.sort((a, b) {
-      const priorityOrder = {'CRITICAL': 0, 'PENDING': 1, 'RESOLVED': 2};
-      final priorityCompare = priorityOrder[a.status]!.compareTo(priorityOrder[b.status]!);
-      
-      if (priorityCompare != 0) return priorityCompare;
+      const order = {'CRITICAL': 0, 'PENDING': 1, 'RESOLVED': 2};
+      final cmp = order[a.status]!.compareTo(order[b.status]!);
+      if (cmp != 0) return cmp;
       return b.reportedDate.compareTo(a.reportedDate);
     });
-    
     return results;
   }
 
   List<CivicComplaint> _searchComplaints(String query) {
     final source = _activeSource;
     if (query.isEmpty) return List<CivicComplaint>.from(source);
-
     final q = query.toLowerCase();
-    return source.where((complaint) {
-      return complaint.location.toLowerCase().contains(q) ||
-             complaint.referenceId.toLowerCase().contains(q) ||
-             complaint.title.toLowerCase().contains(q) ||
-             complaint.address.toLowerCase().contains(q);
+    return source.where((c) {
+      return c.location.toLowerCase().contains(q) ||
+          c.referenceId.toLowerCase().contains(q) ||
+          c.title.toLowerCase().contains(q) ||
+          c.address.toLowerCase().contains(q);
     }).toList();
-  }
-
-  void _handleSearch(String query) {
-    _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 300), () {
-      setState(() {
-        _searchQuery = query;
-      });
-      
-      // If results exist, animate to first result and expand panel
-      if (_filteredComplaints.isNotEmpty) {
-        final first = _filteredComplaints.first;
-        _mapController.move(LatLng(first.latitude, first.longitude), 15);
-        
-        // Expand the bottom sheet to show results
-        if (_sheetController.isAttached) {
-          _sheetController.animateTo(
-            0.5,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      }
-    });
   }
 
   @override
   void initState() {
     super.initState();
     _loadComplaintsFromBackend();
+    _initGps();
+  }
+
+  @override
+  void dispose() {
+    _searchTimer?.cancel();
+    _searchController.dispose();
+    _sheetController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initGps() async {
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever ||
+          perm == LocationPermission.denied) {
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 8),
+      );
+      if (!mounted) return;
+      setState(() {
+        _userLat = pos.latitude;
+        _userLng = pos.longitude;
+      });
+      _mapController.move(LatLng(pos.latitude, pos.longitude), 13);
+      try {
+        final placemarks =
+            await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty && mounted) {
+          final city = placemarks.first.locality ??
+              placemarks.first.administrativeArea ??
+              'Your Location';
+          setState(() => _userCity = city);
+        }
+      } catch (_) {}
+    } catch (_) {}
   }
 
   Future<void> _loadComplaintsFromBackend() async {
@@ -268,31 +228,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-
     final result = await ApiService.getReportsFeed(skip: 0, limit: 100);
-
     if (!mounted) return;
-
     if (result['success'] == true) {
       final raw = result['data']['reports'] as List<dynamic>;
-      final reports = raw
-          .map((r) => ReportModel.fromJson(r as Map<String, dynamic>))
-          .toList();
-
+      final reports =
+          raw.map((r) => ReportModel.fromJson(r as Map<String, dynamic>)).toList();
       setState(() {
         _backendComplaints = reports.map(_mapReportToComplaint).toList();
         _isLoading = false;
       });
     } else {
-      // Session expired → reuse unified logout flow
       if (result['code'] == 401) {
         await ApiService.logout();
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/login_form',
-            (route) => false,
-          );
+              context, '/login_form', (route) => false);
         }
         return;
       }
@@ -304,51 +255,57 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   CivicComplaint _mapReportToComplaint(ReportModel report) {
-    // Approximate location coordinates using city name; fallback to Lahore center
-    final LatLng cityCenter = _cityToLatLng(report.locationCity);
-
-    final statusUpper = report.status.toUpperCase();
-    String mappedStatus;
-    if (statusUpper == 'RESOLVED') {
-      mappedStatus = 'RESOLVED';
-    } else if (statusUpper == 'CRITICAL') {
-      mappedStatus = 'CRITICAL';
+    double lat;
+    double lng;
+    if (report.locationLat != null && report.locationLng != null) {
+      lat = report.locationLat!;
+      lng = report.locationLng!;
     } else {
-      mappedStatus = 'PENDING';
+      final city = _cityToLatLng(report.locationCity);
+      lat = city.latitude;
+      lng = city.longitude;
     }
-
+    final statusUpper = report.status.toUpperCase();
+    final mappedStatus = statusUpper == 'RESOLVED'
+        ? 'RESOLVED'
+        : statusUpper == 'CRITICAL'
+            ? 'CRITICAL'
+            : 'PENDING';
     final categoryUpper = report.issueCategory.toUpperCase();
-
-    final area = report.locationCity.isNotEmpty
-        ? report.locationCity
-        : report.location;
-
+    final area =
+        report.locationCity.isNotEmpty ? report.locationCity : report.location;
     final address = report.locationCity.isNotEmpty
         ? '${report.location} • ${report.locationCity}'
         : report.location;
-
     return CivicComplaint(
       id: report.id.toString(),
       referenceId: '#RPT-${report.id.toString().padLeft(4, '0')}',
       title: report.title,
       description: report.description,
-      category: categoryUpper,
+      category: categoryUpper == 'TRASH' ? 'GARBAGE' : categoryUpper,
       priority: mappedStatus,
       location: area,
       address: address,
-      latitude: cityCenter.latitude,
-      longitude: cityCenter.longitude,
+      latitude: lat,
+      longitude: lng,
       reportedDate: report.timestamp,
       status: mappedStatus,
       timeAgo: report.timeAgo,
       region: area.toUpperCase(),
       isPriority: mappedStatus == 'CRITICAL',
+      imageUrl: report.imageUrl,
+      supportCount: report.supportCount,
+      verifyCount: report.verifyCount,
+      combinedScore: report.combinedScore,
+      aiConfidence: report.aiConfidence,
+      verificationStatus: report.verificationStatus,
+      reporterName: report.reporterName,
+      reporterInitials: report.reporterInitials,
     );
   }
 
   LatLng _cityToLatLng(String city) {
-    final c = city.toLowerCase().trim();
-    switch (c) {
+    switch (city.toLowerCase().trim()) {
       case 'lahore':
         return const LatLng(31.5204, 74.3587);
       case 'karachi':
@@ -360,17 +317,32 @@ class _ExploreScreenState extends State<ExploreScreen> {
       case 'faisalabad':
         return const LatLng(31.4504, 73.1350);
       default:
-        // Fallback to Lahore center
         return const LatLng(31.5204, 74.3587);
     }
   }
 
-  @override
-  void dispose() {
+  void _handleSearch(String query) {
     _searchTimer?.cancel();
-    _searchController.dispose();
-    _sheetController.dispose();
-    super.dispose();
+    _searchTimer = Timer(const Duration(milliseconds: 300), () async {
+      setState(() => _searchQuery = query);
+      if (query.isEmpty) return;
+      try {
+        final locations = await locationFromAddress(query);
+        if (locations.isNotEmpty && mounted) {
+          final loc = locations.first;
+          _mapController.move(LatLng(loc.latitude, loc.longitude), 14);
+          return;
+        }
+      } catch (_) {}
+      if (_filteredComplaints.isNotEmpty) {
+        final first = _filteredComplaints.first;
+        _mapController.move(LatLng(first.latitude, first.longitude), 15);
+        if (_sheetController.isAttached) {
+          _sheetController.animateTo(0.5,
+              duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        }
+      }
+    });
   }
 
   @override
@@ -386,22 +358,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  _errorMessage!,
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    color: Colors.redAccent,
-                  ),
-                ),
+                child: Text(_errorMessage!,
+                    style: GoogleFonts.roboto(fontSize: 12, color: Colors.redAccent)),
               ),
             _buildViewToggle(),
             Expanded(
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: ExploreColors.primaryOrange,
-                      ),
-                    )
+                          color: ExploreColors.primaryOrange))
                   : (_isMapView ? _buildMapViewWithSheet() : _buildListView()),
             ),
           ],
@@ -415,14 +380,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Center(
-        child: Text(
-          'Regional Map',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: ExploreColors.textPrimary,
-          ),
-        ),
+        child: Text('Regional Map',
+            style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: ExploreColors.textPrimary)),
       ),
     );
   }
@@ -436,28 +398,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2))
           ],
         ),
         child: TextField(
           controller: _searchController,
           onChanged: _handleSearch,
-          style: GoogleFonts.roboto(
-            fontSize: 15,
-            color: ExploreColors.textPrimary, // Fixed: text color now visible
-          ),
+          style: GoogleFonts.roboto(fontSize: 15, color: ExploreColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'Search area or incident ID (e.g., Gulberg, DHA)',
-            hintStyle: GoogleFonts.roboto(
-              fontSize: 14,
-              color: ExploreColors.textSecondary,
-            ),
+            hintStyle:
+                GoogleFonts.roboto(fontSize: 14, color: ExploreColors.textSecondary),
             prefixIcon: const Icon(Icons.search, color: ExploreColors.textSecondary),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ),
@@ -476,8 +433,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildToggleButton('🗺 Map', true),
-            _buildToggleButton('☰ List', false),
+            _buildToggleButton('Map', true),
+            _buildToggleButton('List', false),
           ],
         ),
       ),
@@ -494,14 +451,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
           color: isSelected ? ExploreColors.primaryOrange : Colors.transparent,
           borderRadius: BorderRadius.circular(25),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.roboto(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : ExploreColors.textSecondary,
-          ),
-        ),
+        child: Text(label,
+            style: GoogleFonts.roboto(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : ExploreColors.textSecondary)),
       ),
     );
   }
@@ -509,11 +463,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildMapViewWithSheet() {
     return Stack(
       children: [
-        // Map - takes full space
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: const LatLng(31.5204, 74.3587), // Lahore center
+            initialCenter: _userLat != null
+                ? LatLng(_userLat!, _userLng!)
+                : const LatLng(31.5204, 74.3587),
             initialZoom: 12,
           ),
           children: [
@@ -521,160 +476,48 @@ class _ExploreScreenState extends State<ExploreScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.streetlight.app',
             ),
-            MarkerLayer(
-              markers: _buildMapMarkers(),
-            ),
+            MarkerLayer(markers: _buildMapMarkers()),
+            if (_userLat != null)
+              MarkerLayer(markers: [
+                Marker(
+                  point: LatLng(_userLat!, _userLng!),
+                  width: 20,
+                  height: 20,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ]),
           ],
         ),
-        // Zoom controls
         Positioned(
           right: 16,
           top: 16,
           child: Column(
             children: [
               _buildZoomButton(Icons.add, () {
-                _mapController.move(
-                  _mapController.camera.center,
-                  _mapController.camera.zoom + 1,
-                );
+                _mapController.move(_mapController.camera.center,
+                    _mapController.camera.zoom + 1);
               }),
               const SizedBox(height: 8),
               _buildZoomButton(Icons.remove, () {
-                _mapController.move(
-                  _mapController.camera.center,
-                  _mapController.camera.zoom - 1,
-                );
+                _mapController.move(_mapController.camera.center,
+                    _mapController.camera.zoom - 1);
               }),
+              const SizedBox(height: 8),
+              _buildZoomButton(
+                _showOnlyNearby ? Icons.near_me : Icons.near_me_outlined,
+                () => setState(() => _showOnlyNearby = !_showOnlyNearby),
+                color: _showOnlyNearby ? ExploreColors.primaryOrange : null,
+              ),
             ],
           ),
         ),
-        // Draggable bottom sheet for issues list
-        DraggableScrollableSheet(
-          controller: _sheetController,
-          initialChildSize: 0.15,
-          minChildSize: 0.15,
-          maxChildSize: 0.85,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: ListView(
-                controller: scrollController,
-                padding: EdgeInsets.zero,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: ExploreColors.borderLight,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  // Header with stats
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Issues in Lahore',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: ExploreColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          '${_filteredComplaints.length} found',
-                          style: GoogleFonts.roboto(
-                            fontSize: 13,
-                            color: ExploreColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Stats row
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _buildMiniStat('CRITICAL', _criticalCount, ExploreColors.primaryOrange),
-                        const SizedBox(width: 16),
-                        _buildMiniStat('PENDING', _pendingCount, ExploreColors.pendingGray),
-                        const SizedBox(width: 16),
-                        _buildMiniStat('RESOLVED', _resolvedCount, ExploreColors.resolvedGreen),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Category filters
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildCategoryChip('All Categories'),
-                          const SizedBox(width: 8),
-                          _buildCategoryChip('Potholes', categoryValue: 'POTHOLE'),
-                          const SizedBox(width: 8),
-                          _buildCategoryChip('Garbage', categoryValue: 'GARBAGE'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Complaints list
-                  ..._filteredComplaints.map((complaint) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      child: _buildComplaintCard(complaint),
-                    );
-                  }),
-                  const SizedBox(height: 80),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMiniStat(String label, int count, Color color) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$count $label',
-          style: GoogleFonts.roboto(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: color,
-          ),
-        ),
+        _buildDraggableSheet(),
       ],
     );
   }
@@ -683,7 +526,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return _filteredComplaints.map((complaint) {
       final isPothole = complaint.category == 'POTHOLE';
       final isCritical = complaint.status == 'CRITICAL';
-      
       return Marker(
         point: LatLng(complaint.latitude, complaint.longitude),
         width: 50,
@@ -697,14 +539,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: isPothole ? ExploreColors.potholeOrange : ExploreColors.garbageGray,
+                  color: isPothole
+                      ? ExploreColors.potholeOrange
+                      : ExploreColors.garbageGray,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2))
                   ],
                 ),
                 child: Icon(
@@ -734,93 +577,281 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }).toList();
   }
 
-  Widget _buildZoomButton(IconData icon, VoidCallback onTap) {
+  void _showComplaintDetail(CivicComplaint complaint) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(complaint.title,
+                      style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: ExploreColors.textPrimary)),
+                ),
+                _buildStatusBadge(complaint.status),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(complaint.referenceId,
+                style: GoogleFonts.roboto(
+                    fontSize: 14,
+                    color: ExploreColors.primaryOrange,
+                    fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.location_on,
+                    size: 18, color: ExploreColors.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(complaint.address,
+                      style: GoogleFonts.roboto(
+                          fontSize: 14, color: ExploreColors.textSecondary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(complaint.description,
+                style: GoogleFonts.roboto(
+                    fontSize: 14, color: ExploreColors.textPrimary, height: 1.5)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ExploreColors.primaryOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Close',
+                    style: GoogleFonts.roboto(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildZoomButton(IconData icon, VoidCallback onTap, {Color? color}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: color != null
+              ? color.withValues(alpha: 0.15)
+              : Colors.white,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2))
           ],
         ),
-        child: Icon(icon, color: ExploreColors.textPrimary),
+        child: Icon(icon, color: color ?? ExploreColors.textPrimary),
       ),
+    );
+  }
+
+  Widget _buildDraggableSheet() {
+    return DraggableScrollableSheet(
+      controller: _sheetController,
+      initialChildSize: 0.15,
+      minChildSize: 0.15,
+      maxChildSize: 0.85,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2))
+            ],
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: EdgeInsets.zero,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: ExploreColors.borderLight,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Issues in $_userCity',
+                        style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: ExploreColors.textPrimary)),
+                    Row(
+                      children: [
+                        Text('${_filteredComplaints.length} found',
+                            style: GoogleFonts.roboto(
+                                fontSize: 13, color: ExploreColors.textSecondary)),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => _showOnlyNearby = !_showOnlyNearby),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _showOnlyNearby
+                                  ? ExploreColors.primaryOrange
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: _showOnlyNearby
+                                      ? ExploreColors.primaryOrange
+                                      : ExploreColors.borderLight),
+                            ),
+                            child: Text('Nearby',
+                                style: GoogleFonts.roboto(
+                                    fontSize: 11,
+                                    color: _showOnlyNearby
+                                        ? Colors.white
+                                        : ExploreColors.textSecondary,
+                                    fontWeight: FontWeight.w500)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _buildMiniStat('CRITICAL', _criticalCount, ExploreColors.primaryOrange),
+                    const SizedBox(width: 16),
+                    _buildMiniStat('PENDING', _pendingCount, ExploreColors.pendingGray),
+                    const SizedBox(width: 16),
+                    _buildMiniStat('RESOLVED', _resolvedCount, ExploreColors.resolvedGreen),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildCategoryChip('All Categories'),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip('Potholes', categoryValue: 'POTHOLE'),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip('Garbage', categoryValue: 'GARBAGE'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._filteredComplaints.map((c) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 6),
+                    child: _buildComplaintCard(c),
+                  )),
+              const SizedBox(height: 80),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniStat(String label, int count, Color color) {
+    return Row(
+      children: [
+        Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text('$count $label',
+            style: GoogleFonts.roboto(
+                fontSize: 11, fontWeight: FontWeight.w500, color: color)),
+      ],
     );
   }
 
   Widget _buildListView() {
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          _buildRegionalInsightsSection(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRegionalInsightsSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Regional Insights - Lahore',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: ExploreColors.textPrimary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            Text('Regional Insights - $_userCity',
+                style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: ExploreColors.textPrimary)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _buildStatCard('CRITICAL', _criticalCount.toString(), ExploreColors.primaryOrange)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildStatCard('PENDING', _pendingCount.toString(), ExploreColors.pendingGray)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildStatCard('RESOLVED', _resolvedCount.toString(), ExploreColors.resolvedGreen)),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildStatsCards(),
-          const SizedBox(height: 20),
-          _buildCategoryFiltersRow(),
-          const SizedBox(height: 16),
-          _buildComplaintList(),
-          const SizedBox(height: 80), // Space for FAB
-        ],
+            const SizedBox(height: 20),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildCategoryChip('All Categories'),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip('Potholes', categoryValue: 'POTHOLE'),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip('Garbage', categoryValue: 'GARBAGE'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._filteredComplaints.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildComplaintCard(c),
+                )),
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildStatsCards() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            'CRITICAL',
-            _criticalCount.toString(),
-            ExploreColors.primaryOrange,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            'PENDING',
-            _pendingCount.toString(),
-            ExploreColors.pendingGray,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            'RESOLVED',
-            _resolvedCount.toString(),
-            ExploreColors.resolvedGreen,
-          ),
-        ),
-      ],
     );
   }
 
@@ -835,39 +866,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.roboto(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-              letterSpacing: 0.5,
-            ),
-          ),
+          Text(label,
+              style: GoogleFonts.roboto(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color, letterSpacing: 0.5)),
           const SizedBox(height: 4),
-          Text(
-            count,
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryFiltersRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildCategoryChip('All Categories'),
-          const SizedBox(width: 8),
-          _buildCategoryChip('Potholes', categoryValue: 'POTHOLE'),
-          const SizedBox(width: 8),
-          _buildCategoryChip('Garbage', categoryValue: 'GARBAGE'),
+          Text(count,
+              style: GoogleFonts.poppins(
+                  fontSize: 28, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
@@ -876,7 +881,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildCategoryChip(String label, {String? categoryValue}) {
     final value = categoryValue ?? label;
     final isSelected = _selectedCategory == value;
-    
     return GestureDetector(
       onTap: () => setState(() => _selectedCategory = value),
       child: Container(
@@ -885,39 +889,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
           color: isSelected ? ExploreColors.primaryOrange : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? ExploreColors.primaryOrange : ExploreColors.borderLight,
-          ),
+              color: isSelected
+                  ? ExploreColors.primaryOrange
+                  : ExploreColors.borderLight),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.roboto(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : ExploreColors.textSecondary,
-          ),
-        ),
+        child: Text(label,
+            style: GoogleFonts.roboto(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : ExploreColors.textSecondary)),
       ),
-    );
-  }
-
-  Widget _buildComplaintList() {
-    return Column(
-      children: _filteredComplaints.map((complaint) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildComplaintCard(complaint),
-        );
-      }).toList(),
     );
   }
 
   Widget _buildComplaintCard(CivicComplaint complaint) {
     final isPothole = complaint.category == 'POTHOLE';
-    
     return GestureDetector(
       onTap: () {
-        // Center map on this complaint
-        _mapController.move(LatLng(complaint.latitude, complaint.longitude), 16);
+        if (_isMapView) {
+          _mapController.move(LatLng(complaint.latitude, complaint.longitude), 16);
+        }
         _showComplaintDetail(complaint);
       },
       child: Container(
@@ -929,14 +920,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
         child: Row(
           children: [
-            // Category icon
             Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: isPothole 
-                    ? ExploreColors.potholeOrange.withOpacity(0.1) 
-                    : ExploreColors.garbageGray.withOpacity(0.1),
+                color: isPothole
+                    ? ExploreColors.potholeOrange.withValues(alpha: 0.1)
+                    : ExploreColors.garbageGray.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -946,43 +936,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            // Title and address
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    complaint.title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: ExploreColors.textPrimary,
-                    ),
-                  ),
+                  Text(complaint.title,
+                      style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: ExploreColors.textPrimary)),
                   const SizedBox(height: 2),
-                  Text(
-                    complaint.address,
-                    style: GoogleFonts.roboto(
-                      fontSize: 13,
-                      color: ExploreColors.textSecondary,
-                    ),
-                  ),
+                  Text(complaint.address,
+                      style: GoogleFonts.roboto(
+                          fontSize: 13, color: ExploreColors.textSecondary)),
                 ],
               ),
             ),
-            // Status and time
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _buildStatusBadge(complaint.status),
                 const SizedBox(height: 4),
-                Text(
-                  complaint.timeAgo,
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    color: ExploreColors.textSecondary,
-                  ),
-                ),
+                Text(complaint.timeAgo,
+                    style: GoogleFonts.roboto(
+                        fontSize: 12, color: ExploreColors.textSecondary)),
               ],
             ),
           ],
@@ -997,116 +974,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
       case 'CRITICAL':
         color = ExploreColors.primaryOrange;
         break;
-      case 'PENDING':
-        color = ExploreColors.pendingGray;
-        break;
       case 'RESOLVED':
         color = ExploreColors.resolvedGreen;
         break;
       default:
-        color = ExploreColors.textSecondary;
+        color = ExploreColors.pendingGray;
     }
-    
-    return Text(
-      status,
-      style: GoogleFonts.roboto(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: color,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  void _showComplaintDetail(CivicComplaint complaint) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    complaint.title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: ExploreColors.textPrimary,
-                    ),
-                  ),
-                ),
-                _buildStatusBadge(complaint.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              complaint.referenceId,
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: ExploreColors.primaryOrange,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(Icons.location_on, size: 18, color: ExploreColors.textSecondary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    complaint.address,
-                    style: GoogleFonts.roboto(
-                      fontSize: 14,
-                      color: ExploreColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              complaint.description,
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: ExploreColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ExploreColors.primaryOrange,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Close',
-                  style: GoogleFonts.roboto(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
+    return Text(status,
+        style: GoogleFonts.roboto(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.5));
   }
 
   Widget _buildDrawer() {
@@ -1117,29 +996,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(
-                color: ExploreColors.primaryOrange,
-              ),
+              decoration: const BoxDecoration(color: ExploreColors.primaryOrange),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(
-                    'StreetLight',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  Text('StreetLight',
+                      style: GoogleFonts.poppins(
+                          fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 4),
-                  Text(
-                    'Urban Management',
-                    style: GoogleFonts.roboto(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                  ),
+                  Text('Urban Management',
+                      style: GoogleFonts.roboto(fontSize: 14, color: Colors.white70)),
                 ],
               ),
             ),
@@ -1153,7 +1020,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.explore, color: ExploreColors.primaryOrange),
-              title: Text('Explore', style: GoogleFonts.roboto(color: ExploreColors.primaryOrange)),
+              title: Text('Explore',
+                  style: GoogleFonts.roboto(color: ExploreColors.primaryOrange)),
               selected: true,
               onTap: () => Navigator.pop(context),
             ),
@@ -1186,6 +1054,4 @@ class _ExploreScreenState extends State<ExploreScreen> {
       child: const Icon(Icons.add, color: Colors.white, size: 28),
     );
   }
-
-  // Bottom navigation is now provided by MainShell (IndexedStack).
 }
