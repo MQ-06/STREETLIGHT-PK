@@ -1,24 +1,28 @@
 /**
  * MapBoundsTracker — lives inside <MapContainer> to access useMap().
- * Calls onBoundsChange(bounds) on mount and every 'moveend' event.
+ * Calls onBoundsChange(bounds) and onCenterChange(center) on mount
+ * and every 'moveend' event.
  *
  * Props:
  *   onBoundsChange — (LatLngBounds) => void
+ *   onCenterChange — (LatLng) => void  (optional)
  */
 import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
 
-export default function MapBoundsTracker({ onBoundsChange }) {
+export default function MapBoundsTracker({ onBoundsChange, onCenterChange }) {
   const map = useMap()
 
   useEffect(() => {
-    // Fire immediately with the initial bounds
-    onBoundsChange(map.getBounds())
+    const fire = () => {
+      onBoundsChange(map.getBounds())
+      onCenterChange?.(map.getCenter())
+    }
 
-    const handler = () => onBoundsChange(map.getBounds())
-    map.on('moveend', handler)
-    return () => { map.off('moveend', handler) }
-  }, [map, onBoundsChange])
+    fire()   // fire immediately with initial values
+    map.on('moveend', fire)
+    return () => { map.off('moveend', fire) }
+  }, [map, onBoundsChange, onCenterChange])
 
   return null
 }

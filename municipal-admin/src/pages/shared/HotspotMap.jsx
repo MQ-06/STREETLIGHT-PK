@@ -48,7 +48,9 @@ export default function HotspotMap() {
   const { allReports, filtered, loading, error, filters, setFilter } = useMapReports()
   const [selectedReport, setSelectedReport] = useState(null)
   const [mapBounds,      setMapBounds]      = useState(null)
+  const [mapCenter,      setMapCenter]      = useState(null)
   const onBoundsChange = useCallback(b => setMapBounds(b), [])
+  const onCenterChange = useCallback(c => setMapCenter(c), [])
 
   return (
     /*
@@ -124,8 +126,8 @@ export default function HotspotMap() {
           <HeatmapLayer reports={filtered} />
           <MapPins reports={filtered} onPinClick={setSelectedReport} />
 
-          {/* M4 — Tracks viewport bounds for ActiveAlertsCard */}
-          <MapBoundsTracker onBoundsChange={onBoundsChange} />
+          {/* M4/M5 — Tracks viewport bounds and center */}
+          <MapBoundsTracker onBoundsChange={onBoundsChange} onCenterChange={onCenterChange} />
         </MapContainer>
 
         {/* ── Floating overlays ── */}
@@ -153,7 +155,7 @@ export default function HotspotMap() {
             transition: 'right 0.25s ease',
           }}
         >
-          <MapLegend />
+          <MapLegend reports={filtered} />
         </div>
 
         {/* Bottom-center: Viewport Label (M5) */}
@@ -166,7 +168,7 @@ export default function HotspotMap() {
             zIndex:    900,
           }}
         >
-          <ViewportLabel count={filtered.length} />
+          <ViewportLabel mapCenter={mapCenter} />
         </div>
 
         {/* Loading overlay */}
