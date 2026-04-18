@@ -11,16 +11,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch } from '../../utils/auth'
-
-// ── Inline badge utility (will be replaced by M7 import) ─────────────────────
-function getBadge(score) {
-  const s = score ?? -1
-  if (s < 0)    return null
-  if (s <= 200) return { label: 'Rookie',          star: '⭐', bg: '#FEF3C7', color: '#B45309' }
-  if (s <= 500) return { label: 'Community Hero',  star: '🌟', bg: '#DBEAFE', color: '#1D4ED8' }
-  if (s <= 800) return { label: 'Master Reformer', star: '💫', bg: '#F3E8FF', color: '#7C3AED' }
-  return              { label: 'Paragon',           star: '🏅', bg: '#DCFCE7', color: '#15803D' }
-}
+import { getBadge }  from '../../utils/badge'
 
 // ── Stepper helpers ───────────────────────────────────────────────────────────
 const STEPS = ['Pending', 'In Progress', 'Resolved']
@@ -116,7 +107,7 @@ export default function ReportDetailPanel({ report, onClose }) {
 
   const score        = data.ai_confidence ?? 0
   const activeStep   = stageToStep(data.kanban_stage)
-  const badge        = getBadge(detail?.reporter_impact_score)
+  const badge        = detail ? getBadge(detail.reporter_impact_score) : null
   const category     = (data.category || '').toLowerCase()
   const categoryIcon = category === 'pothole' ? '🛣️' : category === 'trash' ? '🗑️' : '📋'
   const categoryLabel = category.charAt(0).toUpperCase() + category.slice(1)
@@ -268,14 +259,17 @@ export default function ReportDetailPanel({ report, onClose }) {
                 {/* 5. REPORTER TRUST */}
                 <SectionCard>
                   <Label>Reporter Trust</Label>
-                  {badge ? (
+                  {badge && badge.tierLevel > 0 ? (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
                       background: badge.bg, color: badge.color,
                       fontSize: 12, fontWeight: 700,
                       padding: '4px 12px', borderRadius: 20,
                     }}>
-                      {badge.star} {badge.label}
+                      {badge.icon} {badge.subBadge}
+                      <span style={{ opacity: 0.6, fontWeight: 400, marginLeft: 4 }}>
+                        · {badge.tier}
+                      </span>
                     </span>
                   ) : (
                     <span style={{ fontSize: 12, color: '#9CA3AF' }}>
