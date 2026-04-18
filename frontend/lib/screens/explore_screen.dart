@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-
-enum ViewMode { pins, heatmap, both }
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -12,6 +10,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/civic_complaint.dart';
 import '../models/report_model.dart';
 import '../services/api_service.dart';
+
+enum ViewMode { pins, heatmap, both }
 
 class ExploreColors {
   static const backgroundColor = Color(0xFFFFF8E7);
