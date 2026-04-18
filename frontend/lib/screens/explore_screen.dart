@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -542,7 +543,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
             if (_viewMode == ViewMode.heatmap || _viewMode == ViewMode.both)
               CircleLayer(circles: _buildHeatmapCircles()),
             if (_viewMode == ViewMode.pins || _viewMode == ViewMode.both)
-              MarkerLayer(markers: _buildMapMarkers()),
+              MarkerClusterLayerWidget(
+                options: MarkerClusterLayerOptions(
+                  maxClusterRadius: 80,
+                  disableClusteringAtZoom: 17,
+                  size: const Size(44, 44),
+                  markers: _buildMapMarkers(),
+                  builder: (context, markers) =>
+                      _buildClusterWidget(markers.length),
+                  onClusterTap: (cluster) {
+                    final complaints = cluster.markers
+                        .map((m) =>
+                            (m.key as ValueKey<CivicComplaint>).value)
+                        .toList();
+                    complaints.sort((a, b) {
+                      const order = {
+                        'CRITICAL': 0,
+                        'PENDING': 1,
+                        'RESOLVED': 2
+                      };
+                      final cmp =
+                          order[a.status]!.compareTo(order[b.status]!);
+                      if (cmp != 0) return cmp;
+                      return b.reportedDate.compareTo(a.reportedDate);
+                    });
+                    _showClusterPopup(complaints);
+                  },
+                ),
+              ),
             if (_userLat != null)
               MarkerLayer(markers: [
                 Marker(
@@ -786,6 +814,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final isPothole = complaint.category == 'POTHOLE';
       final isCritical = complaint.status == 'CRITICAL';
       return Marker(
+        key: ValueKey<CivicComplaint>(complaint),
         point: LatLng(complaint.latitude, complaint.longitude),
         width: 50,
         height: 50,
@@ -834,6 +863,85 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildClusterWidget(int count) {
+    final double size = count < 5 ? 36 : count < 10 ? 44 : 52;
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A2340),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text('$count',
+          style: GoogleFonts.roboto(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: size * 0.32)),
+    );
+  }
+
+  void _showClusterPopup(List<CivicComplaint> complaints) {
+    final top3 = complaints.take(3).toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${complaints.length} Reports in this area',
+                style: GoogleFonts.poppins(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            ...top3.map((c) => _buildClusterRow(c)),
+            if (complaints.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('View all ${complaints.length} reports',
+                    style: GoogleFonts.roboto(
+                        fontSize: 13,
+                        color: ExploreColors.primaryOrange,
+                        fontWeight: FontWeight.w500)),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClusterRow(CivicComplaint c) {
+    final isPothole = c.category == 'POTHOLE';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(
+            isPothole ? Icons.warning_amber_rounded : Icons.delete_outline,
+            color: isPothole ? ExploreColors.potholeOrange : ExploreColors.garbageGray,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(c.title,
+                style: GoogleFonts.roboto(fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          _buildStatusBadge(c.status),
+          const SizedBox(width: 8),
+          Text(c.timeAgo,
+              style: GoogleFonts.roboto(
+                  fontSize: 11, color: ExploreColors.textSecondary)),
+        ],
+      ),
+    );
   }
 
   Widget _buildZoomButton(IconData icon, VoidCallback onTap, {Color? color}) {
