@@ -842,8 +842,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             style: GoogleFonts.roboto(
                                 fontSize: 11,
                                 color: ExploreColors.textSecondary)),
+                        const Spacer(),
+                        if (complaint.aiConfidence != null)
+                          _buildAiBadge(complaint.aiConfidence!),
                       ],
                     ),
+                    if (complaint.combinedScore != null ||
+                        complaint.verificationStatus != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildTrustBadge(complaint.combinedScore),
+                          if (complaint.verificationStatus != null) ...[
+                            const SizedBox(width: 8),
+                            _buildVerificationChip(
+                                complaint.verificationStatus!),
+                          ],
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -927,6 +944,80 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildAiBadge(double confidence) {
+    final pct = confidence.round();
+    Color color;
+    if (pct >= 80) {
+      color = ExploreColors.resolvedGreen;
+    } else if (pct >= 50) {
+      color = Colors.orange;
+    } else {
+      color = ExploreColors.criticalRed;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text('AI: $pct%',
+          style: GoogleFonts.roboto(
+              fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Widget _buildTrustBadge(double? score) {
+    String label;
+    Color color;
+    if (score == null || score < 50) {
+      label = 'Unverified';
+      color = ExploreColors.textSecondary;
+    } else if (score < 80) {
+      label = 'Pending';
+      color = Colors.orange;
+    } else {
+      label = 'Verified';
+      color = ExploreColors.resolvedGreen;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(label,
+          style: GoogleFonts.roboto(
+              fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Widget _buildVerificationChip(String status) {
+    Color color;
+    switch (status.toUpperCase()) {
+      case 'COMPLETED':
+        color = ExploreColors.resolvedGreen;
+        break;
+      case 'EXPIRED':
+        color = ExploreColors.criticalRed;
+        break;
+      default:
+        color = Colors.orange;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(status.toUpperCase(),
+          style: GoogleFonts.roboto(
+              fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
   }
 
   Widget _buildViewportStatsCard() {
