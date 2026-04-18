@@ -131,7 +131,7 @@ def _report_summary(r: Report) -> dict:
 @router.get("")
 def list_reports(
     skip:       int           = Query(0, ge=0),
-    limit:      int           = Query(20, ge=1, le=100),
+    limit:      int           = Query(20, ge=1, le=500),
     stage:      Optional[str] = Query(None),
     category:   Optional[str] = Query(None),
     city:       Optional[str] = Query(None),
