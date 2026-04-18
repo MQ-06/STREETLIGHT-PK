@@ -10,7 +10,7 @@
  *                        bottom-center ViewportLabel (M5)
  *   - Right-edge ReportDetailPanel slide-in on pin click (M6)
  */
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -22,6 +22,7 @@ import ViewportLabel         from '../../components/map/ViewportLabel'
 import ReportDetailPanel     from '../../components/map/ReportDetailPanel'
 import MapPins               from '../../components/map/MapPins'
 import HeatmapLayer          from '../../components/map/HeatmapLayer'
+import MapBoundsTracker      from '../../components/map/MapBoundsTracker'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -46,6 +47,8 @@ const SIDEBAR_W = 280   // px
 export default function HotspotMap() {
   const { allReports, filtered, loading, error, filters, setFilter } = useMapReports()
   const [selectedReport, setSelectedReport] = useState(null)
+  const [mapBounds,      setMapBounds]      = useState(null)
+  const onBoundsChange = useCallback(b => setMapBounds(b), [])
 
   return (
     /*
@@ -120,6 +123,9 @@ export default function HotspotMap() {
           {/* M3 — Heatmap + Pin markers */}
           <HeatmapLayer reports={filtered} />
           <MapPins reports={filtered} onPinClick={setSelectedReport} />
+
+          {/* M4 — Tracks viewport bounds for ActiveAlertsCard */}
+          <MapBoundsTracker onBoundsChange={onBoundsChange} />
         </MapContainer>
 
         {/* ── Floating overlays ── */}
@@ -134,7 +140,7 @@ export default function HotspotMap() {
             transition: 'right 0.25s ease',
           }}
         >
-          <ActiveAlertsCard reports={filtered} />
+          <ActiveAlertsCard reports={filtered} mapBounds={mapBounds} />
         </div>
 
         {/* Bottom-right: Map Legend (M5) */}
