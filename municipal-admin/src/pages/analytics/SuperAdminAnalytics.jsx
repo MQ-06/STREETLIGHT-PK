@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import SectionA from './sa/SectionA'
 import SectionB from './sa/SectionB'
+import SectionC from './sa/SectionC'
 
 const DAYS_OPTIONS = [7, 30, 90]
 
@@ -85,14 +86,14 @@ export default function SuperAdminAnalytics() {
         <SectionB days={days} />
       </section>
 
-      {/* ── Section C — AI Insights ── */}
+      {/* ── Section C — City-Wide Charts ── */}
       <section>
         <SectionLabel
           letter="C"
-          title="AI Insights"
-          sub="Forecast · Bottleneck signal · Citizen health index"
+          title="City-Wide Charts"
+          sub="Issue breakdown · Pipeline lifecycle · AI signals"
         />
-        <SectionPlaceholder label="Section C — coming in Module 4" />
+        <SectionC days={days} />
       </section>
 
       {/* ── Section D — Predictive Alerts ── */}

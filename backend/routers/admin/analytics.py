@@ -233,8 +233,31 @@ def get_pipeline(
         r.kanban_stage.value if r.kanban_stage else "NEW" for r in reports
     )
 
+    # Avg days per stage:
+    # RESOLVED  → avg(updated_at - created_at) for resolved reports
+    # Active    → avg(now - updated_at) as proxy for time stuck in current stage
+    stage_durations: dict[str, list[float]] = {key: [] for key, _ in STAGE_ORDER}
+    for r in reports:
+        stage = r.kanban_stage.value if r.kanban_stage else "NEW"
+        if stage == "RESOLVED" and r.created_at and r.updated_at:
+            d = (_to_utc(r.updated_at) - _to_utc(r.created_at)).total_seconds() / 86400
+            if 0 < d < 365:
+                stage_durations["RESOLVED"].append(d)
+        elif r.updated_at:
+            d = (now - _to_utc(r.updated_at)).total_seconds() / 86400
+            if 0 <= d < 365:
+                stage_durations[stage].append(d)
+
+    def _avg_days(lst):
+        return round(sum(lst) / len(lst), 1) if lst else 0.0
+
     stages = [
-        {"stage": key, "label": label, "count": counts.get(key, 0)}
+        {
+            "stage":    key,
+            "label":    label,
+            "count":    counts.get(key, 0),
+            "avg_days": _avg_days(stage_durations.get(key, [])),
+        }
         for key, label in STAGE_ORDER
     ]
 
