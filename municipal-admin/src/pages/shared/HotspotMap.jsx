@@ -1,14 +1,20 @@
 /**
- * HotspotMap — M1: Dark Map Shell
+ * HotspotMap — Hotspot Map shell (M1–M8)
  *
  * Renders inside Layout.jsx (Sidebar + Topbar already provided).
  * Fills the <main> area with:
  *   - 280px left FilterSidebar (M2)
  *   - Leaflet map (CartoDB DarkMatter) taking remaining space
- *   - Floating overlays: top-right ActiveAlertsCard (M4),
+ *   - Floating overlays: top-center ViewModeToggle (M8),
+ *                        top-right ActiveAlertsCard (M4),
  *                        bottom-right MapLegend (M5),
  *                        bottom-center ViewportLabel (M5)
  *   - Right-edge ReportDetailPanel slide-in on pin click (M6)
+ *
+ * viewMode controls which layers render:
+ *   'heatmap' → HeatmapLayer + ClusterLayer
+ *   'pin'     → MapPins only
+ *   'both'    → all three layers
  */
 import { useState, useCallback } from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
@@ -23,6 +29,8 @@ import ReportDetailPanel     from '../../components/map/ReportDetailPanel'
 import MapPins               from '../../components/map/MapPins'
 import HeatmapLayer          from '../../components/map/HeatmapLayer'
 import MapBoundsTracker      from '../../components/map/MapBoundsTracker'
+import ViewModeToggle        from '../../components/map/ViewModeToggle'
+import ClusterLayer          from '../../components/map/ClusterLayer'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -49,15 +57,16 @@ export default function HotspotMap() {
   const [selectedReport, setSelectedReport] = useState(null)
   const [mapBounds,      setMapBounds]      = useState(null)
   const [mapCenter,      setMapCenter]      = useState(null)
+  const [viewMode,       setViewMode]       = useState('both')
+
   const onBoundsChange = useCallback(b => setMapBounds(b), [])
   const onCenterChange = useCallback(c => setMapCenter(c), [])
 
+  const showHeatmap  = viewMode === 'heatmap' || viewMode === 'both'
+  const showPins     = viewMode === 'pin'     || viewMode === 'both'
+  const showClusters = viewMode === 'heatmap' || viewMode === 'both'
+
   return (
-    /*
-     * h-full fills the <main> area provided by Layout.
-     * overflow-hidden prevents Layout's overflow-y-auto from
-     * adding a scrollbar around the map.
-     */
     <div
       style={{
         display:    'flex',
@@ -69,13 +78,13 @@ export default function HotspotMap() {
       {/* ── Left: Filter Sidebar (M2) ── */}
       <div
         style={{
-          width:          SIDEBAR_W,
-          flexShrink:     0,
-          background:     C.panel,
-          borderRight:    `1px solid ${C.border}`,
-          display:        'flex',
-          flexDirection:  'column',
-          overflow:       'hidden',
+          width:         SIDEBAR_W,
+          flexShrink:    0,
+          background:    C.panel,
+          borderRight:   `1px solid ${C.border}`,
+          display:       'flex',
+          flexDirection: 'column',
+          overflow:      'hidden',
         }}
       >
         {/* Sidebar header */}
@@ -122,9 +131,23 @@ export default function HotspotMap() {
         >
           <TileLayer url={DARK_TILE} attribution={TILE_ATTR} />
 
-          {/* M3 — Heatmap + Pin markers */}
-          <HeatmapLayer reports={filtered} />
-          <MapPins reports={filtered} onPinClick={setSelectedReport} />
+          {/* M3a — Individual pin markers (pin + both modes) */}
+          {showPins && (
+            <MapPins reports={filtered} onPinClick={setSelectedReport} />
+          )}
+
+          {/* M3b — Gaussian heatmap (heatmap + both modes) */}
+          {showHeatmap && (
+            <HeatmapLayer reports={filtered} />
+          )}
+
+          {/* M8b — Cluster layer (heatmap + both modes) */}
+          {showClusters && (
+            <ClusterLayer
+              reports={filtered}
+              onClusterClick={() => {/* M9 hook-in */}}
+            />
+          )}
 
           {/* M4/M5 — Tracks viewport bounds and center */}
           <MapBoundsTracker onBoundsChange={onBoundsChange} onCenterChange={onCenterChange} />
@@ -132,12 +155,25 @@ export default function HotspotMap() {
 
         {/* ── Floating overlays ── */}
 
+        {/* Top-center: View Mode Toggle (M8a) */}
+        <div
+          style={{
+            position:  'absolute',
+            top:       16,
+            left:      '50%',
+            transform: 'translateX(-50%)',
+            zIndex:    1000,
+          }}
+        >
+          <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+
         {/* Top-right: Active Alerts Card (M4) */}
         <div
           style={{
             position:   'absolute',
             top:        16,
-            right:      selectedReport ? 376 : 16,
+            right:      selectedReport ? 396 : 16,
             zIndex:     900,
             transition: 'right 0.25s ease',
           }}
@@ -150,7 +186,7 @@ export default function HotspotMap() {
           style={{
             position:   'absolute',
             bottom:     16,
-            right:      selectedReport ? 376 : 16,
+            right:      selectedReport ? 396 : 16,
             zIndex:     900,
             transition: 'right 0.25s ease',
           }}
@@ -205,7 +241,7 @@ export default function HotspotMap() {
           </div>
         )}
 
-        {/* ── M6: Report Detail Slide-in Panel ── */}
+        {/* M6: Report Detail Slide-in Panel */}
         <ReportDetailPanel
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
