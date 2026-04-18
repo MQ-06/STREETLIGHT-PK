@@ -14,6 +14,7 @@ from routers.admin import users as admin_users
 from routers.admin import routing as admin_routing
 from routers.admin import audit as admin_audit
 from routers.admin import notifications as admin_notifications
+from routers.admin import analytics as admin_analytics
 from middleware.cors import setup_cors
 import logging
 
@@ -67,6 +68,7 @@ app.include_router(admin_users.router)
 app.include_router(admin_routing.router)
 app.include_router(admin_audit.router)
 app.include_router(admin_notifications.router)
+app.include_router(admin_analytics.router)
 app.include_router(agent_test_router)
 
 
