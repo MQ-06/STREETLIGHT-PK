@@ -69,6 +69,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // View mode
   ViewMode _viewMode = ViewMode.pins;
 
+  // Viewport stats
+  String _viewportAreaName = 'Lahore';
+  int _viewportVisibleCount = 0;
+  int _viewportUnresolvedCount = 0;
+  bool _showViewportCard = true;
+  Timer? _viewportDebounce;
+  StreamSubscription? _mapEventSub;
+
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
   final DraggableScrollableController _sheetController =
@@ -190,14 +198,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
     _loadComplaintsFromBackend();
     _initGps();
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mapEventSub = _mapController.mapEventStream.listen(_onMapEvent));
   }
 
   @override
   void dispose() {
     _searchTimer?.cancel();
+    _viewportDebounce?.cancel();
+    _mapEventSub?.cancel();
     _searchController.dispose();
     _sheetController.dispose();
     super.dispose();
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event is MapEventMove || event is MapEventMoveEnd) {
+      _viewportDebounce?.cancel();
+      _viewportDebounce =
+          Timer(const Duration(milliseconds: 800), _updateViewportStats);
+    }
+  }
+
+  void _updateViewportStats() {
+    if (!mounted) return;
+    final bounds = _mapController.camera.visibleBounds;
+    final visible = _filteredComplaints.where((c) {
+      return c.latitude >= bounds.southWest.latitude &&
+          c.latitude <= bounds.northEast.latitude &&
+          c.longitude >= bounds.southWest.longitude &&
+          c.longitude <= bounds.northEast.longitude;
+    }).toList();
+
+    final center = _mapController.camera.center;
+    placemarkFromCoordinates(center.latitude, center.longitude).then((marks) {
+      if (!mounted) return;
+      final name = marks.isNotEmpty
+          ? (marks.first.subLocality?.isNotEmpty == true
+              ? marks.first.subLocality!
+              : marks.first.locality ??
+                  marks.first.administrativeArea ??
+                  'Unknown Area')
+          : 'Unknown Area';
+      setState(() {
+        _viewportAreaName = name;
+        _viewportVisibleCount = visible.length;
+        _viewportUnresolvedCount =
+            visible.where((c) => c.status != 'RESOLVED').length;
+      });
+    }).catchError((_) {
+      if (mounted) {
+        setState(() {
+          _viewportVisibleCount = visible.length;
+          _viewportUnresolvedCount =
+              visible.where((c) => c.status != 'RESOLVED').length;
+        });
+      }
+    });
   }
 
   Future<void> _initGps() async {
@@ -588,6 +645,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ]),
           ],
         ),
+        // Viewport stats card
+        if (_showViewportCard)
+          Positioned(
+            top: 12,
+            left: 12,
+            child: _buildViewportStatsCard(),
+          ),
         Positioned(
           right: 16,
           top: 16,
@@ -863,6 +927,55 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildViewportStatsCard() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_viewportAreaName,
+                    style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ExploreColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text(
+                    '$_viewportVisibleCount visible  $_viewportUnresolvedCount unresolved',
+                    style: GoogleFonts.roboto(
+                        fontSize: 10, color: ExploreColors.textSecondary)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showViewportCard = false),
+            child: const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: Icon(Icons.close,
+                  size: 14, color: ExploreColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildClusterWidget(int count) {
