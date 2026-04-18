@@ -161,18 +161,17 @@ function AiPanel({ days }) {
     let cancelled = false
     setLoading(true)
 
-    Promise.all([
+    Promise.allSettled([
       authFetch(`/admin/analytics/insights?scope=national&scope_id=&days=${days}`).then(r => r.json()),
       authFetch(`/admin/analytics/city-overview?days=${days}`).then(r => r.json()),
     ])
-      .then(([ins, city]) => {
+      .then(([insResult, cityResult]) => {
         if (!cancelled) {
-          setInsights(ins)
-          setCityData(city)
+          setInsights(insResult.status === 'fulfilled' ? insResult.value : null)
+          setCityData(cityResult.status === 'fulfilled' ? cityResult.value : null)
           setLoading(false)
         }
       })
-      .catch(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
   }, [days])
@@ -186,12 +185,14 @@ function AiPanel({ days }) {
   }
 
   // Worst city by risk then avg_res_days
-  const cities     = cityData?.cities ?? []
-  const worstCity  = cities.sort((a, b) => {
-    const riskRank = { HIGH: 0, MED: 1, LOW: 2 }
-    if (riskRank[a.risk] !== riskRank[b.risk]) return riskRank[a.risk] - riskRank[b.risk]
-    return b.avg_res_days - a.avg_res_days
-  })[0]
+  const cities    = cityData?.cities ?? []
+  const worstCity = cities.length > 0
+    ? [...cities].sort((a, b) => {
+        const riskRank = { HIGH: 0, MED: 1, LOW: 2 }
+        if (riskRank[a.risk] !== riskRank[b.risk]) return riskRank[a.risk] - riskRank[b.risk]
+        return b.avg_res_days - a.avg_res_days
+      })[0]
+    : null
 
   const forecast  = insights?.forecast  ?? {}
   const health    = insights?.health    ?? {}

@@ -74,10 +74,10 @@ export default function SectionA({ days }) {
     return [
       {
         label:     'Total Reports (30d)',
-        value:     tr.value.toLocaleString(),
+        value:     tr.value?.toLocaleString() ?? '—',
         sub:       'across all areas',
         pillLabel: tr.delta_pct >= 0 ? `+${tr.delta_pct}%` : `${tr.delta_pct}%`,
-        signal:    tr.signal,
+        signal:    tr.signal ?? 'neutral',
       },
       {
         label:     'Avg Resolution Time',
@@ -98,7 +98,7 @@ export default function SectionA({ days }) {
         value:     cs.value ?? '—',
         sub:       'city avg health',
         pillLabel: cs.delta != null ? (cs.delta >= 0 ? `+${cs.delta} pts` : `${cs.delta} pts`) : null,
-        signal:    cs.signal,
+        signal:    cs.signal ?? 'neutral',
       },
     ]
   }

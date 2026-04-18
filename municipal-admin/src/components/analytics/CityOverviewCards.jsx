@@ -147,12 +147,14 @@ export default function CityOverviewCards({ days, onCityClick }) {
       <AggregateBanner agg={data.aggregate} />
 
       {/* Per-city cards */}
-      {data.cities.length > 0 && (
+      {data.cities.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">
           {data.cities.map(c => (
             <CityCard key={c.city} city={c} onClick={onCityClick} />
           ))}
         </div>
+      ) : (
+        <p className="text-sm text-gray-400 text-center py-6">No city data available for this period.</p>
       )}
     </div>
   )

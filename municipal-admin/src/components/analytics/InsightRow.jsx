@@ -49,7 +49,7 @@ export default function InsightRow({ scope, scopeId, days, compact = false }) {
     : 'No active bottleneck'
 
   // ── Health card ────────────────────────────────────────────────────────────
-  const hValue = `${health.index}`
+  const hValue = health.index != null ? `${health.index}` : '—'
   const hSub   = health.label   // "Healthy" | "At Risk" | "Critical"
 
   return (
