@@ -75,11 +75,19 @@ export default function useMapReports() {
       if (stage) params.set('stage', stage)
 
       const res  = await authFetch(`/admin/reports?${params}`)
+
+      // Don't wipe existing reports on a non-OK response
+      if (!res.ok) {
+        console.warn('[useMapReports] fetch failed:', res.status)
+        return
+      }
+
       const data = await res.json()
 
       // Keep only reports that have valid GPS coordinates
+      // API serialises coordinates as `lat` / `lng`
       const withGps = (data.reports || []).filter(
-        r => r.location_lat != null && r.location_lng != null
+        r => r.lat != null && r.lng != null
       )
       setAllReports(withGps)
     } catch (err) {
