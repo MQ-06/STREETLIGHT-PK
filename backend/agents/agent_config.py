@@ -13,7 +13,7 @@ add rows to CITY_DEPT_MAP. No other code changes needed.
 CITIES: dict[str, dict] = {
     "lahore": {
         "lat_min":      31.41,
-        "lat_max":      31.63,
+        "lat_max":      31.65,
         "lng_min":      74.17,
         "lng_max":      74.45,
         "display_name": "Lahore",
