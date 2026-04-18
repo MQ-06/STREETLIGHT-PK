@@ -9,6 +9,7 @@
  */
 import { useState } from 'react'
 import SectionA from './sa/SectionA'
+import SectionB from './sa/SectionB'
 
 const DAYS_OPTIONS = [7, 30, 90]
 
@@ -74,14 +75,14 @@ export default function SuperAdminAnalytics() {
         <SectionA days={days} />
       </section>
 
-      {/* ── Section B — National Charts ── */}
+      {/* ── Section B — Municipal Area Breakdown ── */}
       <section>
         <SectionLabel
           letter="B"
-          title="National Overview"
-          sub="Issue breakdown · Pipeline lifecycle"
+          title="Municipal Area Breakdown"
+          sub="Per-zone KPIs, risk ratings, bottlenecks & forecasts"
         />
-        <SectionPlaceholder label="Section B — coming in Module 3" />
+        <SectionB days={days} />
       </section>
 
       {/* ── Section C — AI Insights ── */}
