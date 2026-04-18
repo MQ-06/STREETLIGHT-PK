@@ -56,8 +56,8 @@ export default function MapPins({ reports = [], onPinClick }) {
   }, [reports])
 
   return reports.map(report => {
-    const lat = report.location_lat
-    const lng = report.location_lng
+    const lat = report.lat
+    const lng = report.lng
     if (lat == null || lng == null) return null
 
     const color   = pinColor(report)

@@ -35,12 +35,12 @@ export default function HeatmapLayer({ reports = [] }) {
     const points = reports
       .filter(r => {
         const stage = (r.kanban_stage || '').toUpperCase()
-        return stage !== 'RESOLVED' && r.location_lat != null && r.location_lng != null
+        return stage !== 'RESOLVED' && r.lat != null && r.lng != null
       })
       .map(r => {
         const sev    = (r.ai_severity || r.severity || 'medium').toLowerCase()
         const weight = SEVERITY_WEIGHT[sev] ?? 0.6
-        return [r.location_lat, r.location_lng, weight]
+        return [r.lat, r.lng, weight]
       })
 
     // Remove existing layer if any
