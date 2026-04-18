@@ -21,6 +21,7 @@ from db.database import SessionLocal
 from model.report import Report, KanbanStage, ReportStatus
 from model.report_logs import ReportLog
 from model.users import User
+from model.user_profile import UserProfile
 from utils.auth_utils import get_current_user
 from utils.rbac import require_roles
 from utils.email_service import send_resolved_notification
@@ -53,10 +54,12 @@ def get_db():
         db.close()
 
 
-def _base_query(db: Session, user: User):
+def _base_query(db: Session, user: User, eager_reporter: bool = False):
     """Return a Report query pre-filtered by the caller's role scope."""
     role = (user.role or "").lower()
-    q = db.query(Report).options(joinedload(Report.reporter))
+    q = db.query(Report)
+    if eager_reporter:
+        q = q.options(joinedload(Report.reporter))
 
     if role == "dept_officer":
         routing = (
@@ -131,7 +134,7 @@ def _report_summary(r: Report) -> dict:
 @router.get("")
 def list_reports(
     skip:       int           = Query(0, ge=0),
-    limit:      int           = Query(20, ge=1, le=100),
+    limit:      int           = Query(20, ge=1, le=500),
     stage:      Optional[str] = Query(None),
     category:   Optional[str] = Query(None),
     city:       Optional[str] = Query(None),
@@ -140,7 +143,7 @@ def list_reports(
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
-    q = _base_query(db, current_user)
+    q = _base_query(db, current_user, eager_reporter=True)
 
     if stage:
         try:
@@ -178,7 +181,7 @@ def kanban_board(
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
-    q = _base_query(db, current_user)
+    q = _base_query(db, current_user, eager_reporter=True)
     all_reports = q.order_by(desc(Report.created_at)).all()
 
     columns = {}
@@ -235,16 +238,24 @@ def get_report(
         for l in logs
     ]
 
+    # Fetch reporter's impact score from UserProfile
+    reporter_profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == report.user_id)
+        .first()
+    )
+
     summary = _report_summary(report)
     summary.update({
-        "validation_score":     report.validation_score,
-        "trust_score":          report.trust_score,
-        "community_score":      report.community_score,
-        "gps_verified":         report.gps_verified,
-        "gps_spoofing_detected":report.gps_spoofing_detected,
-        "is_flagged_for_spam":  report.is_flagged_for_spam,
-        "verification_status":  report.verification_status,
-        "logs":                 log_entries,
+        "validation_score":       report.validation_score,
+        "trust_score":            report.trust_score,
+        "community_score":        report.community_score,
+        "gps_verified":           report.gps_verified,
+        "gps_spoofing_detected":  report.gps_spoofing_detected,
+        "is_flagged_for_spam":    report.is_flagged_for_spam,
+        "verification_status":    report.verification_status,
+        "reporter_impact_score":  reporter_profile.impact_score if reporter_profile else None,
+        "logs":                   log_entries,
     })
     return summary
 

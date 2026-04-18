@@ -1,8 +1,14 @@
 {
   "permissions": {
     "allow": [
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(ipconfig:*)",
+      "Bash(pip install:*)",
+      "Bash(ls:*)",
+      "Bash(pip show:*)",
       "Bash(npm install:*)",
-      "Bash(git add:*)",
+      "Bash(/c/Users/HP/Documents/fyp/STREETLIGHT-PK/backend/routers/admin/analytics.py:*)",
       "Bash(xargs grep:*)"
     ]
   }

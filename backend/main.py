@@ -14,13 +14,18 @@ from routers.admin import users as admin_users
 from routers.admin import routing as admin_routing
 from routers.admin import audit as admin_audit
 from routers.admin import notifications as admin_notifications
+from routers.admin import analytics as admin_analytics
 from middleware.cors import setup_cors
 import logging
 
+from agents.agent_scheduler import start_scheduler
 from model.users import User
 from model.user_profile import UserProfile
 from model.report import Report, ReportInteraction
 from model.verification import VerificationRequest, VerificationVote
+from model.routing_table import RoutingTable
+from model.report_logs import ReportLog
+from model.field_worker_tokens import FieldWorkerToken
 from model.routing_table import RoutingTable
 from model.report_logs import ReportLog
 from model.field_worker_tokens import FieldWorkerToken
@@ -29,6 +34,8 @@ from script.migrate_add_report_contribution_and_fields import migrate as migrate
 from script.migrate_notifications import run_migration as migrate_notifications
 from script.migrate_admin_schema import run_migration as migrate_admin_schema
 from utils.push import init_firebase
+from fastapi import FastAPI
+from routes.agent_test_route import router as agent_test_router
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +71,8 @@ app.include_router(admin_users.router)
 app.include_router(admin_routing.router)
 app.include_router(admin_audit.router)
 app.include_router(admin_notifications.router)
+app.include_router(admin_analytics.router)
+app.include_router(agent_test_router)
 
 
 @app.on_event("startup")
@@ -107,6 +116,9 @@ async def startup_event():
         logger.info("📍 AI Agent is operational and ready to process reports")
         logger.info("=" * 70)
         
+        start_scheduler()
+        logger.info("🤖 Agent Scheduler Started")
+        
     except Exception as e:
         logger.error("=" * 70)
         logger.error(f"❌ STARTUP ERROR: {str(e)}")
@@ -137,3 +149,4 @@ def health_check():
         "service": "streetlight-api",
         "ai_agent": "operational"
     }
+    

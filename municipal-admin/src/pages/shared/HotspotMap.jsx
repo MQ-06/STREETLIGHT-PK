@@ -1,165 +1,285 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-import L from 'leaflet'
+/**
+ * HotspotMap — Hotspot Map shell (M1–M8)
+ *
+ * Renders inside Layout.jsx (Sidebar + Topbar already provided).
+ * Fills the <main> area with:
+ *   - 280px left FilterSidebar (M2)
+ *   - Leaflet map (CartoDB DarkMatter) taking remaining space
+ *   - Floating overlays: top-center ViewModeToggle (M8),
+ *                        top-right ActiveAlertsCard (M4),
+ *                        bottom-right MapLegend (M5),
+ *                        bottom-center ViewportLabel (M5)
+ *   - Right-edge ReportDetailPanel slide-in on pin click (M6)
+ *
+ * viewMode controls which layers render:
+ *   'heatmap' → HeatmapLayer + ClusterLayer
+ *   'pin'     → MapPins only
+ *   'both'    → all three layers
+ */
+import { useState, useCallback, useRef } from 'react'
+import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import PageHeader from '../../components/PageHeader'
-import StageBadge from '../../components/StageBadge'
-import { authFetch } from '../../utils/auth'
 
-// Fix default marker icons for Vite
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
+import useMapReports         from '../../hooks/useMapReports'
+import FilterSidebar         from '../../components/map/FilterSidebar'
+import ActiveAlertsCard      from '../../components/map/ActiveAlertsCard'
+import MapLegend             from '../../components/map/MapLegend'
+import ViewportLabel         from '../../components/map/ViewportLabel'
+import ReportDetailPanel     from '../../components/map/ReportDetailPanel'
+import MapPins               from '../../components/map/MapPins'
+import HeatmapLayer          from '../../components/map/HeatmapLayer'
+import MapBoundsTracker      from '../../components/map/MapBoundsTracker'
+import ViewModeToggle        from '../../components/map/ViewModeToggle'
+import ClusterLayer          from '../../components/map/ClusterLayer'
+import ClusterPopup          from '../../components/map/ClusterPopup'
 
-const SEV_COLOR = { high: '#EF4444', large: '#EF4444', medium: '#F97316', low: '#22C55E', small: '#22C55E' }
-
-function coloredIcon(color) {
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      width:16px;height:16px;border-radius:50%;
-      background:${color};border:2px solid #fff;
-      box-shadow:0 2px 6px rgba(0,0,0,0.3);">
-    </div>`,
-    iconSize:   [16, 16],
-    iconAnchor: [8,  8],
-  })
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const C = {
+  bg:     '#0B1120',
+  panel:  '#111A2E',
+  border: '#1C2A45',
+  text:   '#E2E8F0',
+  muted:  '#64748B',
+  orange: '#E8612D',
 }
 
-function RecenterButton({ center }) {
-  const map = useMap()
-  return (
-    <button
-      onClick={() => map.setView(center, 12)}
-      className="absolute bottom-8 right-4 z-50 bg-white shadow-md px-3 py-2 rounded-xl text-xs font-bold text-gray-700 border border-warm-border"
-    >
-      Re-center
-    </button>
-  )
-}
+// ── CartoDB DarkMatter tile URL ───────────────────────────────────────────────
+const DARK_TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+const TILE_ATTR = '&copy; <a href="https://carto.com/">CARTO</a>'
 
-const STAGE_OPTIONS = ['', 'NEW', 'PENDING_VERIFICATION', 'VERIFIED', 'IN_PROGRESS', 'AWAITING_FEEDBACK', 'RESOLVED']
-const SEV_OPTIONS   = ['', 'high', 'medium', 'low']
-
-// Default center: Lahore
+// ── Default map view — centred on Lahore ──────────────────────────────────────
 const DEFAULT_CENTER = [31.5204, 74.3587]
+const DEFAULT_ZOOM   = 12
+
+const SIDEBAR_W = 280   // px
 
 export default function HotspotMap() {
-  const navigate = useNavigate()
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [stage,   setStage]   = useState('')
-  const [sev,     setSev]     = useState('')
+  const { allReports, filtered, loading, error, filters, setFilter } = useMapReports()
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [mapBounds,      setMapBounds]      = useState(null)
+  const [mapCenter,      setMapCenter]      = useState(null)
+  const [viewMode,       setViewMode]       = useState('both')
+  const [activeCluster,  setActiveCluster]  = useState(null)   // { cluster, reports }
+  const mapContainerRef = useRef(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ limit: 200 })
-      if (stage) params.set('stage', stage)
-      const res  = await authFetch('/admin/reports?' + params)
-      const data = await res.json()
-      setReports((data.reports || []).filter(r => r.lat && r.lng))
-    } catch {
-      setReports([])
-    } finally {
-      setLoading(false)
-    }
-  }, [stage])
+  const onBoundsChange = useCallback(b => setMapBounds(b), [])
+  const onCenterChange = useCallback(c => setMapCenter(c), [])
 
-  useEffect(() => { load() }, [load])
-
-  const filtered = sev
-    ? reports.filter(r => (r.severity || '').toLowerCase() === sev)
-    : reports
+  const showHeatmap  = viewMode === 'heatmap' || viewMode === 'both'
+  const showPins     = viewMode === 'pin'     || viewMode === 'both'
+  const showClusters = viewMode === 'heatmap' || viewMode === 'both'
 
   return (
-    <div className="p-6 flex flex-col gap-5">
-      <PageHeader
-        title="Hotspot Map"
-        subtitle={filtered.length + ' complaint' + (filtered.length !== 1 ? 's' : '') + ' with location data'}
-      />
+    <div
+      style={{
+        display:    'flex',
+        height:     '100%',
+        overflow:   'hidden',
+        background: C.bg,
+      }}
+    >
+      {/* ── Left: Filter Sidebar (M2) ── */}
+      <div
+        style={{
+          width:         SIDEBAR_W,
+          flexShrink:    0,
+          background:    C.panel,
+          borderRight:   `1px solid ${C.border}`,
+          display:       'flex',
+          flexDirection: 'column',
+          overflow:      'hidden',
+        }}
+      >
+        {/* Sidebar header */}
+        <div
+          style={{
+            padding:      '16px 20px',
+            borderBottom: `1px solid ${C.border}`,
+            display:      'flex',
+            alignItems:   'center',
+            gap:          10,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📍</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text }}>
+              Hotspot Map
+            </p>
+            <p style={{ margin: 0, fontSize: 11, color: C.muted }}>
+              {loading ? 'Loading…' : `${filtered.length} reports visible`}
+            </p>
+          </div>
+          {/* Export/download snapshot */}
+          <button
+            title="Export map snapshot"
+            onClick={() => window.print()}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: C.muted, fontSize: 16, padding: 4, lineHeight: 1,
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = C.orange}
+            onMouseLeave={e => e.currentTarget.style.color = C.muted}
+          >
+            ⬇
+          </button>
+        </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={stage} onChange={e => setStage(e.target.value)}
-          className="bg-white border border-warm-border rounded-xl px-3 py-2 text-sm text-gray-700 outline-none"
-        >
-          <option value="">All Stages</option>
-          {STAGE_OPTIONS.filter(Boolean).map(s => (
-            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-          ))}
-        </select>
-        <select
-          value={sev} onChange={e => setSev(e.target.value)}
-          className="bg-white border border-warm-border rounded-xl px-3 py-2 text-sm text-gray-700 outline-none"
-        >
-          <option value="">All Severities</option>
-          {SEV_OPTIONS.filter(Boolean).map(s => (
-            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-          ))}
-        </select>
-        <div className="flex items-center gap-3 ml-auto text-xs text-gray-500">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full inline-block" style={{ background: '#EF4444' }} /> High</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full inline-block" style={{ background: '#F97316' }} /> Medium</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full inline-block" style={{ background: '#22C55E' }} /> Low</span>
+        {/* M2 Filter Sidebar content */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <FilterSidebar
+            filters={filters}
+            setFilter={setFilter}
+            recentReports={filtered}
+            onReportClick={setSelectedReport}
+          />
         </div>
       </div>
 
-      {/* Map */}
-      <div className="relative rounded-3xl overflow-hidden border border-warm-border shadow-sm" style={{ height: 520 }}>
+      {/* ── Right: Map area ── */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+
+        {/* Leaflet map — fills entire right area */}
+        <MapContainer
+          center={DEFAULT_CENTER}
+          zoom={DEFAULT_ZOOM}
+          style={{ width: '100%', height: '100%' }}
+          zoomControl
+        >
+          <TileLayer url={DARK_TILE} attribution={TILE_ATTR} />
+
+          {/* M3a — Individual pin markers (pin + both modes) */}
+          {showPins && (
+            <MapPins reports={filtered} onPinClick={setSelectedReport} />
+          )}
+
+          {/* M3b — Gaussian heatmap (heatmap + both modes) */}
+          {showHeatmap && (
+            <HeatmapLayer reports={filtered} />
+          )}
+
+          {/* M8b — Cluster layer (heatmap + both modes) */}
+          {showClusters && (
+            <ClusterLayer
+              reports={filtered}
+              onClusterClick={(cluster, clusterReports) =>
+                setActiveCluster({ cluster, reports: clusterReports })
+              }
+            />
+          )}
+
+          {/* M9 — Cluster popup */}
+          {activeCluster && (
+            <ClusterPopup
+              cluster={activeCluster.cluster}
+              reports={activeCluster.reports}
+              onQuickView={report => {
+                setSelectedReport(report)
+                setActiveCluster(null)
+              }}
+              onClose={() => setActiveCluster(null)}
+            />
+          )}
+
+          {/* M4/M5 — Tracks viewport bounds and center */}
+          <MapBoundsTracker onBoundsChange={onBoundsChange} onCenterChange={onCenterChange} />
+        </MapContainer>
+
+        {/* ── Floating overlays ── */}
+
+        {/* Top-center: View Mode Toggle (M8a) */}
+        <div
+          style={{
+            position:  'absolute',
+            top:       16,
+            left:      '50%',
+            transform: 'translateX(-50%)',
+            zIndex:    1000,
+          }}
+        >
+          <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+
+        {/* Top-right: Active Alerts Card (M4) */}
+        <div
+          style={{
+            position:   'absolute',
+            top:        16,
+            right:      selectedReport ? 396 : 16,
+            zIndex:     900,
+            transition: 'right 0.25s ease',
+          }}
+        >
+          <ActiveAlertsCard reports={filtered} mapBounds={mapBounds} />
+        </div>
+
+        {/* Bottom-right: Map Legend (M5) */}
+        <div
+          style={{
+            position:   'absolute',
+            bottom:     16,
+            right:      selectedReport ? 396 : 16,
+            zIndex:     900,
+            transition: 'right 0.25s ease',
+          }}
+        >
+          <MapLegend reports={filtered} />
+        </div>
+
+        {/* Bottom-center: Viewport Label (M5) */}
+        <div
+          style={{
+            position:  'absolute',
+            bottom:    16,
+            left:      '50%',
+            transform: 'translateX(-50%)',
+            zIndex:    900,
+          }}
+        >
+          <ViewportLabel mapCenter={mapCenter} />
+        </div>
+
+        {/* Loading overlay */}
         {loading && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70">
-            <span className="text-sm text-gray-500">Loading map data…</span>
+          <div
+            style={{
+              position:       'absolute',
+              inset:          0,
+              background:     'rgba(11,17,32,0.6)',
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              zIndex:         800,
+            }}
+          >
+            <p style={{ color: C.muted, fontSize: 14 }}>Loading reports…</p>
           </div>
         )}
-        <MapContainer center={DEFAULT_CENTER} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {filtered.map(r => {
-            const color = SEV_COLOR[(r.severity || 'medium').toLowerCase()] || '#F97316'
-            return (
-              <Marker key={r.id} position={[r.lat, r.lng]} icon={coloredIcon(color)}>
-                <Popup minWidth={220}>
-                  <div className="text-sm">
-                    <p className="font-bold text-gray-800 mb-1">{r.display_id} — {r.title}</p>
-                    {r.location && <p className="text-gray-500 text-xs mb-1">📍 {r.location}</p>}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: color + '20', color }}
-                      >
-                        {r.severity}
-                      </span>
-                      <span className="text-xs text-gray-500">{r.kanban_stage?.replace(/_/g, ' ')}</span>
-                    </div>
-                    <button
-                      onClick={() => navigate('/complaint-detail/' + r.id)}
-                      className="text-xs font-bold underline"
-                      style={{ color: '#B85C2E' }}
-                    >
-                      View Detail →
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-            )
-          })}
-          <RecenterButton center={DEFAULT_CENTER} />
-        </MapContainer>
-      </div>
 
-      {filtered.length === 0 && !loading && (
-        <p className="text-center text-sm text-gray-400 py-4">
-          No complaints with GPS coordinates found for the current filters.
-        </p>
-      )}
+        {/* Error overlay */}
+        {error && (
+          <div
+            style={{
+              position:       'absolute',
+              inset:          0,
+              background:     'rgba(11,17,32,0.7)',
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              zIndex:         800,
+            }}
+          >
+            <p style={{ color: '#EF4444', fontSize: 14 }}>{error}</p>
+          </div>
+        )}
+
+        {/* M6: Report Detail Slide-in Panel */}
+        <ReportDetailPanel
+          report={selectedReport}
+          onClose={() => setSelectedReport(null)}
+        />
+
+      </div>
     </div>
   )
 }
