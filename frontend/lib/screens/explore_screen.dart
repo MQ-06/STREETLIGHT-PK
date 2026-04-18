@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+
+enum ViewMode { pins, heatmap, both }
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -62,6 +64,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Selected detail card
   CivicComplaint? _selectedComplaint;
+
+  // View mode
+  ViewMode _viewMode = ViewMode.pins;
 
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
@@ -428,19 +433,61 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildViewToggle() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: ExploreColors.borderLight),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildToggleButton('Map', true),
-            _buildToggleButton('List', false),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: ExploreColors.borderLight),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildToggleButton('Map', true),
+                _buildToggleButton('List', false),
+              ],
+            ),
+          ),
+          if (_isMapView) ...[
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: ExploreColors.borderLight),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildViewModeBtn('Pins', ViewMode.pins),
+                  _buildViewModeBtn('Heat', ViewMode.heatmap),
+                  _buildViewModeBtn('Both', ViewMode.both),
+                ],
+              ),
+            ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeBtn(String label, ViewMode mode) {
+    final isSelected = _viewMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _viewMode = mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1A2340) : Colors.transparent,
+          borderRadius: BorderRadius.circular(25),
         ),
+        child: Text(label,
+            style: GoogleFonts.roboto(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : ExploreColors.textSecondary)),
       ),
     );
   }
@@ -492,7 +539,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.streetlight.app',
             ),
-            MarkerLayer(markers: _buildMapMarkers()),
+            if (_viewMode == ViewMode.heatmap || _viewMode == ViewMode.both)
+              CircleLayer(circles: _buildHeatmapCircles()),
+            if (_viewMode == ViewMode.pins || _viewMode == ViewMode.both)
+              MarkerLayer(markers: _buildMapMarkers()),
             if (_userLat != null)
               MarkerLayer(markers: [
                 Marker(
@@ -710,6 +760,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
     );
+  }
+
+  List<CircleMarker> _buildHeatmapCircles() {
+    return _filteredComplaints.map((c) {
+      final isPothole = c.category == 'POTHOLE';
+      final isCritical = c.status == 'CRITICAL';
+      final radius = isCritical ? 600.0 : 400.0;
+      final opacity = isCritical ? 0.40 : (isPothole ? 0.25 : 0.20);
+      final color = isPothole
+          ? ExploreColors.potholeOrange.withValues(alpha: opacity)
+          : ExploreColors.garbageGray.withValues(alpha: opacity);
+      return CircleMarker(
+        point: LatLng(c.latitude, c.longitude),
+        radius: radius,
+        useRadiusInMeter: true,
+        color: color,
+        borderStrokeWidth: 0,
+      );
+    }).toList();
   }
 
   List<Marker> _buildMapMarkers() {
