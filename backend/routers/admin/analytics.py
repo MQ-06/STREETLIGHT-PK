@@ -422,11 +422,11 @@ def get_alerts(
             "message": f"Assign {extra} extra field worker{'s' if extra > 1 else ''} this week",
         })
 
-    # ── 3. Seasonal Prediction — within 21 days of monsoon (Jul 1) ───────────
+    # ── 3. Seasonal Prediction — within 90 days of monsoon (Jul 1) ───────────
     monsoon = now.replace(month=7, day=1, hour=0, minute=0, second=0, microsecond=0)
     if now >= monsoon:
         monsoon = monsoon.replace(year=monsoon.year + 1)
-    if (monsoon - now).days <= 21:
+    if (monsoon - now).days <= 90:
         alerts.append({
             "type":    "seasonal",
             "message": "Pothole spike expected — monsoon approaching",
