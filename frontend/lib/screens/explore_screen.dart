@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/civic_complaint.dart';
 import '../models/report_model.dart';
 import '../services/api_service.dart';
@@ -58,6 +59,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   double? _userLng;
   String _userCity = 'Lahore';
   bool _showOnlyNearby = false;
+
+  // Selected detail card
+  CivicComplaint? _selectedComplaint;
 
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
@@ -461,6 +465,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildMapViewWithSheet() {
+    return GestureDetector(
+      onTap: () {
+        if (_selectedComplaint != null) {
+          setState(() => _selectedComplaint = null);
+        }
+      },
+      child: _buildMapStack(),
+    );
+  }
+
+  Widget _buildMapStack() {
     return Stack(
       children: [
         FlutterMap(
@@ -470,6 +485,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ? LatLng(_userLat!, _userLng!)
                 : const LatLng(31.5204, 74.3587),
             initialZoom: 12,
+            onTap: (tapPos, point) => setState(() => _selectedComplaint = null),
           ),
           children: [
             TileLayer(
@@ -517,8 +533,182 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ],
           ),
         ),
+        // Detail card overlay
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: anim,
+            child: FadeTransition(opacity: anim, child: child),
+          ),
+          child: _selectedComplaint != null
+              ? _buildDetailCard(_selectedComplaint!)
+              : const SizedBox.shrink(),
+        ),
         _buildDraggableSheet(),
       ],
+    );
+  }
+
+  Widget _buildDetailCard(CivicComplaint complaint) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    return Positioned(
+      key: ValueKey(complaint.id),
+      top: screenHeight * 0.08,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4))
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (complaint.imageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: CachedNetworkImage(
+                    imageUrl: complaint.imageUrl,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorWidget: (ctx, url, err) => Container(
+                      height: 120,
+                      color: ExploreColors.borderLight,
+                      child: const Icon(Icons.image_not_supported,
+                          color: ExploreColors.textSecondary),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (complaint.reporterInitials.isNotEmpty)
+                          Container(
+                            width: 32,
+                            height: 32,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF1A2340),
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(complaint.reporterInitials,
+                                style: GoogleFonts.roboto(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white)),
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(complaint.title,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: ExploreColors.textPrimary),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis),
+                              if (complaint.reporterName.isNotEmpty)
+                                Text('by ${complaint.reporterName}',
+                                    style: GoogleFonts.roboto(
+                                        fontSize: 11,
+                                        color: ExploreColors.textSecondary)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _buildStatusBadge(complaint.status),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => _selectedComplaint = null),
+                          child: const Icon(Icons.close,
+                              size: 18, color: ExploreColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(complaint.referenceId,
+                        style: GoogleFonts.roboto(
+                            fontSize: 12,
+                            color: ExploreColors.primaryOrange,
+                            fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 14, color: ExploreColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(complaint.address,
+                              style: GoogleFonts.roboto(
+                                  fontSize: 12,
+                                  color: ExploreColors.textSecondary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(complaint.description,
+                        style: GoogleFonts.roboto(
+                            fontSize: 13,
+                            color: ExploreColors.textPrimary,
+                            height: 1.4),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time,
+                            size: 12, color: ExploreColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Text(complaint.timeAgo,
+                            style: GoogleFonts.roboto(
+                                fontSize: 11,
+                                color: ExploreColors.textSecondary)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.thumb_up_outlined,
+                            size: 12, color: ExploreColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Text('${complaint.supportCount}',
+                            style: GoogleFonts.roboto(
+                                fontSize: 11,
+                                color: ExploreColors.textSecondary)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.verified_outlined,
+                            size: 12, color: ExploreColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Text('${complaint.verifyCount}',
+                            style: GoogleFonts.roboto(
+                                fontSize: 11,
+                                color: ExploreColors.textSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -531,7 +721,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         width: 50,
         height: 50,
         child: GestureDetector(
-          onTap: () => _showComplaintDetail(complaint),
+          onTap: () => setState(() => _selectedComplaint = complaint),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -575,78 +765,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
     }).toList();
-  }
-
-  void _showComplaintDetail(CivicComplaint complaint) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(complaint.title,
-                      style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: ExploreColors.textPrimary)),
-                ),
-                _buildStatusBadge(complaint.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(complaint.referenceId,
-                style: GoogleFonts.roboto(
-                    fontSize: 14,
-                    color: ExploreColors.primaryOrange,
-                    fontWeight: FontWeight.w500)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(Icons.location_on,
-                    size: 18, color: ExploreColors.textSecondary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(complaint.address,
-                      style: GoogleFonts.roboto(
-                          fontSize: 14, color: ExploreColors.textSecondary)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(complaint.description,
-                style: GoogleFonts.roboto(
-                    fontSize: 14, color: ExploreColors.textPrimary, height: 1.5)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ExploreColors.primaryOrange,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Text('Close',
-                    style: GoogleFonts.roboto(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildZoomButton(IconData icon, VoidCallback onTap, {Color? color}) {
@@ -908,8 +1026,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       onTap: () {
         if (_isMapView) {
           _mapController.move(LatLng(complaint.latitude, complaint.longitude), 16);
+          setState(() => _selectedComplaint = complaint);
         }
-        _showComplaintDetail(complaint);
       },
       child: Container(
         padding: const EdgeInsets.all(16),
