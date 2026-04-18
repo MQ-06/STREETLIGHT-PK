@@ -11,6 +11,7 @@
  */
 import { useState } from 'react'
 import { SA } from './sa-theme'
+import SectionA from './sa/SectionA'
 
 const DAYS_OPTIONS = [7, 30, 90]
 
@@ -106,10 +107,10 @@ export default function SuperAdminAnalytics() {
       {/* ── Scrollable content ── */}
       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* Section A — City Intelligence Cards */}
+        {/* Section A — City-Wide KPI Strip */}
         <section>
-          <SectionLabel letter="A" title="City Intelligence" sub="Per-city KPIs, risk ratings & drill-down" />
-          <SectionPlaceholder label="Section A — coming in Module 2" />
+          <SectionLabel letter="A" title="City Intelligence" sub="City-wide aggregate KPIs across all municipal areas" />
+          <SectionA days={days} />
         </section>
 
         {/* Section B — National KPIs + Charts */}
