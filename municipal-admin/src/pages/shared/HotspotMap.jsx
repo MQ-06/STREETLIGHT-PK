@@ -16,7 +16,7 @@
  *   'pin'     → MapPins only
  *   'both'    → all three layers
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -31,6 +31,7 @@ import HeatmapLayer          from '../../components/map/HeatmapLayer'
 import MapBoundsTracker      from '../../components/map/MapBoundsTracker'
 import ViewModeToggle        from '../../components/map/ViewModeToggle'
 import ClusterLayer          from '../../components/map/ClusterLayer'
+import ClusterPopup          from '../../components/map/ClusterPopup'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -58,6 +59,8 @@ export default function HotspotMap() {
   const [mapBounds,      setMapBounds]      = useState(null)
   const [mapCenter,      setMapCenter]      = useState(null)
   const [viewMode,       setViewMode]       = useState('both')
+  const [activeCluster,  setActiveCluster]  = useState(null)   // { cluster, reports }
+  const mapContainerRef = useRef(null)
 
   const onBoundsChange = useCallback(b => setMapBounds(b), [])
   const onCenterChange = useCallback(c => setMapCenter(c), [])
@@ -98,7 +101,7 @@ export default function HotspotMap() {
           }}
         >
           <span style={{ fontSize: 16 }}>📍</span>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text }}>
               Hotspot Map
             </p>
@@ -106,6 +109,20 @@ export default function HotspotMap() {
               {loading ? 'Loading…' : `${filtered.length} reports visible`}
             </p>
           </div>
+          {/* Export/download snapshot */}
+          <button
+            title="Export map snapshot"
+            onClick={() => window.print()}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: C.muted, fontSize: 16, padding: 4, lineHeight: 1,
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = C.orange}
+            onMouseLeave={e => e.currentTarget.style.color = C.muted}
+          >
+            ⬇
+          </button>
         </div>
 
         {/* M2 Filter Sidebar content */}
@@ -145,7 +162,22 @@ export default function HotspotMap() {
           {showClusters && (
             <ClusterLayer
               reports={filtered}
-              onClusterClick={() => {/* M9 hook-in */}}
+              onClusterClick={(cluster, clusterReports) =>
+                setActiveCluster({ cluster, reports: clusterReports })
+              }
+            />
+          )}
+
+          {/* M9 — Cluster popup */}
+          {activeCluster && (
+            <ClusterPopup
+              cluster={activeCluster.cluster}
+              reports={activeCluster.reports}
+              onQuickView={report => {
+                setSelectedReport(report)
+                setActiveCluster(null)
+              }}
+              onClose={() => setActiveCluster(null)}
             />
           )}
 

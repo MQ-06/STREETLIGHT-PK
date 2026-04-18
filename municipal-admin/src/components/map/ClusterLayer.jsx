@@ -115,7 +115,12 @@ export default function ClusterLayer({ reports = [], onClusterClick }) {
         const atMax    = map.getZoom() >= map.getMaxZoom()
 
         if (atMax || childCnt < 100) {
-          onClusterClick?.(cluster)
+          // Extract report objects from child markers for the popup
+          const clusterReports = cluster.getAllChildMarkers()
+            .map(m => m._report)
+            .filter(Boolean)
+          onClusterClick?.(cluster, clusterReports)
+          L.DomEvent.stop(e)   // prevent map click from closing immediately
         }
         // Otherwise markercluster's default zoom-in fires automatically
       })
