@@ -36,49 +36,75 @@ def dashboard_overview(
 ):
     role = (current_user.role or "").lower()
 
-    q = db.query(Report)
-
+    # Build base filter conditions (reused across multiple aggregation queries)
+    filters = []
     if role == "dept_officer":
         routing = db.query(RoutingTable).filter_by(
             officer_id=current_user.id, is_active=True
         ).first()
         if routing:
-            q = q.filter(
+            filters = [
                 Report.assigned_city       == routing.city,
                 Report.assigned_department == routing.department,
-            )
+            ]
     elif role == "city_admin" and current_user.city:
-        q = q.filter(Report.assigned_city == current_user.city)
+        filters = [Report.assigned_city == current_user.city]
 
-    reports = q.all()
-
-    status_counts = Counter(r.status.value if r.status else "UNKNOWN" for r in reports)
-    stage_counts  = Counter(
-        r.kanban_stage.value if r.kanban_stage else "NEW" for r in reports
+    # Kanban stage counts — single GROUP BY query, no Python-side iteration
+    stage_rows = (
+        db.query(Report.kanban_stage, func.count(Report.id))
+        .filter(*filters)
+        .group_by(Report.kanban_stage)
+        .all()
     )
+    stage_counts = {
+        (row[0].value if row[0] else "NEW"): row[1]
+        for row in stage_rows
+    }
+    total = sum(stage_counts.values())
 
+    # Status counts — single GROUP BY query
+    status_rows = (
+        db.query(Report.status, func.count(Report.id))
+        .filter(*filters)
+        .group_by(Report.status)
+        .all()
+    )
+    status_counts = {
+        (row[0].value if row[0] else "UNKNOWN"): row[1]
+        for row in status_rows
+    }
+
+    # City breakdown — single GROUP BY query (super_admin only)
     city_breakdown = {}
     if role == "super_admin":
-        for r in reports:
-            city = r.assigned_city or "unknown"
-            if city not in city_breakdown:
-                city_breakdown[city] = {"total": 0, "resolved": 0}
-            city_breakdown[city]["total"] += 1
-            if r.kanban_stage and r.kanban_stage.value == "RESOLVED":
-                city_breakdown[city]["resolved"] += 1
+        city_rows = (
+            db.query(
+                Report.assigned_city,
+                func.count(Report.id).label("total"),
+                func.count(Report.id).filter(Report.kanban_stage == KanbanStage.RESOLVED).label("resolved"),
+            )
+            .group_by(Report.assigned_city)
+            .all()
+        )
+        for city, city_total, city_resolved in city_rows:
+            city_breakdown[city or "unknown"] = {
+                "total":    city_total,
+                "resolved": city_resolved,
+            }
 
     return {
         "viewer_role":   role,
         "viewer_city":   current_user.city,
-        "total":         len(reports),
+        "total":         total,
         "totals": {
-            "reports":     len(reports),
+            "reports":     total,
             "pending":     status_counts.get("PENDING", 0),
             "verified":    status_counts.get("VERIFIED", 0),
             "in_progress": status_counts.get("IN_PROGRESS", 0),
             "resolved":    status_counts.get("RESOLVED", 0),
         },
-        "kanban_counts": dict(stage_counts),
+        "kanban_counts": stage_counts,
         "city_breakdown": city_breakdown,
     }
 

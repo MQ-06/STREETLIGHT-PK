@@ -2,16 +2,23 @@ import { useState, useEffect } from 'react'
 import { authFetch } from '../utils/auth'
 
 export function useDashboard() {
-  const [data, setData]       = useState(null)
+  const [data,    setData]    = useState(null)
+  const [trend,   setTrend]   = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [error,   setError]   = useState(null)
 
   useEffect(() => {
-    authFetch('/admin/dashboard/overview')
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+    Promise.all([
+      authFetch('/admin/dashboard/overview').then(r => r.json()),
+      authFetch('/admin/dashboard/analytics?days=7').then(r => r.json()),
+    ])
+      .then(([overview, analytics]) => {
+        setData(overview)
+        setTrend(analytics.trend || [])
+        setLoading(false)
+      })
       .catch(() => { setError('Failed to load overview.'); setLoading(false) })
   }, [])
 
-  return { data, loading, error }
+  return { data, trend, loading, error }
 }
