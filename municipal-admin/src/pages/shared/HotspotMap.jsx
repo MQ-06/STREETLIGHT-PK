@@ -20,6 +20,8 @@ import ActiveAlertsCard      from '../../components/map/ActiveAlertsCard'
 import MapLegend             from '../../components/map/MapLegend'
 import ViewportLabel         from '../../components/map/ViewportLabel'
 import ReportDetailPanel     from '../../components/map/ReportDetailPanel'
+import MapPins               from '../../components/map/MapPins'
+import HeatmapLayer          from '../../components/map/HeatmapLayer'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -115,10 +117,9 @@ export default function HotspotMap() {
         >
           <TileLayer url={DARK_TILE} attribution={TILE_ATTR} />
 
-          {/*
-           * M3 — MapPins + Heatmap layer goes here.
-           * Receives `filtered` and `onPinClick` when implemented.
-           */}
+          {/* M3 — Heatmap + Pin markers */}
+          <HeatmapLayer reports={filtered} />
+          <MapPins reports={filtered} onPinClick={setSelectedReport} />
         </MapContainer>
 
         {/* ── Floating overlays ── */}
