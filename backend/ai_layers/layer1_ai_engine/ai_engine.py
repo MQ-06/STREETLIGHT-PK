@@ -24,6 +24,17 @@ IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 IMAGE_SIZE = 224
 
+# Temperature scaling: softens overconfident softmax predictions from the
+# overfit ResNet18 (which hits 100% val accuracy on only 65 garbage images).
+# T=2.0 maps a raw 95% confidence down to ~80%, making the 0.85 OOD threshold
+# meaningful. Increase T if the model is still too confident on unknowns.
+TEMPERATURE = 2.0
+
+# If the temperature-scaled max probability is below this, the image is likely
+# out-of-distribution (e.g. plants, screenshots, non-Pakistani content).
+# Treat as "other" so it never reaches the civic-issue acceptance path.
+OOD_CONFIDENCE_THRESHOLD = 0.85
+
 
 class AIEngine:
     """
@@ -36,15 +47,22 @@ class AIEngine:
     - Image hash calculation
     """
     
-    def __init__(self, model_path: Path, confidence_threshold: float = 0.5):
+    def __init__(
+        self,
+        model_path: Path,
+        confidence_threshold: float = 0.5,
+        temperature: float = TEMPERATURE
+    ):
         """
         Initialize AI Engine.
-        
+
         Args:
             model_path: Path to trained model checkpoint
             confidence_threshold: Minimum confidence for valid predictions
+            temperature: Softmax temperature for calibration (>1 = less confident)
         """
         self.confidence_threshold = confidence_threshold
+        self.temperature = temperature
         
         # Load model
         self.model_loader = ModelLoader(model_path)
@@ -97,19 +115,34 @@ class AIEngine:
             # Predict
             with torch.no_grad():
                 outputs = self.model(image_tensor)
-                probabilities = F.softmax(outputs, dim=1)[0]
-            
+                # Temperature scaling: divide logits before softmax to
+                # soften overconfident predictions from the overfit model.
+                probabilities = F.softmax(outputs / self.temperature, dim=1)[0]
+
             # Get prediction
             confidence, pred_idx = torch.max(probabilities, dim=0)
             confidence_value = confidence.item()
             predicted_class = self.class_names[pred_idx.item()]
-            
+
+            # OOD rejection: temperature-scaled confidence below threshold means
+            # the image is likely out-of-distribution (plant, screenshot, etc.).
+            # Override to "other" so the civic-issue path is never triggered.
+            ood_rejected = False
+            if confidence_value < OOD_CONFIDENCE_THRESHOLD:
+                logger.info(
+                    f"OOD detected — scaled confidence {confidence_value:.2f} "
+                    f"< threshold {OOD_CONFIDENCE_THRESHOLD} "
+                    f"(raw class was '{predicted_class}')"
+                )
+                ood_rejected = True
+                predicted_class = "other"
+
             # Get all probabilities
             all_probs = {
                 self.class_names[i]: float(probabilities[i].item() * 100)
                 for i in range(len(self.class_names))
             }
-            
+
             # Check if valid issue (not "other" class and above threshold)
             is_valid_issue = (
                 predicted_class != "other" and
@@ -157,6 +190,7 @@ class AIEngine:
                 },
                 'image_hash': image_hash,
                 'is_valid_issue': is_valid_issue,
+                'ood_rejected': ood_rejected,
                 'gps_verification': {
                     'has_photo_gps': gps_verification.get('has_photo_gps', False),
                     'photo_gps': gps_verification.get('photo_gps'),
@@ -445,13 +479,18 @@ class AIEngine:
         
         if not is_valid:
             if predicted_class == "other":
-                return ("This doesn't appear to be a civic issue (pothole or garbage). "
-                       "Please upload a clear photo of a pothole or garbage pile.")
+                return (
+                    "Image not recognized as a civic issue (pothole or garbage). "
+                    "If this is street garbage or a road pothole, please retake "
+                    "the photo in clear daylight with the issue filling most of "
+                    "the frame."
+                )
             else:
-                return (f"Low confidence detection ({confidence_pct:.1f}%). "
-                       f"The {predicted_class} is not clearly visible. "
-                       "Please try taking the photo again from a different angle "
-                       "with better lighting.")
+                return (
+                    f"Low confidence detection ({confidence_pct:.1f}%). "
+                    f"The {predicted_class} is not clearly visible. "
+                    "Please retake the photo from a closer angle with better lighting."
+                )
         
         # Valid issue detected
         if confidence_pct >= 90:
