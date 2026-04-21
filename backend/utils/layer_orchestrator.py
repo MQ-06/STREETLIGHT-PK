@@ -73,7 +73,7 @@ class LayerOrchestrator:
 
         if model_path is not None:
             try:
-                self.ai_engine = AIEngine(model_path, confidence_threshold=0.65)
+                self.ai_engine = AIEngine(model_path, confidence_threshold=0.85)
                 self.layer1_available = True
                 logger.info("✓ Layer 1 (AI Engine) initialized successfully")
             except Exception as e:
@@ -315,32 +315,3 @@ class LayerOrchestrator:
                 'error': str(e),
                 'message': 'AI Agent experiencing issues'
             }
-            
-            
-            
-"""
-            # PEHLE — crash karta tha:
-raise FileNotFoundError(...)   # ← server band ho jata
-
-# AB — gracefully handle karta hai:
-if model_path exists → load karo, kaam karo normally
-if model_path missing → warning log karo, fallback mode
-```
-
-
-
-## Jab Model File Milegi Tab Kya Hoga?
-```
-Step 1: Folder banao (agar nahi hai)
-        backend/ai_layers/layer1_ai_engine/models/
-
-Step 2: File daalo — koi bhi naam ho:
-        best.pth        ✅ auto-detect
-        best_model.pth  ✅ auto-detect
-        model.pth       ✅ auto-detect
-
-Step 3: Uvicorn auto-reload karta hai (--reload flag hai)
-
-Step 4: AI Engine full power mein kaam karta hai
-        Score 50 fallback → BAND
-        Real AI scores → SHURU (0-100 proper)"""
