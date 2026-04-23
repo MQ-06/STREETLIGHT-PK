@@ -147,7 +147,17 @@ logs/
 # Uncomment if PDFs are too large
 # documentations/*.pdf
 
-streetlight_layers/
+# Training data & model weights (too large for git)
+streetlight_layers/layer1-ai-engine/training/data/train/
+streetlight_layers/layer1-ai-engine/training/data/val/
+streetlight_layers/layer1-ai-engine/training/data/test/
+streetlight_layers/layer1-ai-engine/training/data/raw_images/
+streetlight_layers/layer1-ai-engine/training/data/pakistani_dataset/
+streetlight_layers/layer1-ai-engine/training/data/archive/
+streetlight_layers/layer1-ai-engine/training/data/*.tar.gz
+streetlight_layers/layer1-ai-engine/training/data/*.zip
+streetlight_layers/layer1-ai-engine/training/models/*.pth
+streetlight_layers/layer1-ai-engine/training/models/*.png
 
 # ============================================
 # NODE MODULES (if any)
