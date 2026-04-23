@@ -24,16 +24,8 @@ IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 IMAGE_SIZE = 224
 
-# Temperature scaling: softens overconfident softmax predictions from the
-# overfit ResNet18 (which hits 100% val accuracy on only 65 garbage images).
-# T=2.0 maps a raw 95% confidence down to ~80%, making the 0.85 OOD threshold
-# meaningful. Increase T if the model is still too confident on unknowns.
-TEMPERATURE = 2.0
-
-# If the temperature-scaled max probability is below this, the image is likely
-# out-of-distribution (e.g. plants, screenshots, non-Pakistani content).
-# Treat as "other" so it never reaches the civic-issue acceptance path.
-OOD_CONFIDENCE_THRESHOLD = 0.85
+# EfficientNet-B3 is well-calibrated — no temperature scaling needed.
+TEMPERATURE = 1.0
 
 
 class AIEngine:
@@ -50,7 +42,7 @@ class AIEngine:
     def __init__(
         self,
         model_path: Path,
-        confidence_threshold: float = 0.5,
+        confidence_threshold: float = 0.70,
         temperature: float = TEMPERATURE
     ):
         """
@@ -124,18 +116,7 @@ class AIEngine:
             confidence_value = confidence.item()
             predicted_class = self.class_names[pred_idx.item()]
 
-            # OOD rejection: temperature-scaled confidence below threshold means
-            # the image is likely out-of-distribution (plant, screenshot, etc.).
-            # Override to "other" so the civic-issue path is never triggered.
             ood_rejected = False
-            if confidence_value < OOD_CONFIDENCE_THRESHOLD:
-                logger.info(
-                    f"OOD detected — scaled confidence {confidence_value:.2f} "
-                    f"< threshold {OOD_CONFIDENCE_THRESHOLD} "
-                    f"(raw class was '{predicted_class}')"
-                )
-                ood_rejected = True
-                predicted_class = "other"
 
             # Get all probabilities
             all_probs = {
