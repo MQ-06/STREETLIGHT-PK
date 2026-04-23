@@ -1,0 +1,16 @@
+# Inference Requirements for StreetLight AI Engine
+
+# Core PyTorch
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Image processing
+Pillow>=10.0.0
+opencv-python>=4.8.0.76
+
+# Numerical computing
+numpy>=1.24.0
+
+# GPS Verification and Landmark Detection
+requests>=2.31.0  # For OpenStreetMap API calls (Nominatim, Overpass)
+
