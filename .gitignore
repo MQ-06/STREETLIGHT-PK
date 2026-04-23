@@ -158,6 +158,11 @@ streetlight_layers/layer1-ai-engine/training/data/*.tar.gz
 streetlight_layers/layer1-ai-engine/training/data/*.zip
 streetlight_layers/layer1-ai-engine/training/models/*.pth
 streetlight_layers/layer1-ai-engine/training/models/*.png
+streetlight_layers/layer1-ai-engine/frontend/
+streetlight_layers/layer0-input-validation/venv/
+streetlight_layers/layer0-input-validation/test_images/
+streetlight_layers/layer0-input-validation/backend/temp/
+streetlight_layers/layer0-input-validation/backend/__pycache__/
 
 # ============================================
 # NODE MODULES (if any)
