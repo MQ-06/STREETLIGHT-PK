@@ -163,7 +163,7 @@ streetlight_layers/layer0-input-validation/venv/
 streetlight_layers/layer0-input-validation/test_images/
 streetlight_layers/layer0-input-validation/backend/temp/
 streetlight_layers/layer0-input-validation/backend/__pycache__/
-
+streetlight_layers/layer1-ai-engine/training/models/
 # ============================================
 # NODE MODULES (if any)
 # ============================================
