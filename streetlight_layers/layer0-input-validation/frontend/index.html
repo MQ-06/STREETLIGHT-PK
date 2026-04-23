@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreetLight Layer 0 - Input Validation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .panel h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 10px;
+        }
+
+        /* Upload Panel */
+        .upload-area {
+            border: 3px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8fafc;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .upload-area.drag-over {
+            border-color: #2563eb;
+            background: #dbeafe;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-container {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        #imagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        .image-info {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input[type="number"]:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .gps-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quick-test-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quick-test-btn {
+            padding: 10px;
+            background: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .quick-test-btn:hover {
+            background: #e0e7ff;
+            border-color: #818cf8;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        /* Results Panel */
+        #resultsPanel {
+            display: none;
+        }
+
+        #resultsPanel.active {
+            display: block;
+        }
+
+        .status-card {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-card.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .status-card.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .status-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .status-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .status-subtext {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .quality-score {
+            margin-bottom: 25px;
+        }
+
+        .quality-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .quality-bar {
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .quality-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 15px;
+            transition: width 1s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .checks-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .check-card {
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #cbd5e1;
+            background: #f8fafc;
+            display: flex;
+            align-items: start;
+            gap: 12px;
+        }
+
+        .check-card.passed {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .check-card.failed {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .check-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .check-content {
+            flex: 1;
+        }
+
+        .check-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .check-message {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .check-score {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .messages-section {
+            margin-bottom: 20px;
+        }
+
+        .message-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .message-box.errors {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .message-box.warnings {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .message-box h3 {
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .message-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .message-box li {
+            padding: 5px 0;
+            color: #475569;
+        }
+
+        .message-box li:before {
+            content: "• ";
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .message-box.errors li:before {
+            color: #ef4444;
+        }
+
+        .message-box.warnings li:before {
+            color: #f59e0b;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .gps-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .panel {
+            animation: slideIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚦 StreetLight Layer 0</h1>
+            <p>Input Validation & Quality Check System</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Left Panel: Upload Controls -->
+            <div class="panel">
+                <h2>📤 Upload Image</h2>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">
+                        <strong>Click to upload</strong> or drag and drop<br>
+                        <small>JPG, JPEG, PNG (max 10MB)</small>
+                    </div>
+                    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png">
+                </div>
+
+                <div class="preview-container" id="previewContainer">
+                    <img id="imagePreview" alt="Preview">
+                    <div class="image-info" id="imageInfo"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>📍 GPS Coordinates (Optional)</label>
+                    <div class="gps-grid">
+                        <div>
+                            <input type="number" id="latitude" step="any" placeholder="31.5204">
+                            <small style="color: #94a3b8;">Latitude</small>
+                        </div>
+                        <div>
+                            <input type="number" id="longitude" step="any" placeholder="74.3587">
+                            <small style="color: #94a3b8;">Longitude</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>🔍 Quick Test Locations</label>
+                    <div class="quick-test-buttons">
+                        <button class="quick-test-btn" onclick="setGPS(31.5204, 74.3587)">
+                            📍 Lahore
+                        </button>
+                        <button class="quick-test-btn" onclick="setGPS(24.8607, 67.0011)">
+                            📍 Karachi
+                        </button>
+                        <button class="quick-test-btn" onclick="setGPS(33.6844, 73.0479)">
+                            📍 Islamabad
+                        </button>
+                        <button class="quick-test-btn" onclick="setGPS(40.7128, -74.0060)">
+                            ❌ New York
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="validateBtn" disabled>
+                    ✅ Validate Image
+                </button>
+
+                <button class="btn btn-secondary" id="clearBtn">
+                    🔄 Clear & Reset
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing image quality...</p>
+                </div>
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="panel" id="resultsPanel">
+                <h2>📊 Validation Results</h2>
+
+                <div class="status-card" id="statusCard">
+                    <div class="status-icon" id="statusIcon"></div>
+                    <div class="status-text" id="statusText"></div>
+                    <div class="status-subtext" id="statusSubtext"></div>
+                </div>
+
+                <div class="quality-score">
+                    <div class="quality-label">
+                        <span>Overall Quality Score</span>
+                        <span id="qualityValue">0%</span>
+                    </div>
+                    <div class="quality-bar">
+                        <div class="quality-fill" id="qualityFill" style="width: 0%">
+                            <span id="qualityPercent"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="messagesSection" class="messages-section"></div>
+
+                <h3 style="color: #1e293b; margin-bottom: 15px;">Individual Checks</h3>
+                <div class="checks-grid" id="checksGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API endpoint
+        const API_URL = 'http://localhost:8000';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const imageInfo = document.getElementById('imageInfo');
+        const validateBtn = document.getElementById('validateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const resultsPanel = document.getElementById('resultsPanel');
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+
+        let selectedFile = null;
+
+        // Upload area click
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Handle file selection
+        function handleFileSelect(file) {
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Please select a valid image file (JPG, JPEG, or PNG)');
+                return;
+            }
+
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            selectedFile = file;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                previewContainer.classList.add('active');
+
+                // Get image dimensions
+                const img = new Image();
+                img.onload = () => {
+                    imageInfo.textContent = `${img.width} × ${img.height} pixels | ${(file.size / 1024).toFixed(2)} KB`;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Enable validate button
+            validateBtn.disabled = false;
+
+            // Hide results
+            resultsPanel.classList.remove('active');
+        }
+
+        // Set GPS coordinates
+        function setGPS(lat, lon) {
+            latitudeInput.value = lat;
+            longitudeInput.value = lon;
+        }
+
+        // Validate button click
+        validateBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('Please select an image first');
+                return;
+            }
+
+            // Show loading
+            loading.classList.add('active');
+            validateBtn.disabled = true;
+            resultsPanel.classList.remove('active');
+
+            try {
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+
+                if (latitudeInput.value) {
+                    formData.append('latitude', latitudeInput.value);
+                }
+                if (longitudeInput.value) {
+                    formData.append('longitude', longitudeInput.value);
+                }
+
+                // Send request
+                const response = await fetch(`${API_URL}/api/validate`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result.data);
+                } else {
+                    throw new Error(result.detail || 'Validation failed');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                loading.classList.remove('active');
+                validateBtn.disabled = false;
+            }
+        });
+
+        // Display results
+        function displayResults(data) {
+            // Status card
+            const statusCard = document.getElementById('statusCard');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            const statusSubtext = document.getElementById('statusSubtext');
+
+            if (data.is_valid) {
+                statusCard.className = 'status-card success';
+                statusIcon.textContent = '✅';
+                statusText.textContent = 'Image Validated Successfully';
+                statusSubtext.textContent = 'All quality checks passed';
+            } else {
+                statusCard.className = 'status-card error';
+                statusIcon.textContent = '❌';
+                statusText.textContent = 'Validation Failed';
+                statusSubtext.textContent = `${data.errors.length} error(s) found`;
+            }
+
+            // Quality score
+            const qualityValue = document.getElementById('qualityValue');
+            const qualityFill = document.getElementById('qualityFill');
+            const qualityPercent = document.getElementById('qualityPercent');
+
+            qualityValue.textContent = `${data.overall_quality}%`;
+            
+            // Animate quality bar
+            setTimeout(() => {
+                qualityFill.style.width = `${data.overall_quality}%`;
+                qualityPercent.textContent = `${data.overall_quality}%`;
+            }, 100);
+
+            // Messages section
+            const messagesSection = document.getElementById('messagesSection');
+            messagesSection.innerHTML = '';
+
+            if (data.errors.length > 0) {
+                const errorsBox = document.createElement('div');
+                errorsBox.className = 'message-box errors';
+                errorsBox.innerHTML = `
+                    <h3>❌ Errors</h3>
+                    <ul>${data.errors.map(err => `<li>${err}</li>`).join('')}</ul>
+                `;
+                messagesSection.appendChild(errorsBox);
+            }
+
+            if (data.warnings.length > 0) {
+                const warningsBox = document.createElement('div');
+                warningsBox.className = 'message-box warnings';
+                warningsBox.innerHTML = `
+                    <h3>⚠️ Warnings</h3>
+                    <ul>${data.warnings.map(warn => `<li>${warn}</li>`).join('')}</ul>
+                `;
+                messagesSection.appendChild(warningsBox);
+            }
+
+            // Individual checks
+            const checksGrid = document.getElementById('checksGrid');
+            checksGrid.innerHTML = '';
+
+            data.checks.forEach(check => {
+                const checkCard = document.createElement('div');
+                checkCard.className = `check-card ${check.passed ? 'passed' : 'failed'}`;
+                checkCard.innerHTML = `
+                    <div class="check-icon">${check.passed ? '✅' : '❌'}</div>
+                    <div class="check-content">
+                        <div class="check-name">${check.name}</div>
+                        <div class="check-message">${check.message}</div>
+                        <div class="check-score">Score: ${check.score.toFixed(2)}%</div>
+                    </div>
+                `;
+                checksGrid.appendChild(checkCard);
+            });
+
+            // Show results panel
+            resultsPanel.classList.add('active');
+            resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Clear button
+        clearBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            previewContainer.classList.remove('active');
+            resultsPanel.classList.remove('active');
+            validateBtn.disabled = true;
+            latitudeInput.value = '';
+            longitudeInput.value = '';
+        });
+
+        // Check API health on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                console.log('API Status:', data);
+            } catch (error) {
+                console.error('API connection failed:', error);
+                alert('Warning: Cannot connect to API server. Make sure the backend is running on http://localhost:8000');
+            }
+        });
+    </script>
+</body>
+</html>
+
