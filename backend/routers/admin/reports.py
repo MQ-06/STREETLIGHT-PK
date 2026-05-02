@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
@@ -18,12 +18,24 @@ from utils.rbac import require_roles
 from utils.email_service import send_resolved_notification
 from utils.push import send_push_to_user
 
+import cloudinary
+import cloudinary.uploader
+import tempfile
+import os
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/reports", tags=["Admin Reports"])
 
-ALL_ADMIN = require_roles("super_admin", "city_admin", "dept_officer",
-                          "municipal_officer", "department_head", "city_planner", "system_admin")
+ALL_ADMIN = require_roles(
+    "super_admin",
+    "city_admin",
+    "dept_officer",
+    "municipal_officer",
+    "department_head",
+    "city_planner",
+    "system_admin",
+)
 
 CATEGORY_ICON = {"POTHOLE": "🕳️", "TRASH": "🗑️"}
 
@@ -46,7 +58,6 @@ def get_db():
 
 
 def _base_query(db: Session, user: User, eager_reporter: bool = False):
-    """Return a Report query pre-filtered by the caller's role scope."""
     role = (user.role or "").lower()
     q = db.query(Report)
     if eager_reporter:
@@ -54,20 +65,22 @@ def _base_query(db: Session, user: User, eager_reporter: bool = False):
 
     if role == "dept_officer":
         routing = (
-            db.query(__import__("model.routing_table", fromlist=["RoutingTable"]).RoutingTable)
+            db.query(
+                __import__("model.routing_table", fromlist=["RoutingTable"]).RoutingTable
+            )
             .filter_by(officer_id=user.id, is_active=True)
             .first()
         )
         if routing:
             q = q.filter(
-                Report.assigned_city       == routing.city,
+                Report.assigned_city == routing.city,
                 Report.assigned_department == routing.department,
             )
+
     elif role == "city_admin":
         if user.city:
             q = q.filter(Report.assigned_city == user.city)
 
-    # super_admin + legacy roles → no additional filter
     return q
 
 
@@ -77,60 +90,66 @@ def _report_summary(r: Report) -> dict:
         "medium": ("#fff7ed", "#f97316"),
         "small": ("#f0fdf4", "#22c55e"),
     }
+
     sev = (r.ai_severity or "medium").lower()
     sev_bg, sev_color = severity_colors.get(sev, ("#fff7ed", "#f97316"))
 
     stage_dots = {
-        "NEW":                  "#3b82f6",
+        "NEW": "#3b82f6",
         "PENDING_VERIFICATION": "#f97316",
-        "VERIFIED":             "#f97316",
-        "IN_PROGRESS":          "#f97316",
-        "AWAITING_FEEDBACK":    "#8b5cf6",
-        "RESOLVED":             "#22c55e",
+        "VERIFIED": "#f97316",
+        "IN_PROGRESS": "#f97316",
+        "AWAITING_FEEDBACK": "#8b5cf6",
+        "RESOLVED": "#22c55e",
     }
+
     stage_val = r.kanban_stage.value if r.kanban_stage else "NEW"
 
     return {
-        "id":                 r.id,
-        "display_id":         f"#SR-{r.id:04d}",
-        "title":              r.title,
-        "description":        r.description,
-        "category":           r.category.value if r.category else None,
-        "icon":               CATEGORY_ICON.get(r.category.value if r.category else "", "📋"),
-        "location":           r.location_address,
-        "location_city":      r.location_city or r.assigned_city,
-        "lat":                r.location_lat,
-        "lng":                r.location_lng,
-        "image_url":          r.image_url,
-        "status":             r.status.value if r.status else None,
-        "kanban_stage":       stage_val,
-        "stage_dot":          stage_dots.get(stage_val, "#9ca3af"),
-        "severity":           (r.ai_severity or "medium").capitalize(),
-        "severity_bg":        sev_bg,
-        "severity_color":     sev_color,
-        "ai_confidence":      r.ai_confidence,
-        "combined_score":     r.combined_score,
-        "assigned_city":      r.assigned_city,
-        "assigned_department":r.assigned_department,
-        "assigned_officer_id":r.assigned_officer_id,
-        "assigned_at":        r.assigned_at.isoformat() if r.assigned_at else None,
-        "reporter_name":      f"{r.reporter.first_name} {r.reporter.last_name}" if r.reporter else "Unknown",
-        "created_at":         r.created_at.isoformat() if r.created_at else None,
-        "is_flagged_for_spam":r.is_flagged_for_spam,
+        "id": r.id,
+        "display_id": f"#SR-{r.id:04d}",
+        "title": r.title,
+        "description": r.description,
+        "category": r.category.value if r.category else None,
+        "icon": CATEGORY_ICON.get(r.category.value if r.category else "", "📋"),
+        "location": r.location_address,
+        "location_city": r.location_city or r.assigned_city,
+        "lat": r.location_lat,
+        "lng": r.location_lng,
+        "image_url": r.image_url,
+        "status": r.status.value if r.status else None,
+        "kanban_stage": stage_val,
+        "stage_dot": stage_dots.get(stage_val, "#9ca3af"),
+        "severity": (r.ai_severity or "medium").capitalize(),
+        "severity_bg": sev_bg,
+        "severity_color": sev_color,
+        "ai_confidence": r.ai_confidence,
+        "combined_score": r.combined_score,
+        "assigned_city": r.assigned_city,
+        "assigned_department": r.assigned_department,
+        "assigned_officer_id": r.assigned_officer_id,
+        "assigned_at": r.assigned_at.isoformat() if r.assigned_at else None,
+        "reporter_name": (
+            f"{r.reporter.first_name} {r.reporter.last_name}"
+            if r.reporter
+            else "Unknown"
+        ),
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "is_flagged_for_spam": r.is_flagged_for_spam,
     }
 
 
-# ── GET /admin/reports ─────────────────────────────────────────────────────
+# ── GET /admin/reports ─────────────────────────
 
 @router.get("")
 def list_reports(
-    skip:       int           = Query(0, ge=0),
-    limit:      int           = Query(20, ge=1, le=500),
-    stage:      Optional[str] = Query(None),
-    category:   Optional[str] = Query(None),
-    city:       Optional[str] = Query(None),
-    search:     Optional[str] = Query(None),
-    date_from:  Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=500),
+    stage: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
@@ -141,12 +160,16 @@ def list_reports(
             q = q.filter(Report.kanban_stage == KanbanStage(stage.upper()))
         except ValueError:
             pass
+
     if category:
         q = q.filter(Report.category.ilike(f"%{category}%"))
+
     if city:
         q = q.filter(Report.assigned_city == city.lower())
+
     if search:
         q = q.filter(Report.title.ilike(f"%{search}%"))
+
     if date_from:
         try:
             from datetime import datetime as dt
@@ -159,185 +182,13 @@ def list_reports(
 
     return {
         "total": total,
-        "skip":  skip,
+        "skip": skip,
         "limit": limit,
         "reports": [_report_summary(r) for r in reports],
     }
 
 
-# ── GET /admin/reports/kanban ──────────────────────────────────────────────
-
-@router.get("/kanban")
-def kanban_board(
-    current_user: User = Depends(ALL_ADMIN),
-    db: Session = Depends(get_db),
-):
-    q = _base_query(db, current_user, eager_reporter=True)
-    all_reports = q.order_by(desc(Report.created_at)).all()
-
-    columns = {}
-    for stage in STAGE_ORDER:
-        columns[stage.value] = []
-
-    for r in all_reports:
-        stage_val = r.kanban_stage.value if r.kanban_stage else KanbanStage.NEW.value
-        if stage_val in columns:
-            columns[stage_val].append(_report_summary(r))
-
-    return {
-        "columns": [
-            {"stage": stage.value, "cards": columns[stage.value]}
-            for stage in STAGE_ORDER
-        ]
-    }
-
-
-# ── GET /admin/reports/{id} ────────────────────────────────────────────────
-
-@router.get("/{report_id}")
-def get_report(
-    report_id: int,
-    current_user: User = Depends(ALL_ADMIN),
-    db: Session = Depends(get_db),
-):
-    q = _base_query(db, current_user)
-    report = q.filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    logs = (
-        db.query(ReportLog)
-        .filter(ReportLog.report_id == report_id)
-        .order_by(ReportLog.created_at)
-        .all()
-    )
-
-    log_entries = [
-        {
-            "id":                   l.id,
-            "changed_by":           l.changed_by,
-            "previous_stage":       l.previous_stage,
-            "new_stage":            l.new_stage,
-            "previous_status":      l.previous_status,
-            "new_status":           l.new_status,
-            "assigned_city":        l.assigned_city,
-            "assigned_department":  l.assigned_department,
-            "note":                 l.note,
-            "ai_managed":           l.ai_managed,
-            "created_at":           l.created_at.isoformat() if l.created_at else None,
-        }
-        for l in logs
-    ]
-
-    # Fetch reporter's impact score from UserProfile
-    reporter_profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == report.user_id)
-        .first()
-    )
-
-    summary = _report_summary(report)
-    summary.update({
-        "validation_score":       report.validation_score,
-        "trust_score":            report.trust_score,
-        "community_score":        report.community_score,
-        "gps_verified":           report.gps_verified,
-        "gps_spoofing_detected":  report.gps_spoofing_detected,
-        "is_flagged_for_spam":    report.is_flagged_for_spam,
-        "verification_status":    report.verification_status,
-        "reporter_impact_score":  reporter_profile.impact_score if reporter_profile else None,
-        "logs":                   log_entries,
-    })
-    return summary
-
-
-# ── PATCH /admin/reports/{id}/stage ───────────────────────────────────────
-
-class StageUpdate(BaseModel):
-    stage: str
-    note:  Optional[str] = None
-
-
-@router.patch("/{report_id}/stage")
-def update_stage(
-    report_id: int,
-    body: StageUpdate,
-    current_user: User = Depends(ALL_ADMIN),
-    db: Session = Depends(get_db),
-):
-    q = _base_query(db, current_user)
-    report = q.filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    try:
-        new_stage = KanbanStage(body.stage.upper())
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid stage: {body.stage}")
-
-    prev_stage = report.kanban_stage.value if report.kanban_stage else None
-    report.kanban_stage = new_stage
-
-    # Sync ReportStatus with key stage transitions
-    if new_stage == KanbanStage.IN_PROGRESS:
-        report.status = ReportStatus.IN_PROGRESS
-    elif new_stage == KanbanStage.RESOLVED:
-        report.status = ReportStatus.RESOLVED
-    elif new_stage == KanbanStage.VERIFIED:
-        report.status = ReportStatus.VERIFIED
-
-    note = body.note or f"Stage changed to {new_stage.value}"
-    log = ReportLog(
-        report_id      = report.id,
-        changed_by     = str(current_user.id),
-        previous_stage = prev_stage,
-        new_stage      = new_stage.value,
-        note           = note,
-        ai_managed     = False,
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(report)
-
-    logger.info(f"Stage update: report {report_id} → {new_stage.value} by user {current_user.id}")
-
-    # ── Notify citizen when resolved ─────────────────────────────────────────
-    if new_stage == KanbanStage.RESOLVED and report.reporter:
-        citizen       = report.reporter
-        citizen_name  = f"{citizen.first_name} {citizen.last_name}"
-        display_id    = f"#SR-{report.id:04d}"
-        category_val  = report.category.value if report.category else "OTHER"
-
-        # Email notification
-        try:
-            send_resolved_notification(
-                to_email    = citizen.email,
-                citizen_name= citizen_name,
-                report_id   = report.id,
-                display_id  = display_id,
-                category    = category_val,
-                city        = report.assigned_city or "",
-                department  = report.assigned_department or "",
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Resolved email failed (non-blocking): {e}")
-
-        # FCM push notification
-        try:
-            send_push_to_user(
-                db,
-                user_id = citizen.id,
-                title   = "Issue Resolved! ✅",
-                body    = f"Your report {display_id} has been resolved by the municipal team.",
-                data    = {"report_id": str(report.id), "type": "RESOLVED"},
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Push notification failed (non-blocking): {e}")
-
-    return {"success": True, "stage": new_stage.value, "note": note}
-
-
-# ── POST /admin/reports/{id}/note ─────────────────────────────────────────
+# ── POST /admin/reports/{id}/note ─────────────────────────
 
 class NoteBody(BaseModel):
     note: str
@@ -359,13 +210,81 @@ def add_note(
         raise HTTPException(status_code=400, detail="Note cannot be empty")
 
     log = ReportLog(
-        report_id  = report.id,
-        changed_by = str(current_user.id),
-        note       = body.note.strip(),
-        ai_managed = False,
+        report_id=report.id,
+        changed_by=str(current_user.id),
+        note=body.note.strip(),
+        ai_managed=False,
     )
     db.add(log)
     db.commit()
 
     logger.info(f"Note added to report {report_id} by user {current_user.id}")
     return {"success": True}
+
+
+# ── POST /admin/reports/{id}/after-image ─────────────────────────
+
+@router.post("/{report_id}/after-image")
+async def upload_after_image(
+    report_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(ALL_ADMIN),
+    db: Session = Depends(get_db),
+):
+    q = _base_query(db, current_user)
+    report = q.filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    if report.kanban_stage not in [KanbanStage.IN_PROGRESS, KanbanStage.VERIFIED]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"After-image can only be uploaded when report is IN_PROGRESS or VERIFIED. Current: {report.kanban_stage}",
+        )
+
+    try:
+        contents = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        upload_result = cloudinary.uploader.upload(
+            tmp_path,
+            folder="streetlight/after_images",
+            public_id=f"after_{report_id}_{int(datetime.now(timezone.utc).timestamp())}",
+        )
+        after_image_url = upload_result["secure_url"]
+        os.unlink(tmp_path)
+
+    except Exception as e:
+        logger.error(f"❌ Cloudinary upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Image upload failed")
+
+    report.after_image_url = after_image_url
+    report.after_image_uploaded_at = datetime.now(timezone.utc)
+    report.after_image_uploaded_by = current_user.id
+    report.kanban_stage = KanbanStage.AWAITING_FEEDBACK
+
+    log = ReportLog(
+        report_id=report.id,
+        changed_by=str(current_user.id),
+        previous_stage=KanbanStage.IN_PROGRESS.value,
+        new_stage=KanbanStage.AWAITING_FEEDBACK.value,
+        note=f"After-image uploaded by officer {current_user.id}. Pending AI verification.",
+        ai_managed=False,
+    )
+
+    db.add(log)
+    db.commit()
+    db.refresh(report)
+
+    from agents.resolution_agent import process_after_image
+    import threading
+    threading.Thread(target=process_after_image, args=(report_id,), daemon=True).start()
+
+    return {
+        "success": True,
+        "after_image_url": after_image_url,
+        "stage": KanbanStage.AWAITING_FEEDBACK.value,
+        "message": "After-image uploaded. AI verification in progress.",
+    }
