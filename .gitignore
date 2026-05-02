@@ -115,6 +115,10 @@ DerivedData/
 # ============================================
 .vscode/
 .idea/
+.claude/
+.cursor/
+.git/
+.qodo/
 *.iml
 *.ipr
 *.iws
