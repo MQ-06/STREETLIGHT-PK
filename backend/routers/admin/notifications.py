@@ -1,11 +1,21 @@
 # backend/routers/admin/notifications.py
 """
 GET /admin/notifications
-Returns recent activity feed for the current user's scope.
-Combines: new reports assigned (ai_managed), stage changes by humans, and notes.
-Role-scoped same as audit logs.
+
+Important-only activity for the bell dropdown (not a full audit mirror).
+
+Included (role-scoped, same joins/filters as audit logs):
+  • Report routed / assignment metadata logged by routing or agents (ai_managed + city).
+  • Milestone Kanban stages: awaiting citizen confirmation, resolved, closed.
+  • Work bounced back from awaiting-feedback → in progress (e.g. citizen rejected fix).
+  • Failure / escalation phrases in notes (after-image rejected, agent rejected, blockchain
+    failure, resolved-without-photo rollback, etc.).
+
+Excluded: routine stage churn (e.g. every NEW→VERIFIED drag), generic internal notes,
+  and other low-signal rows — use Audit Log for the full trail.
 """
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from db.database import SessionLocal
@@ -31,6 +41,75 @@ def get_db():
         db.close()
 
 
+def _important_logs_clause():
+    """SQL predicate: keep high-signal rows only."""
+    routed = and_(ReportLog.ai_managed.is_(True), ReportLog.assigned_city.isnot(None))
+    milestones = ReportLog.new_stage.in_(
+        ("RESOLVED", "CLOSED", "AWAITING_FEEDBACK"),
+    )
+    bounce_back = and_(
+        ReportLog.previous_stage == "AWAITING_FEEDBACK",
+        ReportLog.new_stage == "IN_PROGRESS",
+    )
+    note = ReportLog.note
+    urgent_note = or_(
+        note.ilike("%citizen rejected%"),
+        note.ilike("%after-image failed%"),
+        note.ilike("%after-image rejected%"),
+        note.ilike("%needs officer review%"),
+        note.ilike("%agent rejected%"),
+        note.ilike("%agent flagged%"),
+        note.ilike("%blockchain%failed%"),
+        note.ilike("%resolved attempted but no after-image%"),
+        note.ilike("%after-image required%"),
+        note.ilike("%routing failed%"),
+    )
+    return or_(routed, milestones, bounce_back, urgent_note)
+
+
+def _format_item(log: ReportLog) -> tuple[str, str]:
+    """Return (kind, message) for UI — kinds match Topbar KIND_STYLE keys."""
+    if log.ai_managed and log.assigned_city:
+        dept = (log.assigned_department or "").upper()
+        city = log.assigned_city or ""
+        return "assigned", f"Report routed{f' to {dept}' if dept else ''}{f' ({city})' if city else ''}"
+
+    if log.new_stage == "CLOSED":
+        return "resolved", "Complaint closed"
+
+    if log.new_stage == "RESOLVED":
+        return "resolved", "Marked resolved — citizen / blockchain steps may follow"
+
+    if log.new_stage == "AWAITING_FEEDBACK":
+        return "stage", "Awaiting citizen confirmation (fix submitted)"
+
+    if log.previous_stage == "AWAITING_FEEDBACK" and log.new_stage == "IN_PROGRESS":
+        return "stage", "Back to in progress (citizen rejected or verification failed)"
+
+    raw_note = log.note or ""
+    low = raw_note.lower()
+    if any(
+        k in low
+        for k in (
+            "blockchain",
+            "after-image failed",
+            "after-image rejected",
+            "citizen rejected",
+            "agent rejected",
+            "needs officer review",
+            "routing failed",
+            "after-image required",
+            "resolved attempted but no after-image",
+        )
+    ):
+        short = raw_note.strip().replace("\n", " ")
+        if len(short) > 90:
+            short = short[:87] + "…"
+        return "update", short
+
+    return "update", raw_note.strip()[:90] or "Update on this report"
+
+
 @router.get("")
 def get_notifications(
     limit: int = Query(20, ge=1, le=50),
@@ -40,6 +119,7 @@ def get_notifications(
     role = (current_user.role or "").lower()
 
     q = db.query(ReportLog).join(Report, ReportLog.report_id == Report.id)
+    q = q.filter(_important_logs_clause())
 
     if role == "dept_officer":
         routing = db.query(RoutingTable).filter_by(
@@ -59,23 +139,7 @@ def get_notifications(
 
     items = []
     for log in logs:
-        # Determine notification type and message
-        if log.ai_managed and log.assigned_city:
-            kind    = "assigned"
-            message = f"New report auto-routed to {(log.assigned_department or '').upper()}"
-        elif log.new_stage == "RESOLVED":
-            kind    = "resolved"
-            message = f"Report marked as Resolved"
-        elif log.new_stage and log.previous_stage:
-            kind    = "stage"
-            message = f"{log.previous_stage} → {log.new_stage}"
-        elif log.note and not log.new_stage:
-            kind    = "note"
-            message = f"Note: {log.note[:60]}{'…' if len(log.note or '') > 60 else ''}"
-        else:
-            kind    = "update"
-            message = log.note or "Status updated"
-
+        kind, message = _format_item(log)
         items.append({
             "id":         log.id,
             "kind":       kind,
