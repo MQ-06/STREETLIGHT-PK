@@ -69,6 +69,25 @@ STAGE_ORDER = [
 KANBAN_STAGE_KEYS = [s.value for s in STAGE_ORDER]
 
 
+def _report_status_for_kanban(stage: KanbanStage) -> ReportStatus:
+    """Keep `Report.status` aligned with the Kanban column the officer chose."""
+    if stage == KanbanStage.NEW:
+        return ReportStatus.PENDING
+    if stage == KanbanStage.PENDING_VERIFICATION:
+        return ReportStatus.PENDING
+    if stage == KanbanStage.VERIFIED:
+        return ReportStatus.VERIFIED
+    if stage == KanbanStage.IN_PROGRESS:
+        return ReportStatus.IN_PROGRESS
+    if stage == KanbanStage.AWAITING_FEEDBACK:
+        return ReportStatus.IN_PROGRESS
+    if stage == KanbanStage.RESOLVED:
+        return ReportStatus.RESOLVED
+    if stage == KanbanStage.CLOSED:
+        return ReportStatus.CLOSED
+    return ReportStatus.PENDING
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -168,7 +187,7 @@ def _report_summary(r: Report) -> dict:
 @router.get("")
 def list_reports(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=500),
+    limit: int = Query(20, ge=1, le=2000),
     stage: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     city: Optional[str] = Query(None),
@@ -220,6 +239,7 @@ def list_reports(
 @router.get("/kanban")
 def kanban_reports(
     search: Optional[str] = Query(None),
+    limit: int = Query(2000, ge=10, le=5000),
     current_user: User = Depends(ALL_ADMIN),
     db: Session = Depends(get_db),
 ):
@@ -228,7 +248,7 @@ def kanban_reports(
     clause = _search_reports_clause(search) if search else None
     if clause is not None:
         q = q.filter(clause)
-    reports = q.order_by(desc(Report.created_at)).limit(500).all()
+    reports = q.order_by(desc(Report.created_at)).limit(limit).all()
 
     buckets: dict[str, list] = {k: [] for k in KANBAN_STAGE_KEYS}
     for r in reports:
@@ -359,15 +379,18 @@ async def upload_after_image(
         logger.error(f"❌ Cloudinary upload failed: {e}")
         raise HTTPException(status_code=500, detail="Image upload failed")
 
+    prev_stage_val = report.kanban_stage.value if report.kanban_stage else None
+
     report.after_image_url = after_image_url
     report.after_image_uploaded_at = datetime.now(timezone.utc)
     report.after_image_uploaded_by = current_user.id
     report.kanban_stage = KanbanStage.AWAITING_FEEDBACK
+    report.status = ReportStatus.IN_PROGRESS
 
     log = ReportLog(
         report_id=report.id,
         changed_by=str(current_user.id),
-        previous_stage=KanbanStage.IN_PROGRESS.value,
+        previous_stage=prev_stage_val,
         new_stage=KanbanStage.AWAITING_FEEDBACK.value,
         note=f"After-image uploaded by officer {current_user.id}. Pending AI verification.",
         ai_managed=False,
@@ -388,8 +411,6 @@ async def upload_after_image(
         "stage": KanbanStage.AWAITING_FEEDBACK.value,
         "message": "After-image uploaded. AI verification in progress.",
     }
-
-    # ── PATCH /admin/reports/{id}/stage ───────────────────────────────────────
 
 
 class StageUpdate(BaseModel):
@@ -416,12 +437,7 @@ def update_stage(
 
     prev_stage = report.kanban_stage.value if report.kanban_stage else None
     report.kanban_stage = new_stage
-
-    # Sync ReportStatus
-    if new_stage == KanbanStage.IN_PROGRESS:
-        report.status = ReportStatus.IN_PROGRESS
-    elif new_stage == KanbanStage.VERIFIED:
-        report.status = ReportStatus.VERIFIED
+    report.status = _report_status_for_kanban(new_stage)
 
     note = body.note or f"Stage changed to {new_stage.value}"
     log = ReportLog(
