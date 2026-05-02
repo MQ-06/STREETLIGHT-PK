@@ -1,6 +1,6 @@
 // SA Module 2 — Section A: City-Wide KPI Strip (warm beige design system)
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../../utils/auth'
+import { authFetchJson } from '../../../utils/auth'
 
 // ── Pill ─────────────────────────────────────────────────────────────────────
 const PILL = {
@@ -57,8 +57,7 @@ export default function SectionA({ days }) {
     setLoading(true)
     setData(null)
 
-    authFetch(`/admin/analytics/kpi?scope=national&scope_id=&days=${days}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/kpi?scope=national&scope_id=&days=${days}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 

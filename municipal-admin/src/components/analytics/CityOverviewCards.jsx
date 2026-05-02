@@ -1,6 +1,6 @@
 // Module 6 — Super Admin city cards (warm beige, matches mockup layout)
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 
 const RISK = {
   HIGH: { bg: '#FEE2E2', text: '#DC2626', label: 'HIGH RISK' },
@@ -115,8 +115,7 @@ export default function CityOverviewCards({ days, onCityClick }) {
     let cancelled = false
     setLoading(true)
 
-    authFetch(`/admin/analytics/city-overview?days=${days}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/city-overview?days=${days}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 

@@ -1,6 +1,6 @@
 // Module 2 — Fetches issue-breakdown + pipeline, renders side-by-side
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 import DonutChart     from './DonutChart'
 import PipelineFunnel from './PipelineFunnel'
 
@@ -20,8 +20,8 @@ export default function ChartRow({ scope, scopeId, days }) {
     const params = new URLSearchParams({ scope, scope_id: scopeId || '', days })
 
     Promise.all([
-      authFetch(`/admin/analytics/issue-breakdown?${params}`).then(r => r.json()),
-      authFetch(`/admin/analytics/pipeline?${params}`).then(r => r.json()),
+      authFetchJson(`/admin/analytics/issue-breakdown?${params}`),
+      authFetchJson(`/admin/analytics/pipeline?${params}`),
     ])
       .then(([bd, pl]) => {
         if (!cancelled) { setBreakdown(bd); setPipeline(pl); setLoading(false) }

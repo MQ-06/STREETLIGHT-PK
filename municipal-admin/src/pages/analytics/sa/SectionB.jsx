@@ -1,6 +1,6 @@
 // SA Module 3 — Section B: Municipal Area Breakdown Cards (warm beige theme)
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../../utils/auth'
+import { authFetchJson } from '../../../utils/auth'
 
 // ── Risk badge config ─────────────────────────────────────────────────────────
 const RISK = {
@@ -141,8 +141,7 @@ export default function SectionB({ days }) {
     setLoading(true)
     setData(null)
 
-    authFetch(`/admin/analytics/city-overview?days=${days}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/city-overview?days=${days}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 

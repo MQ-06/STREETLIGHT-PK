@@ -1,7 +1,7 @@
 // SA Module 4 — Section C: City-Wide Charts (3-column layout)
 // Left: Donut | Middle: Pipeline avg-days bars | Right: 3 AI mini-cards
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../../utils/auth'
+import { authFetchJson } from '../../../utils/auth'
 import DonutChart from '../../../components/analytics/DonutChart'
 
 // ── Colour palette (matches spec) ─────────────────────────────────────────────
@@ -20,6 +20,7 @@ const STAGE_SHORT = {
   IN_PROGRESS:          'In Progress',
   AWAITING_FEEDBACK:    'Dispatched',
   RESOLVED:             'Resolved',
+  CLOSED:               'Closed',
 }
 
 // Bar colours — gradient-ish orange → amber → green for resolved
@@ -30,6 +31,7 @@ const BAR_COLOR = {
   IN_PROGRESS:          '#EAB308',
   AWAITING_FEEDBACK:    '#84CC16',
   RESOLVED:             '#22C55E',
+  CLOSED:               '#15803D',
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -50,8 +52,7 @@ function DonutPanel({ days }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    authFetch(`/admin/analytics/issue-breakdown?scope=national&scope_id=&days=${days}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/issue-breakdown?scope=national&scope_id=&days=${days}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -105,8 +106,7 @@ function PipelinePanel({ days }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    authFetch(`/admin/analytics/pipeline?scope=national&scope_id=&days=${days}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/pipeline?scope=national&scope_id=&days=${days}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -162,8 +162,8 @@ function AiPanel({ days }) {
     setLoading(true)
 
     Promise.allSettled([
-      authFetch(`/admin/analytics/insights?scope=national&scope_id=&days=${days}`).then(r => r.json()),
-      authFetch(`/admin/analytics/city-overview?days=${days}`).then(r => r.json()),
+      authFetchJson(`/admin/analytics/insights?scope=national&scope_id=&days=${days}`),
+      authFetchJson(`/admin/analytics/city-overview?days=${days}`),
     ])
       .then(([insResult, cityResult]) => {
         if (!cancelled) {
