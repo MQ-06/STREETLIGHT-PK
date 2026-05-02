@@ -218,7 +218,7 @@ function AiPanel({ days }) {
       {/* Card 1 — City Forecast */}
       <div className="bg-white rounded-2xl border border-warm-border p-4 flex flex-col gap-1"
            style={{ borderLeft: '4px solid #E8612D' }}>
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">City Forecast (30d)</p>
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">City Forecast ({days}d)</p>
         <p className="text-2xl font-black leading-none" style={{ color: fColor }}>
           {fSign}{fDelta}
         </p>

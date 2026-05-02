@@ -19,7 +19,7 @@ function MetricCell({ label, value, highlight }) {
   )
 }
 
-function CityCard({ city, onClick }) {
+function CityCard({ city, onClick, periodDays }) {
   const risk = RISK[city.risk] ?? RISK.LOW
   const fDelta = city.forecast_delta
   const fSign  = fDelta > 0 ? '+' : ''
@@ -73,9 +73,8 @@ function CityCard({ city, onClick }) {
         <p className="text-xs text-green-600 font-medium">No bottleneck</p>
       )}
 
-      {/* 30d forecast */}
       <div className="flex items-center justify-between pt-2 border-t border-warm-border">
-        <p className="text-xs text-gray-400">30d forecast</p>
+        <p className="text-xs text-gray-400">{periodDays}d forecast</p>
         <p className={`text-xs font-bold ${fColor}`}>
           {fSign}{fDelta} reports →
         </p>
@@ -149,7 +148,7 @@ export default function CityOverviewCards({ days, onCityClick }) {
       {data.cities.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">
           {data.cities.map(c => (
-            <CityCard key={c.city} city={c} onClick={onCityClick} />
+            <CityCard key={c.city} city={c} onClick={onCityClick} periodDays={days} />
           ))}
         </div>
       ) : (

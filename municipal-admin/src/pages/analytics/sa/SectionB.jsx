@@ -27,10 +27,10 @@ function civicColor(score) {
   return '#15803D'
 }
 
-// Forecast pill: >20 red, 1-20 amber, <=0 green
-function forecastPill(delta) {
+// Forecast pill: >20 red, 1-20 amber, <=0 green (delta = model from API city-overview)
+function forecastPill(delta, periodDays) {
   const sign  = delta > 0 ? '+' : ''
-  const label = `30d forecast: ${sign}${delta} reports`
+  const label = `${periodDays}d forecast: ${sign}${delta} reports`
   if (delta > 20)  return { label, bg: '#FEE2E2', text: '#DC2626' }
   if (delta > 0)   return { label, bg: '#FEF3C7', text: '#B45309' }
   return             { label, bg: '#DCFCE7', text: '#15803D' }
@@ -49,9 +49,9 @@ function MetricCell({ label, value, color }) {
 }
 
 // ── Single city card ──────────────────────────────────────────────────────────
-function CityCard({ city }) {
+function CityCard({ city, periodDays }) {
   const risk = RISK[city.risk] ?? RISK.LOW
-  const fp   = forecastPill(city.forecast_delta ?? 0)
+  const fp   = forecastPill(city.forecast_delta ?? 0, periodDays)
 
   return (
     <div className="bg-white rounded-2xl border border-warm-border p-5 flex flex-col gap-3">
@@ -160,7 +160,7 @@ export default function SectionB({ days }) {
         {loading
           ? [0,1,2,3].map(i => <CardSkeleton key={i} />)
           : data?.cities?.length
-            ? data.cities.map(c => <CityCard key={c.city} city={c} />)
+            ? data.cities.map(c => <CityCard key={c.city} city={c} periodDays={days} />)
             : <p className="text-sm text-gray-400 col-span-4">No city data available.</p>
         }
       </div>
