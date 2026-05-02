@@ -1,3 +1,4 @@
+
 /**
  * Builds a CSV from GET /admin/dashboard/analytics — same scope rules as the dashboard
  * (city_admin → city; dept_officer → dept; super_admin → all).
