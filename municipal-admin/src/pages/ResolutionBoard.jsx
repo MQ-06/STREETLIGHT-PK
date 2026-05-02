@@ -1,3 +1,4 @@
+//pages/super-admin/ResolutionBoard.jsx
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, Plus, MoreHorizontal, Clock, TrendingUp } from 'lucide-react'

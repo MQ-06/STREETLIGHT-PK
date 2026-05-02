@@ -190,56 +190,56 @@ class BlockchainService:
                 "error":        str(e),
             }
 
-    # def mark_resolved(
-    #     self,
-    #     complaint_id: int,
-    #     resolution_note: str = "Issue resolved by municipality"
-    # ) -> Dict:
-    #
-    #     if not self.enabled or self.contract is None:
-    #         return self._disabled_response("resolve", complaint_id)
+    def mark_resolved(
+        self,
+        complaint_id: int,
+        resolution_note: str = "Issue resolved by municipality"
+    ) -> Dict:
+    
+        if not self.enabled or self.contract is None:
+            return self._disabled_response("resolve", complaint_id)
 
-    #     try:
-    #         logger.info(f"⛓️  BLOCKCHAIN: Marking complaint #{complaint_id} as RESOLVED")
+        try:
+            logger.info(f"⛓️  BLOCKCHAIN: Marking complaint #{complaint_id} as RESOLVED")
 
-    #         nonce = self.w3.eth.get_transaction_count(self.account.address)
+            nonce = self.w3.eth.get_transaction_count(self.account.address)
 
-    #         tx = self.contract.functions.markResolved(
-    #             complaint_id,
-    #             resolution_note,
-    #         ).build_transaction({
-    #             "from":     self.account.address,
-    #             "nonce":    nonce,
-    #             "gas":      150000,
-    #             "gasPrice": self.w3.eth.gas_price,
-    #         })
+            tx = self.contract.functions.markResolved(
+                complaint_id,
+                resolution_note,
+            ).build_transaction({
+                "from":     self.account.address,
+                "nonce":    nonce,
+                "gas":      150000,
+                "gasPrice": self.w3.eth.gas_price,
+            })
 
-    #         signed_tx = self.w3.eth.account.sign_transaction(
-    #             tx, private_key=os.getenv("DEPLOYER_PRIVATE_KEY")
-    #         )
-    #         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-    #         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            signed_tx = self.w3.eth.account.sign_transaction(
+                tx, private_key=os.getenv("DEPLOYER_PRIVATE_KEY")
+            )
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
-    #         if receipt.status != 1:
-    #             raise Exception(f"Transaction reverted! Hash: {tx_hash.hex()}")
+            if receipt.status != 1:
+                raise Exception(f"Transaction reverted! Hash: {tx_hash.hex()}")
 
-    #         logger.info(f"✅ BLOCKCHAIN: Complaint #{complaint_id} marked RESOLVED!")
-    #         logger.info(f"   TX Hash: 0x{tx_hash.hex()}")
+            logger.info(f"✅ BLOCKCHAIN: Complaint #{complaint_id} marked RESOLVED!")
+            logger.info(f"   TX Hash: 0x{tx_hash.hex()}")
 
-    #         return {
-    #             "success":      True,
-    #             "tx_hash":      f"0x{tx_hash.hex()}",
-    #             "block_number": receipt.blockNumber,
-    #             "complaint_id": complaint_id,
-    #         }
+            return {
+                "success":      True,
+                "tx_hash":      f"0x{tx_hash.hex()}",
+                "block_number": receipt.blockNumber,
+                "complaint_id": complaint_id,
+            }
 
-    #     except Exception as e:
-    #         logger.error(f"❌ BLOCKCHAIN: mark_resolved failed: {e}")
-    #         return {
-    #             "success":      False,
-    #             "complaint_id": complaint_id,
-    #             "error":        str(e),
-    #         }
+        except Exception as e:
+            logger.error(f"❌ BLOCKCHAIN: mark_resolved failed: {e}")
+            return {
+                "success":      False,
+                "complaint_id": complaint_id,
+                "error":        str(e),
+            }
 
     def get_complaint_proof(self, complaint_id: int) -> Dict:
        
