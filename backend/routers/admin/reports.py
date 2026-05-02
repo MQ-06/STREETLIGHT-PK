@@ -66,7 +66,9 @@ def _base_query(db: Session, user: User, eager_reporter: bool = False):
     if role == "dept_officer":
         routing = (
             db.query(
-                __import__("model.routing_table", fromlist=["RoutingTable"]).RoutingTable
+                __import__(
+                    "model.routing_table", fromlist=["RoutingTable"]
+                ).RoutingTable
             )
             .filter_by(officer_id=user.id, is_active=True)
             .first()
@@ -141,6 +143,7 @@ def _report_summary(r: Report) -> dict:
 
 # ── GET /admin/reports ─────────────────────────
 
+
 @router.get("")
 def list_reports(
     skip: int = Query(0, ge=0),
@@ -173,6 +176,7 @@ def list_reports(
     if date_from:
         try:
             from datetime import datetime as dt
+
             q = q.filter(Report.created_at >= dt.fromisoformat(date_from))
         except ValueError:
             pass
@@ -189,6 +193,7 @@ def list_reports(
 
 
 # ── POST /admin/reports/{id}/note ─────────────────────────
+
 
 class NoteBody(BaseModel):
     note: str
@@ -223,6 +228,7 @@ def add_note(
 
 
 # ── POST /admin/reports/{id}/after-image ─────────────────────────
+
 
 @router.post("/{report_id}/after-image")
 async def upload_after_image(
@@ -280,6 +286,7 @@ async def upload_after_image(
 
     from agents.resolution_agent import process_after_image
     import threading
+
     threading.Thread(target=process_after_image, args=(report_id,), daemon=True).start()
 
     return {
@@ -288,3 +295,66 @@ async def upload_after_image(
         "stage": KanbanStage.AWAITING_FEEDBACK.value,
         "message": "After-image uploaded. AI verification in progress.",
     }
+
+    # ── PATCH /admin/reports/{id}/stage ───────────────────────────────────────
+
+
+class StageUpdate(BaseModel):
+    stage: str
+    note: Optional[str] = None
+
+
+@router.patch("/{report_id}/stage")
+def update_stage(
+    report_id: int,
+    body: StageUpdate,
+    current_user: User = Depends(ALL_ADMIN),
+    db: Session = Depends(get_db),
+):
+    q = _base_query(db, current_user)
+    report = q.filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    try:
+        new_stage = KanbanStage(body.stage.upper())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {body.stage}")
+
+    prev_stage = report.kanban_stage.value if report.kanban_stage else None
+    report.kanban_stage = new_stage
+
+    # Sync ReportStatus
+    if new_stage == KanbanStage.IN_PROGRESS:
+        report.status = ReportStatus.IN_PROGRESS
+    elif new_stage == KanbanStage.VERIFIED:
+        report.status = ReportStatus.VERIFIED
+
+    note = body.note or f"Stage changed to {new_stage.value}"
+    log = ReportLog(
+        report_id=report.id,
+        changed_by=str(current_user.id),
+        previous_stage=prev_stage,
+        new_stage=new_stage.value,
+        note=note,
+        ai_managed=False,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(report)
+
+    logger.info(
+        f"Stage update: report {report_id} → {new_stage.value} by user {current_user.id}"
+    )
+
+    # ── RESOLUTION TRIGGER ─────────────────────────────────────────────────
+    if new_stage == KanbanStage.RESOLVED:
+        from agents.resolution_agent import process_resolution
+        import threading
+
+        threading.Thread(
+            target=process_resolution, args=(report.id,), daemon=True
+        ).start()
+        logger.info(f"🤖 Resolution agent triggered for report #{report_id}")
+
+    return {"success": True, "stage": new_stage.value, "note": note}
