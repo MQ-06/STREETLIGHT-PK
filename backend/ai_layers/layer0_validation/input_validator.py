@@ -26,7 +26,7 @@ class InputValidator:
     """
     
     # Validation thresholds
-    MIN_BLUR_SCORE = 50.0  # Lowered from 100 - allow slight blur if AI can still detect issue
+    MIN_BLUR_SCORE = 38.0  # Laplacian variance floor — tolerate mild motion blur / compression
     MIN_BRIGHTNESS = 30.0
     MAX_BRIGHTNESS = 230.0
     MIN_WIDTH = 300

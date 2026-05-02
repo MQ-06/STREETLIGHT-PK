@@ -116,6 +116,20 @@ class AIEngine:
             confidence_value = confidence.item()
             predicted_class = self.class_names[pred_idx.item()]
 
+            name_to_idx = {name: i for i, name in enumerate(self.class_names)}
+            pb = probabilities[name_to_idx["pothole"]].item() if "pothole" in name_to_idx else 0.0
+            pg = probabilities[name_to_idx["garbage"]].item() if "garbage" in name_to_idx else 0.0
+
+            # Runner-up rescue: model picks "other" but a civic class still has notable probability.
+            if predicted_class == "other":
+                best_civic = "pothole" if pb >= pg else "garbage"
+                best_p = max(pb, pg)
+                if best_p >= 0.14 and confidence_value < 0.82:
+                    ci = name_to_idx[best_civic]
+                    predicted_class = best_civic
+                    confidence_value = probabilities[ci].item()
+                    pred_idx = torch.tensor(ci, device=probabilities.device, dtype=torch.long)
+
             ood_rejected = False
 
             # Get all probabilities
@@ -124,10 +138,10 @@ class AIEngine:
                 for i in range(len(self.class_names))
             }
 
-            # Check if valid issue (not "other" class and above threshold)
+            # Valid civic issue: not "other", and meets confidence threshold (threshold is tuned in orchestrator).
             is_valid_issue = (
-                predicted_class != "other" and
-                confidence_value >= self.confidence_threshold
+                predicted_class != "other"
+                and confidence_value >= self.confidence_threshold
             )
             
             # Estimate severity if valid issue
