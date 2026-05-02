@@ -7,6 +7,8 @@ import KpiRow           from '../../components/analytics/KpiRow'
 import ChartRow         from '../../components/analytics/ChartRow'
 import InsightRow       from '../../components/analytics/InsightRow'
 import AlertsFeed       from '../../components/analytics/AlertsFeed'
+import AnalyticsReportModal from '../../components/analytics/AnalyticsReportModal'
+import RecommendationsModal from '../../components/analytics/RecommendationsModal'
 import CityOverviewCards from '../../components/analytics/CityOverviewCards'
 
 const DAYS_OPTIONS = [7, 30, 90]
@@ -32,6 +34,8 @@ export default function Analytics() {
   const [scopeId,    setScopeId]    = useState(def.scopeId)
   const [days,       setDays]       = useState(30)
   const [forcedCity, setForcedCity] = useState(undefined)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [recOpen, setRecOpen] = useState(false)
 
   const drillRef = useRef(null)
 
@@ -139,19 +143,37 @@ export default function Analytics() {
         <div className="bg-white rounded-2xl border border-warm-border p-5 flex flex-col gap-3 justify-center">
           <p className="text-sm font-semibold text-gray-700">Quick Actions</p>
           <button
-            onClick={() => window.print()}
+            type="button"
+            onClick={() => setReportOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors"
           >
-            <span>🖨</span> Generate Report
+            Generate report (PDF)
           </button>
           <button
-            onClick={() => document.getElementById('insight-row')?.scrollIntoView({ behavior: 'smooth' })}
+            type="button"
+            onClick={() => setRecOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-primary text-primary text-sm font-semibold hover:bg-orange-50 transition-colors"
           >
-            <span>💡</span> Get Recommendations
+            View recommendations
           </button>
         </div>
       </div>
+
+      <RecommendationsModal
+        open={recOpen}
+        onClose={() => setRecOpen(false)}
+        scope={scope}
+        scopeId={scopeId}
+        days={days}
+      />
+
+      <AnalyticsReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        scope={scope}
+        scopeId={scopeId}
+        days={days}
+      />
 
     </div>
   )
