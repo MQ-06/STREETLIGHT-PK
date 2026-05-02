@@ -135,10 +135,10 @@ def dashboard_analytics(
         q = q.filter(Report.assigned_city == current_user.city)
 
     cutoff  = datetime.now(timezone.utc) - timedelta(days=days)
-    trend_q = q.filter(Report.created_at >= cutoff)
+    period_filter = Report.created_at >= cutoff
 
     daily = (
-        trend_q
+        q.filter(period_filter)
         .with_entities(
             func.date(Report.created_at).label("day"),
             func.count(Report.id).label("total"),
@@ -148,21 +148,22 @@ def dashboard_analytics(
         .all()
     )
 
-    all_reports = q.all()
+    # Same `days` window as `trend` (separate query object — safe with `with_entities` above).
+    period_reports = q.filter(period_filter).all()
 
     category_breakdown = Counter(
-        r.category.value if r.category else "OTHER" for r in all_reports
+        r.category.value if r.category else "OTHER" for r in period_reports
     )
     stage_distribution = Counter(
-        r.kanban_stage.value if r.kanban_stage else "NEW" for r in all_reports
+        r.kanban_stage.value if r.kanban_stage else "NEW" for r in period_reports
     )
     dept_breakdown = Counter(
-        r.assigned_department for r in all_reports if r.assigned_department
+        r.assigned_department for r in period_reports if r.assigned_department
     )
 
     terminal_stages = {KanbanStage.RESOLVED, KanbanStage.CLOSED}
     resolved = [
-        r for r in all_reports
+        r for r in period_reports
         if r.kanban_stage and r.kanban_stage in terminal_stages
     ]
     dept_resolved = Counter(r.assigned_department for r in resolved if r.assigned_department)
@@ -177,7 +178,7 @@ def dashboard_analytics(
         avg_resolution_hours = round(sum(hours_list) / len(hours_list), 1)
 
     answered = [
-        r for r in all_reports
+        r for r in period_reports
         if r.citizen_response in ("CONFIRMED", "REJECTED")
     ]
     citizen_confirmation_rate_pct = None
@@ -192,7 +193,7 @@ def dashboard_analytics(
         "stage_distribution": dict(stage_distribution),
         "dept_breakdown":     dict(dept_breakdown),
         "dept_resolved":      dict(dept_resolved),
-        "total":              len(all_reports),
+        "total":              len(period_reports),
         "resolved":           len(resolved),
         "avg_resolution_hours": avg_resolution_hours,
         "citizen_confirmation_rate_pct": citizen_confirmation_rate_pct,
