@@ -9,11 +9,9 @@ New tables:
   - field_worker_tokens  72-hour single-use tokens for field workers
 
 New columns on reports:
-  - assigned_city        VARCHAR(50)
-  - assigned_department  VARCHAR(50)
-  - assigned_officer_id  INTEGER FK → users.id
-  - assigned_at          TIMESTAMPTZ
-  - kanban_stage         VARCHAR(30)  (stored as string, Python enum validates)
+  - assigned_city … kanban_stage (Phase 1)
+  - after_image_* , citizen_* , resolution_notified_at , auto_resolve_at ,
+    blockchain_* , closed_at (resolution flow — aligns ORM with older DBs)
 
 Safe to re-run — all operations are idempotent (IF NOT EXISTS / DO $$ guards).
 """
@@ -171,6 +169,91 @@ BEGIN
     ) THEN
         ALTER TABLE reports ADD COLUMN kanban_stage VARCHAR(30) DEFAULT 'NEW';
         RAISE NOTICE 'Added column: reports.kanban_stage';
+    END IF;
+
+
+    -- ================================================================
+    -- 4b. Resolution / citizen feedback / blockchain (ORM parity)
+    -- ================================================================
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'after_image_url'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN after_image_url VARCHAR(2048);
+        RAISE NOTICE 'Added column: reports.after_image_url';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'after_image_uploaded_at'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN after_image_uploaded_at TIMESTAMPTZ;
+        RAISE NOTICE 'Added column: reports.after_image_uploaded_at';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'after_image_uploaded_by'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN after_image_uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+        RAISE NOTICE 'Added column: reports.after_image_uploaded_by';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'citizen_response'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN citizen_response VARCHAR(20);
+        RAISE NOTICE 'Added column: reports.citizen_response';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'citizen_confirmed_at'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN citizen_confirmed_at TIMESTAMPTZ;
+        RAISE NOTICE 'Added column: reports.citizen_confirmed_at';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'resolution_notified_at'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN resolution_notified_at TIMESTAMPTZ;
+        RAISE NOTICE 'Added column: reports.resolution_notified_at';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'auto_resolve_at'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN auto_resolve_at TIMESTAMPTZ;
+        RAISE NOTICE 'Added column: reports.auto_resolve_at';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'blockchain_resolve_tx'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN blockchain_resolve_tx VARCHAR(100);
+        RAISE NOTICE 'Added column: reports.blockchain_resolve_tx';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'blockchain_status'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN blockchain_status VARCHAR(20);
+        RAISE NOTICE 'Added column: reports.blockchain_status';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'reports' AND column_name = 'closed_at'
+    ) THEN
+        ALTER TABLE reports ADD COLUMN closed_at TIMESTAMPTZ;
+        RAISE NOTICE 'Added column: reports.closed_at';
     END IF;
 
 

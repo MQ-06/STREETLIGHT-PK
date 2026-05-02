@@ -1,22 +1,19 @@
 # backend/routers/admin/reports.py
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, joinedload
 
 from db.database import SessionLocal
 from model.report import Report, KanbanStage, ReportStatus
 from model.report_logs import ReportLog
 from model.users import User
-from model.user_profile import UserProfile
-from utils.auth_utils import get_current_user
 from utils.rbac import require_roles
-from utils.email_service import send_resolved_notification
-from utils.push import send_push_to_user
 
 import cloudinary
 import cloudinary.uploader
@@ -26,6 +23,26 @@ import os
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/reports", tags=["Admin Reports"])
+
+
+def _search_reports_clause(search: str):
+    """Match complaint id (#SR-0042, SR42, 42), title, location text, city, department."""
+    s = search.strip()
+    if not s:
+        return None
+    m = re.match(r"^#?SR-?(\d+)$", s, re.IGNORECASE)
+    if m:
+        return Report.id == int(m.group(1))
+    if s.isdigit():
+        return Report.id == int(s)
+    pat = f"%{s}%"
+    return or_(
+        Report.title.ilike(pat),
+        Report.location_address.ilike(pat),
+        Report.location_city.ilike(pat),
+        Report.assigned_department.ilike(pat),
+        Report.assigned_city.ilike(pat),
+    )
 
 ALL_ADMIN = require_roles(
     "super_admin",
@@ -46,7 +63,10 @@ STAGE_ORDER = [
     KanbanStage.IN_PROGRESS,
     KanbanStage.AWAITING_FEEDBACK,
     KanbanStage.RESOLVED,
+    KanbanStage.CLOSED,
 ]
+
+KANBAN_STAGE_KEYS = [s.value for s in STAGE_ORDER]
 
 
 def get_db():
@@ -103,6 +123,7 @@ def _report_summary(r: Report) -> dict:
         "IN_PROGRESS": "#f97316",
         "AWAITING_FEEDBACK": "#8b5cf6",
         "RESOLVED": "#22c55e",
+        "CLOSED": "#64748b",
     }
 
     stage_val = r.kanban_stage.value if r.kanban_stage else "NEW"
@@ -170,8 +191,9 @@ def list_reports(
     if city:
         q = q.filter(Report.assigned_city == city.lower())
 
-    if search:
-        q = q.filter(Report.title.ilike(f"%{search}%"))
+    clause = _search_reports_clause(search) if search else None
+    if clause is not None:
+        q = q.filter(clause)
 
     if date_from:
         try:
@@ -190,6 +212,77 @@ def list_reports(
         "limit": limit,
         "reports": [_report_summary(r) for r in reports],
     }
+
+
+# ── GET /admin/reports/kanban ───────────────────────────────────────────────
+
+
+@router.get("/kanban")
+def kanban_reports(
+    search: Optional[str] = Query(None),
+    current_user: User = Depends(ALL_ADMIN),
+    db: Session = Depends(get_db),
+):
+    """Kanban columns for Resolution Board (card shape matches list summary)."""
+    q = _base_query(db, current_user, eager_reporter=True)
+    clause = _search_reports_clause(search) if search else None
+    if clause is not None:
+        q = q.filter(clause)
+    reports = q.order_by(desc(Report.created_at)).limit(500).all()
+
+    buckets: dict[str, list] = {k: [] for k in KANBAN_STAGE_KEYS}
+    for r in reports:
+        key = r.kanban_stage.value if r.kanban_stage else "NEW"
+        if key not in buckets:
+            key = "NEW"
+        buckets[key].append(_report_summary(r))
+
+    columns = [{"stage": k, "cards": buckets[k]} for k in KANBAN_STAGE_KEYS]
+    return {"columns": columns}
+
+
+# ── GET /admin/reports/{id} ──────────────────────────────────────────────────
+
+
+@router.get("/{report_id}")
+def get_report_detail(
+    report_id: int,
+    current_user: User = Depends(ALL_ADMIN),
+    db: Session = Depends(get_db),
+):
+    """Single report with audit trail for Complaint Detail page."""
+    q = _base_query(db, current_user, eager_reporter=True)
+    report = q.filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    logs = (
+        db.query(ReportLog)
+        .filter(ReportLog.report_id == report_id)
+        .order_by(desc(ReportLog.created_at))
+        .all()
+    )
+
+    data = _report_summary(report)
+    data["logs"] = [
+        {
+            "id": log.id,
+            "changed_by": log.changed_by,
+            "previous_stage": log.previous_stage,
+            "new_stage": log.new_stage,
+            "previous_status": log.previous_status,
+            "new_status": log.new_status,
+            "note": log.note,
+            "ai_managed": log.ai_managed,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        }
+        for log in logs
+    ]
+    data["trust_score"] = report.trust_score
+    data["gps_verified"] = bool(report.gps_verified)
+    data["after_image_url"] = report.after_image_url
+    data["citizen_response"] = report.citizen_response
+    return data
 
 
 # ── POST /admin/reports/{id}/note ─────────────────────────

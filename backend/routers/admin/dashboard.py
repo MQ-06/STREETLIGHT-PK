@@ -78,11 +78,14 @@ def dashboard_overview(
     # City breakdown — single GROUP BY query (super_admin only)
     city_breakdown = {}
     if role == "super_admin":
+        terminal = (KanbanStage.RESOLVED, KanbanStage.CLOSED)
         city_rows = (
             db.query(
                 Report.assigned_city,
                 func.count(Report.id).label("total"),
-                func.count(Report.id).filter(Report.kanban_stage == KanbanStage.RESOLVED).label("resolved"),
+                func.count(Report.id).filter(
+                    Report.kanban_stage.in_(terminal)
+                ).label("resolved"),
             )
             .group_by(Report.assigned_city)
             .all()
@@ -157,9 +160,30 @@ def dashboard_analytics(
         r.assigned_department for r in all_reports if r.assigned_department
     )
 
-    # Avg resolution "days" per dept (placeholder: count resolved per dept)
-    resolved = [r for r in all_reports if r.kanban_stage and r.kanban_stage.value == "RESOLVED"]
+    terminal_stages = {KanbanStage.RESOLVED, KanbanStage.CLOSED}
+    resolved = [
+        r for r in all_reports
+        if r.kanban_stage and r.kanban_stage in terminal_stages
+    ]
     dept_resolved = Counter(r.assigned_department for r in resolved if r.assigned_department)
+
+    avg_resolution_hours = None
+    hours_list = []
+    for r in resolved:
+        if r.created_at and r.updated_at:
+            delta = r.updated_at - r.created_at
+            hours_list.append(delta.total_seconds() / 3600.0)
+    if hours_list:
+        avg_resolution_hours = round(sum(hours_list) / len(hours_list), 1)
+
+    answered = [
+        r for r in all_reports
+        if r.citizen_response in ("CONFIRMED", "REJECTED")
+    ]
+    citizen_confirmation_rate_pct = None
+    if answered:
+        confirmed_n = sum(1 for r in answered if r.citizen_response == "CONFIRMED")
+        citizen_confirmation_rate_pct = round(100.0 * confirmed_n / len(answered), 1)
 
     return {
         "days":               days,
@@ -170,4 +194,7 @@ def dashboard_analytics(
         "dept_resolved":      dict(dept_resolved),
         "total":              len(all_reports),
         "resolved":           len(resolved),
+        "avg_resolution_hours": avg_resolution_hours,
+        "citizen_confirmation_rate_pct": citizen_confirmation_rate_pct,
+        "citizen_feedback_n": len(answered),
     }
