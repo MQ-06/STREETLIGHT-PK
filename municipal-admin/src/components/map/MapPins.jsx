@@ -17,6 +17,7 @@ const STAGE_COLOR = {
   IN_PROGRESS:          '#F97316',
   AWAITING_FEEDBACK:    '#F97316',
   RESOLVED:             '#22C55E',   // green
+  CLOSED:               '#15803D',
 }
 const DEFAULT_COLOR = '#EF4444'    // red (fallback / high-severity override)
 
@@ -25,7 +26,7 @@ function pinColor(report) {
   const severity = (report.ai_severity  || report.severity || '').toLowerCase()
 
   // High-severity unresolved reports → red
-  if (severity === 'large' && stage !== 'RESOLVED') return DEFAULT_COLOR
+  if (severity === 'large' && stage !== 'RESOLVED' && stage !== 'CLOSED') return DEFAULT_COLOR
 
   return STAGE_COLOR[stage] || DEFAULT_COLOR
 }

@@ -42,7 +42,10 @@ function mostCommon(arr, key) {
 
 export default function ActiveAlertsCard({ reports = [], mapBounds }) {
   const visible    = inBounds(reports, mapBounds)
-  const unresolved = visible.filter(r => (r.kanban_stage || '').toUpperCase() !== 'RESOLVED')
+  const unresolved = visible.filter(r => {
+    const s = (r.kanban_stage || '').toUpperCase()
+    return s !== 'RESOLVED' && s !== 'CLOSED'
+  })
 
   const areaName = capitalize(mostCommon(visible, 'assigned_city'))
   const hotspot  = capitalize(mostCommon(unresolved, 'assigned_city'))

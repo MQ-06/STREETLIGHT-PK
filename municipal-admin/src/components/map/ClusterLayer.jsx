@@ -22,12 +22,13 @@ const STAGE_COLOR = {
   IN_PROGRESS:          '#F97316',
   AWAITING_FEEDBACK:    '#F97316',
   RESOLVED:             '#22C55E',
+  CLOSED:               '#15803D',
 }
 
 function pinColor(report) {
   const stage    = (report.kanban_stage || '').toUpperCase()
   const severity = (report.ai_severity || report.severity || '').toLowerCase()
-  if (severity === 'large' && stage !== 'RESOLVED') return '#EF4444'
+  if (severity === 'large' && stage !== 'RESOLVED' && stage !== 'CLOSED') return '#EF4444'
   return STAGE_COLOR[stage] || '#EF4444'
 }
 

@@ -21,7 +21,7 @@ const ROWS = [
     match: r => {
       const sev   = (r.severity || r.ai_severity || '').toLowerCase()
       const stage = (r.kanban_stage || '').toUpperCase()
-      return sev === 'large' && stage !== 'RESOLVED'
+      return sev === 'large' && stage !== 'RESOLVED' && stage !== 'CLOSED'
     },
   },
   {
@@ -31,8 +31,11 @@ const ROWS = [
   },
   {
     color: '#22C55E',
-    label: 'Resolved',
-    match: r => (r.kanban_stage || '').toUpperCase() === 'RESOLVED',
+    label: 'Resolved / closed',
+    match: r => {
+      const s = (r.kanban_stage || '').toUpperCase()
+      return s === 'RESOLVED' || s === 'CLOSED'
+    },
   },
   {
     color: '#3B82F6',

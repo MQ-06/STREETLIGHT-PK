@@ -18,7 +18,7 @@ const STEPS = ['Pending', 'In Progress', 'Resolved']
 
 function stageToStep(stage) {
   const s = (stage || '').toUpperCase()
-  if (s === 'RESOLVED') return 3
+  if (s === 'RESOLVED' || s === 'CLOSED') return 3
   if (s === 'IN_PROGRESS' || s === 'AWAITING_FEEDBACK') return 2
   return 1
 }
