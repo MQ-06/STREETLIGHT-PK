@@ -26,12 +26,14 @@ def execute_action(db, report: Report, action: dict):
         # OR add REJECTED to your enum. For now we use REVIEW_NEEDED + note.
         report.status = ReportStatus.REVIEW_NEEDED
         report.verification_status = "REJECTED"        # this column is a plain String ✅
+        report.kanban_stage = KanbanStage.PENDING_VERIFICATION
         log(db, report, prev, ReportStatus.REVIEW_NEEDED, "Agent rejected: low confidence score")
 
     # ── MOVE TO REVIEW ───────────────────
     elif act == "MOVE_REVIEW":
         prev = report.status
         report.status = ReportStatus.REVIEW_NEEDED     # ✅ enum
+        report.kanban_stage = KanbanStage.PENDING_VERIFICATION
         log(db, report, prev, ReportStatus.REVIEW_NEEDED, "Agent flagged: needs officer review")
 
     # ── VERIFY AND ASSIGN (community trigger) ───
