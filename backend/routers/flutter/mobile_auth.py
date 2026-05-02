@@ -127,6 +127,7 @@ def _report_to_dict(report: Report, current_user_id: int, db: Session) -> dict:
         "confirmation_count": getattr(report, "confirmation_count", 0),
         "comment_count": comment_count,
         "status": report.status.value,
+        "kanban_stage": report.kanban_stage.value if report.kanban_stage else None,
         "combined_score": getattr(report, "combined_score", None),
         "verification_status": getattr(report, "verification_status", None),
         "has_supported": has_supported,
@@ -613,7 +614,7 @@ def create_report(
         # STEP 9c: AUTO-ROUTING (Phase 1)
         # Non-blocking — routes the report to the correct Department Officer
         # based on GPS city detection and issue type → department mapping.
-        # Writes kanban_stage=NEW and an audit log entry.
+        # On full success writes kanban_stage=VERIFIED + audit log.
         # ==========================================
         routing_result = {}
         try:
@@ -789,11 +790,47 @@ def get_feed(
             "verify_count": report.verify_count,
             "comment_count": comment_counts.get(report.id, 0),
             "status": report.status.value,
+            "kanban_stage": report.kanban_stage.value if report.kanban_stage else None,
             "has_supported": report.id in supported_ids,
             "has_verified": report.id in verified_ids,
         })
 
     return {"success": True, "count": len(result), "reports": result}
+
+
+# ─────────────────────────────────────────────
+# GET /reports/{report_id}/resolution-detail (reporter only — confirm-fix UI)
+# ─────────────────────────────────────────────
+
+
+@router.get("/{report_id}/resolution-detail")
+def get_resolution_detail_for_reporter(
+    report_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Before/after photos and meta for the citizen confirmation screen."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your report")
+
+    stage_val = report.kanban_stage.value if report.kanban_stage else None
+    return {
+        "success": True,
+        "data": {
+            "id": report.id,
+            "display_id": f"#SR-{report.id:04d}",
+            "title": report.title,
+            "location_address": report.location_address,
+            "image_url": report.image_url or "",
+            "after_image_url": report.after_image_url or "",
+            "kanban_stage": stage_val,
+            "status": report.status.value if report.status else None,
+            "can_confirm": stage_val == "AWAITING_FEEDBACK" and bool(report.after_image_url),
+        },
+    }
 
 
 # ─────────────────────────────────────────────

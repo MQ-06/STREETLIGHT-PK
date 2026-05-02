@@ -20,6 +20,7 @@ from sqlalchemy import or_
 
 from blockchain.blockchain_service import blockchain_service
 from utils.push import send_push_to_user
+from utils.notifications import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -135,41 +136,93 @@ def _send_citizen_confirmation_request(report: Report, db, verification_note: st
     display_id = f"#SR-{report.id:04d}"
     category   = report.category.value if report.category else "issue"
 
+    inbox_ok = False
     try:
-        send_push_to_user(
-            db,
-            user_id = citizen.id,
-            title   = "Your issue has been fixed! ✅",
-            body    = (
-                f"The municipal team has resolved your {category} report "
-                f"{display_id}. Please open the app to confirm."
-            ),
-            data    = {
-                "type":            "RESOLUTION_CONFIRM",
-                "route":           "/resolution_confirm",
-                "report_id":       str(report.id),
-                "after_image_url": report.after_image_url or "",
-                "action":          "CONFIRM_OR_REJECT",
-            },
+        title_inbox = "Confirm your fix"
+        body_inbox = (
+            f"The team uploaded proof for your {category} report {display_id}. "
+            "Open Notifications or confirm in the app."
+        )
+        ts = (
+            report.after_image_uploaded_at.isoformat()
+            if report.after_image_uploaded_at
+            else str(report.id)
+        )
+        # Separate session so NotificationService.commit does not confuse caller's session.
+        ndb = SessionLocal()
+        try:
+            n = NotificationService(ndb).create(
+                user_id=citizen.id,
+                type="RESOLUTION_CONFIRM",
+                title=title_inbox,
+                body=body_inbox,
+                entity_type="report",
+                entity_id=report.id,
+                data={
+                    "report_id": report.id,
+                    "after_image_url": report.after_image_url or "",
+                    "route": "/resolution_confirm",
+                },
+                dedupe_key=f"RESOLUTION_CONFIRM:{report.id}:{ts}",
+            )
+            inbox_ok = n is not None
+        finally:
+            ndb.close()
+    except Exception as e:
+        logger.warning(
+            "⚠️ In-app resolution notification failed report #%s: %s",
+            report.id,
+            e,
         )
 
+    pushed = False
+    try:
+        pushed = bool(
+            send_push_to_user(
+                db,
+                user_id=citizen.id,
+                title="Your issue has been fixed! ✅",
+                body=(
+                    f"The municipal team has resolved your {category} report "
+                    f"{display_id}. Please open the app to confirm."
+                ),
+                data={
+                    "type": "RESOLUTION_CONFIRM",
+                    "route": "/resolution_confirm",
+                    "report_id": str(report.id),
+                    "after_image_url": report.after_image_url or "",
+                    "action": "CONFIRM_OR_REJECT",
+                },
+            )
+        )
+    except Exception as e:
+        logger.warning("⚠️ FCM resolution push failed report #%s: %s", report.id, e)
+
+    try:
         report.resolution_notified_at = datetime.now(timezone.utc)
-        # Stage stays AWAITING_FEEDBACK — citizen now has the ball
 
         log = ReportLog(
-            report_id      = report.id,
-            changed_by     = "agent",
-            previous_stage = KanbanStage.AWAITING_FEEDBACK.value,
-            new_stage      = KanbanStage.AWAITING_FEEDBACK.value,
-            note           = f"AI verification passed ({verification_note}). FCM sent to citizen {citizen.id}.",
-            ai_managed     = True,
+            report_id=report.id,
+            changed_by="agent",
+            previous_stage=KanbanStage.AWAITING_FEEDBACK.value,
+            new_stage=KanbanStage.AWAITING_FEEDBACK.value,
+            note=(
+                f"Resolution confirmation requested ({verification_note}). "
+                f"In-app={'ok' if inbox_ok else 'failed'}; "
+                f"FCM={'sent' if pushed else 'skipped or failed'}."
+            ),
+            ai_managed=True,
         )
         db.add(log)
-        logger.info(f"📱 FCM sent to citizen {citizen.id} for report #{report.id}")
-
+        logger.info(
+            "📱 Citizen %s resolution prompt for report #%s (inbox=%s push=%s)",
+            citizen.id,
+            report.id,
+            inbox_ok,
+            pushed,
+        )
     except Exception as e:
-        logger.error(f"❌ FCM send failed for report #{report.id}: {e}")
-        # FCM failed but don't crash — auto-resolve will kick in after N days
+        logger.error(f"❌ Logging resolution notify failed report #{report.id}: {e}")
 
 
 def _handle_verification_failure(report: Report, db, verification_note: str):
