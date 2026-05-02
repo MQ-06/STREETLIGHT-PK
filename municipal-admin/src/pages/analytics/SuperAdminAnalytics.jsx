@@ -8,6 +8,7 @@
  *   D — Predictive Alerts feed
  */
 import { useState } from 'react'
+import ExportAnalyticsCsvButton from '../../components/analytics/ExportAnalyticsCsvButton'
 import SectionA from './sa/SectionA'
 import SectionB from './sa/SectionB'
 import SectionC from './sa/SectionC'
@@ -42,19 +43,22 @@ export default function SuperAdminAnalytics() {
           <p className="text-sm text-gray-400 mt-0.5">City Intelligence &nbsp;·&nbsp; All Municipal Areas</p>
         </div>
 
-        {/* Days filter */}
-        <div className="flex gap-1 bg-white border border-warm-border rounded-xl p-1">
-          {DAYS_OPTIONS.map(d => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                days === d ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <ExportAnalyticsCsvButton days={days} />
+          <div className="flex gap-1 bg-white border border-warm-border rounded-xl p-1">
+            {DAYS_OPTIONS.map(d => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  days === d ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

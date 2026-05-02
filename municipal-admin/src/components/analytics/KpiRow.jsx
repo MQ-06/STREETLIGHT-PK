@@ -37,7 +37,7 @@ export default function KpiRow({ scope, scopeId, days = 30 }) {
 
   const cards = [
     {
-      label: 'Total Reports (30d)',
+      label: `Total Reports (${days}d)`,
       value: String(total_reports.value),
       delta: {
         text:  `${total_reports.delta_pct >= 0 ? '+' : ''}${total_reports.delta_pct}%`,

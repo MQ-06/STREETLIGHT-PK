@@ -64,7 +64,7 @@ export default function SectionA({ days }) {
     return () => { cancelled = true }
   }, [days])
 
-  function buildCards(d) {
+  function buildCards(d, periodDays) {
     const tr  = d.total_reports
     const res = d.avg_resolution_time
     const rr  = d.re_report_rate
@@ -72,7 +72,7 @@ export default function SectionA({ days }) {
 
     return [
       {
-        label:     'Total Reports (30d)',
+        label:     `Total Reports (${periodDays}d)`,
         value:     tr.value?.toLocaleString() ?? '—',
         sub:       'across all areas',
         pillLabel: tr.delta_pct >= 0 ? `+${tr.delta_pct}%` : `${tr.delta_pct}%`,
@@ -114,7 +114,7 @@ export default function SectionA({ days }) {
         {loading
           ? [0, 1, 2, 3].map(i => <KpiSkeleton key={i} />)
           : data
-            ? buildCards(data).map(c => <KpiCard key={c.label} {...c} />)
+            ? buildCards(data, days).map(c => <KpiCard key={c.label} {...c} />)
             : <p className="text-sm text-gray-400 col-span-4">Failed to load KPIs.</p>
         }
       </div>

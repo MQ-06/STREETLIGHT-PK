@@ -56,7 +56,7 @@ export default function InsightRow({ scope, scopeId, days, compact = false }) {
       <AIInsightCard
         type="forecast"
         value={fValue}
-        label="30-Day Forecast"
+        label={`Forecast (${days}d)`}
         sub={fSub}
         direction={forecast.direction}
       />

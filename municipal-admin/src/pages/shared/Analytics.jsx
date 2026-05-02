@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, Download, MapPin, TrendingUp, TrendingDown, ClipboardList, CheckCircle, Inbox, RefreshCw } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import { authFetchJson } from '../../utils/auth'
+import { downloadDashboardAnalyticsCsv } from '../../utils/exportDashboardAnalyticsCsv'
 
 const CATEGORY_META = {
+  POTHOLE:          { label: 'Potholes',          color: '#E8612D' },
+  TRASH:            { label: 'Garbage / waste', color: '#22C55E' },
   STREETLIGHT:      { label: 'Streetlights',     color: '#B85C2E' },
   WASTE_MANAGEMENT: { label: 'Waste Management', color: '#EAB308' },
   ROAD_DAMAGE:      { label: 'Road & Potholes',  color: '#22C55E' },
@@ -116,41 +119,14 @@ export default function Analytics() {
           ))}
         </div>
         <button
-          onClick={() => {
-            if (!analytics) return
-            const rows = [
-              ['Metric', 'Value'],
-              ['Days', String(days)],
-              ['Total Reports', String(analytics.total ?? 0)],
-              ['Resolved', String(analytics.resolved ?? 0)],
-              ['Resolution Rate', analytics.total ? ((analytics.resolved / analytics.total) * 100).toFixed(1) + '%' : '0%'],
-              [],
-              ['--- Daily Trend ---'],
-              ['Date', 'Total'],
-              ...(analytics.trend || []).map(t => [t.date, String(t.total)]),
-              [],
-              ['--- Category Breakdown ---'],
-              ['Category', 'Count'],
-              ...Object.entries(analytics.category_breakdown || {}).map(([k, v]) => [k, String(v)]),
-              [],
-              ['--- Department Breakdown ---'],
-              ['Department', 'Total', 'Resolved'],
-              ...Object.entries(analytics.dept_breakdown || {}).map(([d, t]) => [d.toUpperCase(), String(t), String(analytics.dept_resolved?.[d] || 0)]),
-              [],
-              ['--- Stage Distribution ---'],
-              ['Stage', 'Count'],
-              ...Object.entries(analytics.stage_distribution || {}).map(([s, c]) => [s, String(c)]),
-            ]
-            const csv  = rows.map(r => r.join(',')).join('\n')
-            const blob = new Blob([csv], { type: 'text/csv' })
-            const url  = URL.createObjectURL(blob)
-            const a    = document.createElement('a')
-            a.href     = url
-            a.download = 'streetlight-analytics-' + days + 'd.csv'
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark"
+          type="button"
+          disabled={loading}
+          onClick={() =>
+            downloadDashboardAnalyticsCsv(days).catch(() =>
+              window.alert('Could not export CSV.')
+            )
+          }
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-primary hover:bg-primary-dark disabled:opacity-50"
         >
           <Download size={14} /> Export CSV
         </button>
