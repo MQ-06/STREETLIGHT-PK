@@ -2,7 +2,7 @@
  * HeatmapLayer — M3b: Gaussian heatmap via leaflet.heat
  *
  * Props:
- *   reports — filtered report array (only non-RESOLVED used)
+ *   reports — filtered report array (excludes terminal RESOLVED/CLOSED)
  *
  * Rendered inside <MapContainer> so useMap() works.
  */
@@ -31,11 +31,11 @@ export default function HeatmapLayer({ reports = [] }) {
   const layerRef = useRef(null)
 
   useEffect(() => {
-    // Build points from non-RESOLVED reports only
+    // Build points from non-terminal reports only
     const points = reports
       .filter(r => {
         const stage = (r.kanban_stage || '').toUpperCase()
-        return stage !== 'RESOLVED' && r.lat != null && r.lng != null
+        return stage !== 'RESOLVED' && stage !== 'CLOSED' && r.lat != null && r.lng != null
       })
       .map(r => {
         const sev    = (r.ai_severity || r.severity || 'medium').toLowerCase()

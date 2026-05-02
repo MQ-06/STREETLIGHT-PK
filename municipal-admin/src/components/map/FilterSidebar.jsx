@@ -8,6 +8,7 @@
  *   onReportClick  — (report) => void  fly + open detail panel
  */
 import { useState } from 'react'
+import { useAdminSearch } from '../../context/AdminSearchContext'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -239,6 +240,7 @@ function RecentCard({ report, onClick }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FilterSidebar({ filters, setFilter, recentReports = [], onReportClick }) {
   const [collapsed, setCollapsed] = useState(false)
+  const { query: globalSearch } = useAdminSearch()
 
   const recent = top5Recent(recentReports)
 
@@ -285,6 +287,12 @@ export default function FilterSidebar({ filters, setFilter, recentReports = [], 
       {/* ── Collapsible body ── */}
       {!collapsed && (
         <div style={{ padding: '16px', flex: 1, overflowY: 'auto' }}>
+
+          {globalSearch.trim() ? (
+            <p style={{ margin: '0 0 14px', fontSize: 11, color: C.orange, lineHeight: 1.45 }}>
+              Global search: &quot;{globalSearch.trim()}&quot; — pins respect this plus filters below.
+            </p>
+          ) : null}
 
           {/* Issue Type */}
           <SectionLabel>Issue Type</SectionLabel>

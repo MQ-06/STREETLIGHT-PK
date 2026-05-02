@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { authFetch } from '../utils/auth'
+import { useAdminSearch } from '../context/AdminSearchContext'
 
-export function useReports({ page = 1, stage = '', search = '', limit = 20, date_from = '' } = {}) {
+export function useReports({ page = 1, stage = '', search: searchProp, limit = 20, date_from = '' } = {}) {
+  const { query: globalSearch } = useAdminSearch()
+  const search = searchProp !== undefined ? searchProp : globalSearch
+
   const [reports, setReports] = useState([])
   const [total,   setTotal]   = useState(0)
   const [loading, setLoading] = useState(true)
@@ -17,6 +21,12 @@ export function useReports({ page = 1, stage = '', search = '', limit = 20, date
       if (search.trim())   params.set('search',    search.trim())
       if (date_from.trim()) params.set('date_from', date_from.trim())
       const res  = await authFetch(`/admin/reports?${params}`)
+      if (!res.ok) {
+        setError('Failed to load reports.')
+        setReports([])
+        setTotal(0)
+        return
+      }
       const data = await res.json()
       setReports(data.reports || [])
       setTotal(data.total   || 0)
