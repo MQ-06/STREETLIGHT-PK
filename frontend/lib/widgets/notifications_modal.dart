@@ -134,16 +134,40 @@ class _NotificationsModalContentState extends State<NotificationsModalContent> {
     }
   }
 
+  int _resolutionReportId(AppNotification n) {
+    final e = n.entityId;
+    if (e != null && e > 0) return e;
+    final d = n.data;
+    if (d == null) return 0;
+    final v = d['report_id'];
+    if (v is int) return v;
+    return int.tryParse('$v') ?? 0;
+  }
+
   Future<void> _open(AppNotification n) async {
+    final rootNav = Navigator.of(context, rootNavigator: true);
     if (!n.isRead) {
       await _markRead(n, true);
     }
     if (!mounted) return;
-    Navigator.pop(context); // close the modal
+    Navigator.pop(context); // close the modal sheet
     widget.onDismiss?.call();
-    if (!mounted) return;
+
     if (n.type == 'VERIFY_REQUEST') {
-      Navigator.pushNamed(context, '/verification');
+      rootNav.pushNamed('/verification');
+      return;
+    }
+
+    if (n.type == 'RESOLUTION_CONFIRM' ||
+        n.type == 'CONFIRM_OR_REJECT') {
+      final rid = _resolutionReportId(n);
+      if (rid > 0) {
+        rootNav.pushNamed(
+          '/resolution_confirm',
+          arguments: {'report_id': rid},
+        );
+      }
+      return;
     }
   }
 

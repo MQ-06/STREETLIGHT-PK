@@ -43,5 +43,15 @@ class PushNotifications {
       // ignore: user may not be logged in yet
     }
   }
+
+  /// Call after login/sign-in succeeds so the backend stores [fcm_token] (cold start often runs before auth).
+  static Future<void> syncTokenAfterAuth() async {
+    try {
+      final token = await _messaging.getToken();
+      if (token != null && token.trim().isNotEmpty) {
+        await _tryUploadToken(token);
+      }
+    } catch (_) {}
+  }
 }
 

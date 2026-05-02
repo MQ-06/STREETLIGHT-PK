@@ -431,6 +431,31 @@ class ApiService {
     }
   }
 
+  /// GET /reports/{id}/resolution-detail — before/after images (reporter only)
+  static Future<Map<String, dynamic>> getResolutionDetail(int reportId) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseURL/reports/$reportId/resolution-detail'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      final raw = jsonDecode(response.body);
+      if (response.statusCode == 200 &&
+          raw is Map &&
+          raw['success'] == true) {
+        return {'success': true, 'data': raw['data']};
+      }
+      final detail = raw is Map ? raw['detail'] : null;
+      final msg = detail is String ? detail : '$detail';
+      return {'success': false, 'error': msg.isEmpty ? 'Failed to load' : msg};
+    } catch (e) {
+      if (kDebugMode) print('getResolutionDetail error: $e');
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
   /// POST /reports/{id}/confirm-resolution — citizen confirms or rejects fix
   static Future<Map<String, dynamic>> confirmReportResolution({
     required int reportId,

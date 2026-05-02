@@ -18,6 +18,8 @@ class ReportModel {
   final int verifyCount;
   final int commentCount;
   final String status;
+  /// Kanban workflow stage from API (e.g. AWAITING_FEEDBACK) — complements [status].
+  final String? kanbanStage;
   final double? combinedScore;
   final String? verificationStatus;
   bool hasSupported;
@@ -41,6 +43,7 @@ class ReportModel {
     required this.verifyCount,
     required this.commentCount,
     required this.status,
+    this.kanbanStage,
     this.combinedScore,
     this.verificationStatus,
     required this.hasSupported,
@@ -66,6 +69,7 @@ class ReportModel {
       verifyCount: json['verify_count'] as int? ?? 0,
       commentCount: json['comment_count'] as int? ?? 0,
       status: json['status'] as String? ?? 'REPORTED',
+      kanbanStage: json['kanban_stage'] as String?,
       combinedScore: (json['combined_score'] as num?)?.toDouble(),
       verificationStatus: json['verification_status'] as String?,
       hasSupported: json['has_supported'] as bool? ?? false,
