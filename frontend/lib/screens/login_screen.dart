@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/user_session.dart';
 import '../services/api_service.dart';
+import '../services/push_notifications.dart';
 import '../widgets/app_toast.dart';
 
 /// Login screen with email and password fields
@@ -40,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final fullName = '${userData['first_name']} ${userData['last_name']}';
 
         await UserSession.login(name: fullName, email: email);
+        await PushNotifications.syncTokenAfterAuth();
 
         showAppToast(context,
             message: 'Welcome back!',
