@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { ClipboardList, CheckCircle, CalendarDays, Building2, Activity } from 'lucide-react'
+import { ClipboardList, CheckCircle, CalendarDays, Building2 } from 'lucide-react'
 import { authFetchJson } from '../../utils/auth'
 import PageHeader from '../../components/PageHeader'
 
-const CITY_META = {
-  lahore:     { label: 'Lahore',     depts: ['LMC', 'LWMC'] },
-  faisalabad: { label: 'Faisalabad', depts: ['FMC', 'FWMC'] },
+function formatCityLabel(slug) {
+  if (!slug || slug === 'unknown') return 'Unknown'
+  return String(slug).charAt(0).toUpperCase() + String(slug).slice(1).replace(/_/g, ' ')
 }
 
 const STAGE_LABELS = {
@@ -34,15 +34,18 @@ function StatCard({ icon, label, value, sub, color }) {
 }
 
 export default function Transparency() {
+  const [overview,  setOverview]  = useState(null)
   const [data30,    setData30]    = useState(null)
   const [dataAll,   setDataAll]   = useState(null)
   const [loading,   setLoading]   = useState(true)
 
   useEffect(() => {
     Promise.all([
+      authFetchJson('/admin/dashboard/overview'),
       authFetchJson('/admin/dashboard/analytics?days=30'),
       authFetchJson('/admin/dashboard/analytics?days=365'),
-    ]).then(([d30, d365]) => {
+    ]).then(([ov, d30, d365]) => {
+      setOverview(ov)
       setData30(d30)
       setDataAll(d365)
       setLoading(false)
@@ -72,6 +75,22 @@ export default function Transparency() {
   const last30Total    = data30?.total    ?? 0
   const last30Resolved = data30?.resolved ?? 0
 
+  const viewerRole = overview?.viewer_role
+  const cityBreakdown = overview?.city_breakdown || {}
+  let citiesCount = '0'
+  let citiesSub = '—'
+  if (!loading && overview) {
+    if (viewerRole === 'super_admin') {
+      const keys = Object.keys(cityBreakdown).filter(k => k && k !== 'unknown')
+      citiesCount = String(keys.length)
+      citiesSub = keys.length ? keys.map(formatCityLabel).join(' · ') : 'No cities yet'
+    } else {
+      const vc = overview.viewer_city
+      citiesCount = vc ? '1' : '0'
+      citiesSub = vc ? formatCityLabel(vc) : 'No city assigned'
+    }
+  }
+
   return (
     <div className="p-6 flex flex-col gap-6">
       <PageHeader
@@ -86,18 +105,18 @@ export default function Transparency() {
 
       {/* Top KPIs */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard icon={<ClipboardList size={18} />} label="Total Reports (All Time)" color="#B85C2E"
+        <StatCard icon={<ClipboardList size={18} />} label="Reports (Last 365 Days)" color="#B85C2E"
           value={loading ? '…' : String(total)}
-          sub="submitted by citizens" />
+          sub="same window as charts below" />
         <StatCard icon={<CheckCircle size={18} />} label="Issues Resolved" color="#22C55E"
           value={loading ? '…' : String(resolved)}
           sub={loading ? '' : resRate + '% resolution rate'} />
-        <StatCard icon={<CalendarDays size={18} />} label="Reports This Month" color="#3B82F6"
+        <StatCard icon={<CalendarDays size={18} />} label="Reports (Last 30 Days)" color="#3B82F6"
           value={loading ? '…' : String(last30Total)}
           sub={loading ? '' : last30Resolved + ' resolved'} />
         <StatCard icon={<Building2 size={18} />} label="Cities Covered" color="#8B5CF6"
-          value="2"
-          sub="Lahore · Faisalabad" />
+          value={loading ? '…' : citiesCount}
+          sub={loading ? '' : citiesSub} />
       </div>
 
       {/* Resolution Rate Banner */}
@@ -226,39 +245,80 @@ export default function Transparency() {
         )}
       </div>
 
-      {/* City Cards */}
+      {/* City cards — super_admin: from DB overview.city_breakdown; city_admin: single jurisdiction */}
       <div className="grid grid-cols-2 gap-5">
-        {Object.entries(CITY_META).map(([cityKey, meta]) => {
-          const cityDepts = meta.depts
-          const cityTotal = cityDepts.reduce((s, d) => s + (deptBreak[d.toLowerCase()] || 0), 0)
-          const cityRes   = cityDepts.reduce((s, d) => s + (deptRes[d.toLowerCase()] || 0), 0)
-          const cityRate  = cityTotal ? Math.round((cityRes / cityTotal) * 100) : 0
-          return (
-            <div key={cityKey} className="bg-white rounded-3xl p-6 shadow-sm border border-warm-border">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}>
-                  <Building2 size={18} />
+        {loading ? (
+          <p className="text-sm text-gray-400 col-span-2">Loading cities…</p>
+        ) : viewerRole === 'super_admin' ? (
+          Object.entries(cityBreakdown)
+            .filter(([k]) => k && k !== 'unknown')
+            .sort((a, b) => (b[1]?.total ?? 0) - (a[1]?.total ?? 0))
+            .map(([cityKey, stats]) => {
+              const cityTotal = stats?.total ?? 0
+              const cityRes = stats?.resolved ?? 0
+              const cityRate = cityTotal ? Math.round((cityRes / cityTotal) * 100) : 0
+              return (
+                <div key={cityKey} className="bg-white rounded-3xl p-6 shadow-sm border border-warm-border">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}>
+                      <Building2 size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">{formatCityLabel(cityKey)}</h3>
+                      <p className="text-xs text-gray-400">From dashboard overview</p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="text-xl font-black" style={{ color: '#22C55E' }}>{cityRate}%</p>
+                      <p className="text-xs text-gray-400">resolved</p>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-3">
+                    <div className="h-full rounded-full bg-primary" style={{ width: cityRate + '%' }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{cityTotal} total reports</span>
+                    <span>{cityRes} resolved</span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">{meta.label}</h3>
-                  <p className="text-xs text-gray-400">{meta.depts.join(' · ')}</p>
+              )
+            })
+        ) : (
+          (() => {
+            const t = overview?.total ?? 0
+            const kc = overview?.kanban_counts || {}
+            const cityRes = (kc.RESOLVED || 0) + (kc.CLOSED || 0)
+            const cityRate = t ? Math.round((cityRes / t) * 100) : 0
+            const title = overview?.viewer_city ? formatCityLabel(overview.viewer_city) : 'Your city'
+            return (
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-warm-border col-span-2 max-w-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF3EB', color: '#B85C2E' }}>
+                    <Building2 size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">{title}</h3>
+                    <p className="text-xs text-gray-400">Overview totals for your jurisdiction</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-xl font-black" style={{ color: '#22C55E' }}>{cityRate}%</p>
+                    <p className="text-xs text-gray-400">resolved</p>
+                  </div>
                 </div>
-                <div className="ml-auto text-right">
-                  <p className="text-xl font-black" style={{ color: '#22C55E' }}>{cityRate}%</p>
-                  <p className="text-xs text-gray-400">resolved</p>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-3">
+                  <div className="h-full rounded-full bg-primary" style={{ width: cityRate + '%' }} />
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{t} total reports</span>
+                  <span>{cityRes} resolved</span>
                 </div>
               </div>
-              <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-3">
-                <div className="h-full rounded-full bg-primary" style={{ width: cityRate + '%' }} />
-              </div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>{cityTotal} total reports</span>
-                <span>{cityRes} resolved</span>
-              </div>
-            </div>
-          )
-        })}
+            )
+          })()
+        )}
       </div>
+      {!loading && viewerRole === 'super_admin' && Object.keys(cityBreakdown).filter(k => k && k !== 'unknown').length === 0 && (
+        <p className="text-sm text-gray-400">No city breakdown yet — overview will populate when reports exist.</p>
+      )}
     </div>
   )
 }

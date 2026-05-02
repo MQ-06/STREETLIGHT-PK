@@ -98,27 +98,39 @@ export default function ResolutionBoard() {
   const [error,   setError]     = useState(null)
   const [moving,  setMoving]    = useState(null)  // report id being moved
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const load = useCallback(async (opts = {}) => {
+    const silent = opts.silent === true
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
     try {
       const params = new URLSearchParams()
       if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      params.set('limit', '2500')
       const qs = params.toString()
-      const res  = await authFetch('/admin/reports/kanban' + (qs ? `?${qs}` : ''))
+      const res  = await authFetch('/admin/reports/kanban?' + qs)
       if (!res.ok) throw new Error('kanban ' + res.status)
       const data = await res.json()
       const map  = {}
       for (const col of data.columns || []) map[col.stage] = col.cards
       setColumns(prev => ({ ...prev, ...map }))
     } catch {
-      setError('Failed to load board.')
+      if (!silent) setError('Failed to load board.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [searchQuery])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      load({ silent: true })
+    }, 60000)
+    return () => clearInterval(id)
+  }, [load])
 
   async function onDragEnd(result) {
     const { source, destination, draggableId } = result
