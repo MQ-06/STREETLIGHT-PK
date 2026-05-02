@@ -193,16 +193,17 @@ def create_report(
 
         if not processing_result['passed']:
             logger.warning(f"❌ AI Agent rejected report: {processing_result['errors']}")
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    'message': 'Report validation failed',
-                    'errors': processing_result['errors'],
-                    'warnings': processing_result['warnings'],
-                    'agent_decision': processing_result['agent_decision'],
-                    'agent_reason': processing_result['agent_reason']
-                }
-            )
+            detail_body = {
+                'message': 'Report validation failed',
+                'errors': processing_result['errors'],
+                'warnings': processing_result['warnings'],
+                'agent_decision': processing_result['agent_decision'],
+                'agent_reason': processing_result['agent_reason'],
+            }
+            ec = processing_result.get('error_code')
+            if ec:
+                detail_body['error_code'] = ec
+            raise HTTPException(status_code=400, detail=detail_body)
 
         # ==========================================
         # STEP 5: VALIDATE AI DETECTED CATEGORY
@@ -502,10 +503,15 @@ def create_report(
                     ],
                     'agent_decision': 'REJECTED',
                     'agent_reason': 'Final score below minimum threshold',
+                    'error_code': 'LOW_AI_SCORE',
                 },
             )
-        # All accepted reports start as PENDING; Layer 5 will promote/downgrade.
-        report_status = ReportStatus.PENDING
+        # Ambiguous AI type → staff review; otherwise PENDING until Layer 5.
+        report_status = (
+            ReportStatus.REVIEW_NEEDED
+            if ai_result.get('ambiguous_classification')
+            else ReportStatus.PENDING
+        )
 
         report = Report(
             user_id=current_user.id,

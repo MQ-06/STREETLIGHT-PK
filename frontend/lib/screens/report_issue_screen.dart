@@ -366,22 +366,26 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       await UserSession.incrementTotalReported();
       if (!mounted) return; // context might be disposed while awaiting prefs
 
-      if (result['merged'] == true) {
-        showAppToast(
-          context,
-          message:
-              'Issue already reported nearby. Your photo has been added as confirmation!',
-          isError: false,
-          duration: const Duration(seconds: 2),
-        );
-      } else {
-        showAppToast(
-          context,
-          message: 'Report submitted successfully!',
-          isError: false,
-          duration: const Duration(seconds: 2),
-        );
+      final payload = result['data'];
+      final merged =
+          payload is Map && payload['merged'] == true;
+      String successMsg = 'Report submitted successfully!';
+      if (merged) {
+        successMsg =
+            'Issue already reported nearby. Your photo has been added as confirmation!';
+      } else if (payload is Map && payload['message'] is String) {
+        final m = (payload['message'] as String).toLowerCase();
+        if (m.contains('staff review') || m.contains('manual review')) {
+          successMsg =
+              'Report submitted — city staff will confirm the issue type.';
+        }
       }
+      showAppToast(
+        context,
+        message: successMsg,
+        isError: false,
+        duration: const Duration(seconds: 3),
+      );
 
       // Reset local form state so the image disappears after a successful submit.
       setState(() {
@@ -400,39 +404,63 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         Navigator.pop(context, true);
       }
     } else {
-      // Show "Invalid Report" with basic error message
       String errorMsg = 'Invalid Report';
-      
-      // Get the basic reason from AI Agent
-      if (result['errors'] != null && result['errors'].isNotEmpty) {
-        // Extract simple reason from AI error
-        String aiError = result['errors'][0];
-        
-        // Simplify common AI errors for users
-        if (aiError.contains('blurry') || aiError.contains('blur')) {
-          errorMsg = 'Invalid Report: Image is too blurry';
-        } else if (aiError.contains('dark') || aiError.contains('brightness')) {
-          errorMsg = 'Invalid Report: Image is too dark';
-        } else if (aiError.contains('bright')) {
-          errorMsg = 'Invalid Report: Image is too bright';
-        } else if (aiError.contains('resolution') || aiError.contains('Resolution')) {
-          errorMsg = 'Invalid Report: Image quality is too low';
-        } else if (aiError.contains('GPS') || aiError.contains('location')) {
-          errorMsg = 'Invalid Report: GPS location issue';
-        } else {
-          errorMsg = 'Invalid Report: Please check image quality';
+      final code = result['error_code']?.toString();
+
+      if (code == 'UNKNOWN_ISSUE_TYPE') {
+        errorMsg =
+            'Could not recognize the issue from this photo. Use a closer, well-lit shot clearly showing pothole damage or litter.';
+      } else if (code == 'LOW_AI_CONFIDENCE') {
+        errorMsg =
+            'The photo does not clearly show a pothole or litter. Try moving closer with better lighting.';
+      } else if (code == 'LOW_AI_SCORE') {
+        errorMsg =
+            'The issue is not clear enough for automatic acceptance. Retake with the problem filling more of the frame.';
+      } else if (code == 'VALIDATION_FAILED') {
+        errorMsg = 'Image or location check failed. See details below.';
+      }
+
+      if (result['errors'] != null &&
+          result['errors'] is List &&
+          (result['errors'] as List).isNotEmpty) {
+        final aiError = (result['errors'] as List).first.toString();
+
+        if (code == null || code == 'VALIDATION_FAILED') {
+          if (aiError.contains('blurry') || aiError.contains('blur')) {
+            errorMsg = 'Invalid Report: Image is too blurry';
+          } else if ((aiError.contains('dark') || aiError.contains('brightness')) &&
+              !aiError.contains('too bright')) {
+            errorMsg = 'Invalid Report: Image is too dark';
+          } else if (aiError.contains('too bright')) {
+            errorMsg = 'Invalid Report: Image is too bright';
+          } else if (aiError.contains('resolution') || aiError.contains('Resolution')) {
+            errorMsg = 'Invalid Report: Image quality is too low';
+          } else if (aiError.contains('GPS') || aiError.contains('location')) {
+            errorMsg = 'Invalid Report: GPS location issue';
+          } else if (aiError.contains('Screenshot') ||
+              aiError.contains('screenshot') ||
+              aiError.contains('device camera')) {
+            errorMsg = 'Please take an original photo with your camera at the location.';
+          } else if (aiError.contains('Detected: other') ||
+              aiError.contains('valid civic issue')) {
+            errorMsg =
+                'Could not recognize the issue from this photo. Show a clear pothole or litter in daylight.';
+          } else if (code == 'VALIDATION_FAILED') {
+            errorMsg = 'Invalid Report: $aiError';
+          }
         }
       } else if (result['error'] != null) {
-        String error = result['error'].toString();
+        final error = result['error'].toString();
         if (error.contains('confidence') || error.contains('not clearly visible')) {
           errorMsg = 'Invalid Report: Issue not clearly visible';
         } else if (error.contains('not a civic issue')) {
-          errorMsg = 'Invalid Report: Not a valid civic issue';
-        } else {
+          errorMsg =
+              'Could not recognize the issue from this photo. Show a clear pothole or litter.';
+        } else if (code == null || code == 'VALIDATION_FAILED') {
           errorMsg = 'Invalid Report: $error';
         }
       }
-      
+
       _showError(errorMsg);
     }
   }

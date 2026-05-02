@@ -9,13 +9,13 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import cv2
-import hashlib  # SHA-256 hash for duplicate detection
+# import hashlib  # COMMENTED OUT - hash/duplicate detection will be added later
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 import logging
 
-from ai_layers.layer1_ai_engine.model_loader import ModelLoader
-from ai_layers.layer1_ai_engine.landmark_detector.verifier import GPSVerifier
+from model_loader import ModelLoader
+from landmark_detector import GPSVerifier
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,6 @@ logger = logging.getLogger(__name__)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 IMAGE_SIZE = 224
-
-# EfficientNet-B3 is well-calibrated — no temperature scaling needed.
-TEMPERATURE = 1.0
 
 
 class AIEngine:
@@ -39,22 +36,15 @@ class AIEngine:
     - Image hash calculation
     """
     
-    def __init__(
-        self,
-        model_path: Path,
-        confidence_threshold: float = 0.70,
-        temperature: float = TEMPERATURE
-    ):
+    def __init__(self, model_path: Path, confidence_threshold: float = 0.70):
         """
         Initialize AI Engine.
-
+        
         Args:
             model_path: Path to trained model checkpoint
             confidence_threshold: Minimum confidence for valid predictions
-            temperature: Softmax temperature for calibration (>1 = less confident)
         """
         self.confidence_threshold = confidence_threshold
-        self.temperature = temperature
         
         # Load model
         self.model_loader = ModelLoader(model_path)
@@ -107,41 +97,23 @@ class AIEngine:
             # Predict
             with torch.no_grad():
                 outputs = self.model(image_tensor)
-                # Temperature scaling: divide logits before softmax to
-                # soften overconfident predictions from the overfit model.
-                probabilities = F.softmax(outputs / self.temperature, dim=1)[0]
-
+                probabilities = F.softmax(outputs, dim=1)[0]
+            
             # Get prediction
             confidence, pred_idx = torch.max(probabilities, dim=0)
             confidence_value = confidence.item()
             predicted_class = self.class_names[pred_idx.item()]
-
-            name_to_idx = {name: i for i, name in enumerate(self.class_names)}
-            pb = probabilities[name_to_idx["pothole"]].item() if "pothole" in name_to_idx else 0.0
-            pg = probabilities[name_to_idx["garbage"]].item() if "garbage" in name_to_idx else 0.0
-
-            # Runner-up rescue: model picks "other" but a civic class still has notable probability.
-            if predicted_class == "other":
-                best_civic = "pothole" if pb >= pg else "garbage"
-                best_p = max(pb, pg)
-                if best_p >= 0.14 and confidence_value < 0.82:
-                    ci = name_to_idx[best_civic]
-                    predicted_class = best_civic
-                    confidence_value = probabilities[ci].item()
-                    pred_idx = torch.tensor(ci, device=probabilities.device, dtype=torch.long)
-
-            ood_rejected = False
-
+            
             # Get all probabilities
             all_probs = {
                 self.class_names[i]: float(probabilities[i].item() * 100)
                 for i in range(len(self.class_names))
             }
-
-            # Valid civic issue: not "other", and meets confidence threshold (threshold is tuned in orchestrator).
+            
+            # Check if valid issue (not "other" class and above threshold)
             is_valid_issue = (
-                predicted_class != "other"
-                and confidence_value >= self.confidence_threshold
+                predicted_class != "other" and
+                confidence_value >= self.confidence_threshold
             )
             
             # Estimate severity if valid issue
@@ -149,8 +121,9 @@ class AIEngine:
             if is_valid_issue:
                 severity = self._estimate_severity(image_np, predicted_class)
             
-            # Calculate image hash for duplicate detection
-            image_hash = self._calculate_hash(image_path)
+            # Calculate image hash (COMMENTED OUT -  add duplicate detection later)
+            # image_hash = self._calculate_hash(image_path)
+            image_hash = None
             
             # GPS Verification (landmark detection)
             logger.info("Running GPS verification...")
@@ -160,11 +133,10 @@ class AIEngine:
                 submitted_lon=submitted_lon
             )
             
-            # Calculate final score (AI confidence + GPS adjustment + severity bonus)
+            # Calculate final score (AI confidence + GPS adjustment)
             ai_score = round(confidence_value * 100, 2)
             score_adjustment = gps_verification.get('score_adjustment', 0)
-            severity_bonus = {'large': 5, 'medium': 0, 'small': -5}.get(severity or 'medium', 0)
-            final_score = max(0, min(100, ai_score + score_adjustment + severity_bonus))
+            final_score = max(0, min(100, ai_score + score_adjustment))
             
             # Generate user message (includes GPS info if relevant)
             message = self._generate_message(
@@ -185,7 +157,6 @@ class AIEngine:
                 },
                 'image_hash': image_hash,
                 'is_valid_issue': is_valid_issue,
-                'ood_rejected': ood_rejected,
                 'gps_verification': {
                     'has_photo_gps': gps_verification.get('has_photo_gps', False),
                     'photo_gps': gps_verification.get('photo_gps'),
@@ -420,29 +391,30 @@ class AIEngine:
             logger.error(f"Feature-based severity estimation error: {str(e)}")
             return "medium"  # Default to medium if error
     
-    def _calculate_hash(self, image_path: Path) -> str:
-        """
-        Calculate SHA-256 hash of image file.
-        
-        Args:
-            image_path: Path to image file
-            
-        Returns:
-            Hexadecimal hash string
-        """
-        try:
-            sha256_hash = hashlib.sha256()
-            
-            with open(image_path, "rb") as f:
-                # Read in chunks for large files
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
-            
-            return sha256_hash.hexdigest()
-            
-        except Exception as e:
-            logger.error(f"Hash calculation error: {str(e)}")
-            return "hash_unavailable"
+    # DUPLICATE DETECTION - COMMENTED OUT (will be added in Layer 2)
+    # def _calculate_hash(self, image_path: Path) -> str:
+    #     """
+    #     Calculate SHA-256 hash of image file.
+    #     
+    #     Args:
+    #         image_path: Path to image file
+    #         
+    #     Returns:
+    #         Hexadecimal hash string
+    #     """
+    #     try:
+    #         sha256_hash = hashlib.sha256()
+    #         
+    #         with open(image_path, "rb") as f:
+    #             # Read in chunks for large files
+    #             for byte_block in iter(lambda: f.read(4096), b""):
+    #                 sha256_hash.update(byte_block)
+    #         
+    #         return sha256_hash.hexdigest()
+    #         
+    #     except Exception as e:
+    #         logger.error(f"Hash calculation error: {str(e)}")
+    #         return "hash_unavailable"
     
     def _generate_message(
         self,
@@ -474,18 +446,13 @@ class AIEngine:
         
         if not is_valid:
             if predicted_class == "other":
-                return (
-                    "Image not recognized as a civic issue (pothole or garbage). "
-                    "If this is street garbage or a road pothole, please retake "
-                    "the photo in clear daylight with the issue filling most of "
-                    "the frame."
-                )
+                return ("This doesn't appear to be a civic issue (pothole or garbage). "
+                       "Please upload a clear photo of a pothole or garbage pile.")
             else:
-                return (
-                    f"Low confidence detection ({confidence_pct:.1f}%). "
-                    f"The {predicted_class} is not clearly visible. "
-                    "Please retake the photo from a closer angle with better lighting."
-                )
+                return (f"Low confidence detection ({confidence_pct:.1f}%). "
+                       f"The {predicted_class} is not clearly visible. "
+                       "Please try taking the photo again from a different angle "
+                       "with better lighting.")
         
         # Valid issue detected
         if confidence_pct >= 90:
