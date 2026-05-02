@@ -7,6 +7,7 @@ from routers.flutter import users
 from routers.flutter import trust
 from routers.flutter import score
 from routers.flutter import notifications
+from routers.flutter import resolution as flutter_resolution
 from routers.admin import auth as admin_auth
 from routers.admin import dashboard as admin_dashboard
 from routers.admin import reports as admin_reports
@@ -64,6 +65,7 @@ app.include_router(users.router)
 app.include_router(trust.router)
 app.include_router(score.router)
 app.include_router(notifications.router)
+app.include_router(flutter_resolution.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_reports.router)

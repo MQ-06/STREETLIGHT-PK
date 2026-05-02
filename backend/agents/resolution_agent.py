@@ -16,6 +16,8 @@ from db.database import SessionLocal
 from model.report import Report, ReportStatus, KanbanStage
 from model.report_logs import ReportLog
 from agents.agent_config import AFTER_PHOTO_GPS_TOLERANCE_M, AUTO_CLOSE_DAYS
+from sqlalchemy import or_
+
 from blockchain.blockchain_service import blockchain_service
 from utils.push import send_push_to_user
 
@@ -117,6 +119,7 @@ def _send_citizen_confirmation_request(report: Report, db, verification_note: st
             ),
             data    = {
                 "type":            "RESOLUTION_CONFIRM",
+                "route":           "/resolution_confirm",
                 "report_id":       str(report.id),
                 "after_image_url": report.after_image_url or "",
                 "action":          "CONFIRM_OR_REJECT",
@@ -197,20 +200,20 @@ def citizen_confirm_resolution(report_id: int, user_id: int, confirmed: bool) ->
             return {"success": False, "error": f"Report not awaiting feedback. Current: {report.kanban_stage}"}
 
         if confirmed:
-            # ── Key 2 confirmed by citizen ──────────────────────────────
-            report.citizen_confirmed    = "CONFIRMED"
+            report.citizen_response = "CONFIRMED"
             report.citizen_confirmed_at = datetime.now(timezone.utc)
             db.commit()
-            db.close()
 
-            return finalize_resolution(
+            result = finalize_resolution(
                 report_id       = report_id,
                 resolution_note = "Resolved — confirmed by citizen via app",
             )
+            return result
         else:
-            # ── Citizen rejected — issue not fixed ──────────────────────
-            report.kanban_stage     = KanbanStage.IN_PROGRESS
-            report.after_image_url  = None
+            report.citizen_response = "REJECTED"
+            report.citizen_confirmed_at = datetime.now(timezone.utc)
+            report.kanban_stage = KanbanStage.IN_PROGRESS
+            report.after_image_url = None
             report.after_image_uploaded_at = None
 
             log = ReportLog(
@@ -384,7 +387,10 @@ def check_auto_close(db):
             Report.kanban_stage == KanbanStage.AWAITING_FEEDBACK,
             Report.resolution_notified_at != None,
             Report.resolution_notified_at <= cutoff,
-            Report.citizen_confirmed == False,
+            or_(
+                Report.citizen_response.is_(None),
+                Report.citizen_response == "PENDING",
+            ),
         )
     ).all()
 

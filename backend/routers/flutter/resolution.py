@@ -1,6 +1,6 @@
 # backend/routers/flutter/resolution.py
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from model.users import User
@@ -29,4 +29,9 @@ def confirm_resolution(
         user_id   = current_user.id,
         confirmed = body.confirmed,
     )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("error", "Resolution confirmation failed"),
+        )
     return result

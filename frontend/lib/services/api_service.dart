@@ -431,6 +431,40 @@ class ApiService {
     }
   }
 
+  /// POST /reports/{id}/confirm-resolution — citizen confirms or rejects fix
+  static Future<Map<String, dynamic>> confirmReportResolution({
+    required int reportId,
+    required bool confirmed,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      headers['Content-Type'] = 'application/json';
+      final response = await http
+          .post(
+            Uri.parse('$baseURL/reports/$reportId/confirm-resolution'),
+            headers: headers,
+            body: jsonEncode({'confirmed': confirmed}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final raw = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        if (raw is Map && raw['success'] == true) {
+          return {'success': true, 'data': raw};
+        }
+        final err = raw is Map ? raw['error']?.toString() : null;
+        return {'success': false, 'error': err ?? 'Request failed'};
+      }
+      final detail = raw is Map ? raw['detail'] : null;
+      final msg = detail is String
+          ? detail
+          : (detail != null ? detail.toString() : 'Failed');
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      if (kDebugMode) print('confirmReportResolution error: $e');
+      return {'success': false, 'error': 'Cannot connect to server.'};
+    }
+  }
+
   static Future<Map<String, dynamic>> getUserProfile() async {
     try {
       final headers = await _authHeaders();
