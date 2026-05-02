@@ -1,4 +1,6 @@
 // lib/screens/home_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -23,15 +25,20 @@ class HomeColors {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  /// When set (e.g. by [MainShell]), unread count is mirrored for tab-bar badges.
+  final ValueNotifier<int>? unreadBadgeNotifier;
+
+  const HomeScreen({super.key, this.unreadBadgeNotifier});
 
   @override
   State<HomeScreen> createState() => HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  Timer? _feedPollTimer;
 
   List<ReportModel> _reports = [];
   String _searchQuery = '';
@@ -48,8 +55,21 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadFeed(refresh: true);
     _loadUnreadNotificationCount();
+    _feedPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      _loadFeed(refresh: false);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadFeed(refresh: true);
+      _loadUnreadNotificationCount();
+    }
   }
 
   Future<void> _loadUnreadNotificationCount() async {
@@ -57,15 +77,17 @@ class HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     if (res['success'] == true) {
       final data = res['data'] as Map<String, dynamic>;
-      setState(() {
-        _unreadNotificationCount =
-            (data['unread_count'] as int?) ?? int.tryParse('${data['unread_count']}') ?? 0;
-      });
+      final n =
+          (data['unread_count'] as int?) ?? int.tryParse('${data['unread_count']}') ?? 0;
+      setState(() => _unreadNotificationCount = n);
+      widget.unreadBadgeNotifier?.value = n;
     }
   }
 
   @override
   void dispose() {
+    _feedPollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -172,6 +194,7 @@ class HomeScreenState extends State<HomeScreen> {
         verifyCount: report.verifyCount,
         commentCount: report.commentCount,
         status: report.status,
+        kanbanStage: report.kanbanStage,
         hasSupported: !wasSupported,
         hasVerified: report.hasVerified,
       );
@@ -205,6 +228,7 @@ class HomeScreenState extends State<HomeScreen> {
             verifyCount: r.verifyCount,
             commentCount: r.commentCount,
             status: r.status,
+            kanbanStage: r.kanbanStage,
             hasSupported: data['has_supported'] as bool,
             hasVerified: r.hasVerified,
           );
@@ -234,6 +258,7 @@ class HomeScreenState extends State<HomeScreen> {
             verifyCount: r.verifyCount,
             commentCount: r.commentCount,
             status: r.status,
+            kanbanStage: r.kanbanStage,
             hasSupported: wasSupported,
             hasVerified: r.hasVerified,
           );
@@ -267,6 +292,7 @@ class HomeScreenState extends State<HomeScreen> {
         verifyCount: wasVerified ? prevCount - 1 : prevCount + 1,
         commentCount: report.commentCount,
         status: report.status,
+        kanbanStage: report.kanbanStage,
         hasSupported: report.hasSupported,
         hasVerified: !wasVerified,
       );
@@ -299,6 +325,7 @@ class HomeScreenState extends State<HomeScreen> {
             verifyCount: data['verify_count'] as int,
             commentCount: r.commentCount,
             status: r.status,
+            kanbanStage: r.kanbanStage,
             hasSupported: r.hasSupported,
             hasVerified: data['has_verified'] as bool,
           );
@@ -328,6 +355,7 @@ class HomeScreenState extends State<HomeScreen> {
             verifyCount: prevCount,
             commentCount: r.commentCount,
             status: r.status,
+            kanbanStage: r.kanbanStage,
             hasSupported: r.hasSupported,
             hasVerified: wasVerified,
           );
@@ -559,40 +587,25 @@ class HomeScreenState extends State<HomeScreen> {
           ),
           const Spacer(),
           Builder(
-            builder: (context) => Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined,
-                      color: HomeColors.textSecondary),
-                  onPressed: () {
-                    showNotificationsModal(context, onDismiss: _loadUnreadNotificationCount);
-                  },
+            builder: (context) => Badge(
+              backgroundColor: HomeColors.statusOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              isLabelVisible: _unreadNotificationCount > 0,
+              label: Text(
+                _unreadNotificationCount > 99 ? '99+' : '$_unreadNotificationCount',
+                style: GoogleFonts.roboto(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
-                if (_unreadNotificationCount > 0)
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                      decoration: const BoxDecoration(
-                        color: HomeColors.statusOrange,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          _unreadNotificationCount > 99 ? '99+' : '$_unreadNotificationCount',
-                          style: GoogleFonts.roboto(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.notifications_outlined,
+                    color: HomeColors.textSecondary),
+                onPressed: () {
+                  showNotificationsModal(context, onDismiss: _loadUnreadNotificationCount);
+                },
+              ),
             ),
           ),
         ],
@@ -696,6 +709,7 @@ class HomeScreenState extends State<HomeScreen> {
                   report.status,
                   verificationStatus: report.verificationStatus,
                   combinedScore: report.combinedScore,
+                  kanbanStage: report.kanbanStage,
                 ),
               ],
             ),
@@ -873,10 +887,34 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status, {String? verificationStatus, double? combinedScore}) {
+  Widget _buildStatusBadge(
+    String status, {
+    String? verificationStatus,
+    double? combinedScore,
+    String? kanbanStage,
+  }) {
     Color bgColor;
     String label;
-    // Use Report.status as the single lifecycle field for UI.
+
+    if (kanbanStage == 'AWAITING_FEEDBACK') {
+      bgColor = const Color(0xFF7C3AED);
+      label = 'CONFIRM FIX';
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+            color: bgColor, borderRadius: BorderRadius.circular(4)),
+        child: Text(
+          label,
+          style: GoogleFonts.roboto(
+              fontSize: 10,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5),
+        ),
+      );
+    }
+
+    // Use Report.status for other lifecycle UI.
     switch (status) {
       case 'VERIFIED':
         bgColor = HomeColors.statusGreen;
@@ -1193,6 +1231,7 @@ class HomeScreenState extends State<HomeScreen> {
                                             commentCount:
                                                 (r.commentCount - 1).clamp(0, 9999),
                                             status: r.status,
+                                            kanbanStage: r.kanbanStage,
                                             hasSupported: r.hasSupported,
                                             hasVerified: r.hasVerified,
                                           );
@@ -1293,6 +1332,7 @@ class HomeScreenState extends State<HomeScreen> {
                                               verifyCount: r.verifyCount,
                                               commentCount: r.commentCount + 1,
                                               status: r.status,
+                                              kanbanStage: r.kanbanStage,
                                               hasSupported: r.hasSupported,
                                               hasVerified: r.hasVerified,
                                             );

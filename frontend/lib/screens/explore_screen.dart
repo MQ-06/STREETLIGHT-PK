@@ -607,16 +607,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ],
                     ),
                   ),
-                  // Stats row
+                  // Stats row — label on top, count below (matches list-view stat cards)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
-                        _buildMiniStat('CRITICAL', _criticalCount, ExploreColors.primaryOrange),
-                        const SizedBox(width: 16),
-                        _buildMiniStat('PENDING', _pendingCount, ExploreColors.pendingGray),
-                        const SizedBox(width: 16),
-                        _buildMiniStat('RESOLVED', _resolvedCount, ExploreColors.resolvedGreen),
+                        Expanded(
+                          child: _buildMiniStat(
+                              'CRITICAL', _criticalCount, ExploreColors.primaryOrange),
+                        ),
+                        Expanded(
+                          child: _buildMiniStat(
+                              'PENDING', _pendingCount, ExploreColors.pendingGray),
+                        ),
+                        Expanded(
+                          child: _buildMiniStat(
+                              'RESOLVED', _resolvedCount, ExploreColors.resolvedGreen),
+                        ),
                       ],
                     ),
                   ),
@@ -656,22 +663,39 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildMiniStat(String label, int count, Color color) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.roboto(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 4),
+        const SizedBox(height: 6),
         Text(
-          '$count $label',
-          style: GoogleFonts.roboto(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+          '$count',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
