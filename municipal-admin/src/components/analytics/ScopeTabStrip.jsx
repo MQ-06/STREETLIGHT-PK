@@ -12,7 +12,7 @@
  * Calls onSelect(scope, scopeId) when the active tab changes.
  */
 import { useState, useEffect } from 'react'
-import { authFetch, getRole, getCity } from '../../utils/auth'
+import { authFetchJson, getRole, getCity } from '../../utils/auth'
 
 function Tab({ label, active, onClick }) {
   return (
@@ -47,8 +47,7 @@ export default function ScopeTabStrip({ onSelect, forcedCity = undefined }) {
 
   // Fetch available scopes once on mount
   useEffect(() => {
-    authFetch('/admin/analytics/scopes')
-      .then(r => r.json())
+    authFetchJson('/admin/analytics/scopes')
       .then(d => {
         setScopes(d)
         // Set sensible defaults

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import KpiCard, { KpiCardSkeleton } from './KpiCard'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 
 function signalToColor(signal) {
   return signal === 'red' ? 'red' : signal === 'amber' ? 'amber' : 'green'
@@ -16,8 +16,7 @@ export default function KpiRow({ scope, scopeId, days = 30 }) {
     setData(null)
 
     const params = new URLSearchParams({ scope, scope_id: scopeId || '', days })
-    authFetch(`/admin/analytics/kpi?${params}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/kpi?${params}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 

@@ -1,6 +1,6 @@
 // Module 3 — fetches /insights and renders 3 AI insight cards
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 import AIInsightCard, { AIInsightCardSkeleton } from './AIInsightCard'
 
 export default function InsightRow({ scope, scopeId, days, compact = false }) {
@@ -13,8 +13,7 @@ export default function InsightRow({ scope, scopeId, days, compact = false }) {
     setData(null)
 
     const params = new URLSearchParams({ scope, scope_id: scopeId || '', days })
-    authFetch(`/admin/analytics/insights?${params}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/insights?${params}`)
       .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 
