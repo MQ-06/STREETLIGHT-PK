@@ -24,6 +24,33 @@ from utils.push import send_push_to_user
 logger = logging.getLogger(__name__)
 
 
+def process_after_image(report_id: int) -> None:
+    """
+    Called from admin API after an officer uploads an after-image.
+    Report is already moved to AWAITING_FEEDBACK — notify the reporter to confirm.
+    """
+    db = SessionLocal()
+    try:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if not report:
+            logger.warning("process_after_image: report %s not found", report_id)
+            return
+        if not report.after_image_url:
+            logger.warning(
+                "process_after_image: report %s has no after_image_url", report_id
+            )
+            return
+        _send_citizen_confirmation_request(
+            report, db, "After-image uploaded by municipal team"
+        )
+        db.commit()
+    except Exception as e:
+        logger.error("❌ process_after_image failed: %s", e, exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
+
+
 def process_resolution(report_id: int):
     db = SessionLocal()
     try:
