@@ -31,6 +31,7 @@ class KanbanStage(str, enum.Enum):
     IN_PROGRESS = "IN_PROGRESS"
     AWAITING_FEEDBACK = "AWAITING_FEEDBACK"
     RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
 
 
 class IssueCategory(str, enum.Enum):
