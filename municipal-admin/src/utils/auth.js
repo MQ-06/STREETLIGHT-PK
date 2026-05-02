@@ -67,10 +67,13 @@ export async function authFetch(path, options = {}) {
   const base  = getApiBaseUrl()
   const url   = path.startsWith('http') ? path : `${base}${path}`
 
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData
+
   const res = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -79,8 +82,14 @@ export async function authFetch(path, options = {}) {
   if (res.status === 401) {
     clearAuthData()
     window.location.href = '/signin'
-    return
   }
 
   return res
+}
+
+/** JSON body only when response is OK; otherwise rejects (401 still clears session via authFetch). */
+export async function authFetchJson(path, options = {}) {
+  const res = await authFetch(path, options)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
 }

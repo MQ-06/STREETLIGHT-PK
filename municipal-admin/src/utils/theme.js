@@ -20,6 +20,7 @@ export const STAGE_MAP = {
   IN_PROGRESS:          { label: 'In Progress',         dot: '#F59E0B', bg: '#FFFBEB', text: '#B45309' },
   AWAITING_FEEDBACK:    { label: 'Awaiting Feedback',   dot: '#8B5CF6', bg: '#F5F3FF', text: '#6D28D9' },
   RESOLVED:             { label: 'Resolved',            dot: '#22C55E', bg: '#F0FDF4', text: '#15803D' },
+  CLOSED:               { label: 'Closed',              dot: '#64748B', bg: '#F1F5F9', text: '#475569' },
 }
 
 // ── Severity → { bg, text } ───────────────────────────────────────────────────

@@ -2,8 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Layout      from '../layouts/Layout'
 import SignIn      from '../pages/SignIn'
 import Dashboard   from '../pages/Dashboard'
-import Departments from '../pages/Departments'
-import UserRoles   from '../pages/UserRoles'
+import Organization from '../pages/Organization'
 import ComplaintManagement from '../pages/shared/ComplaintManagement'
 import ComplaintDetail     from '../pages/shared/ComplaintDetail'
 import ResolutionBoard     from '../pages/shared/ResolutionBoard'
@@ -53,13 +52,11 @@ const router = createBrowserRouter([
       { path: 'transparency',              element: <Transparency /> },
       { path: 'my-profile',                element: <MyProfile /> },
       {
-        path: 'departments',
-        element: <ProtectedRoute roles={['super_admin', 'city_admin']}><Departments /></ProtectedRoute>,
+        path: 'organization',
+        element: <ProtectedRoute roles={['super_admin', 'city_admin']}><Organization /></ProtectedRoute>,
       },
-      {
-        path: 'user-roles',
-        element: <ProtectedRoute roles={['super_admin', 'city_admin']}><UserRoles /></ProtectedRoute>,
-      },
+      { path: 'departments', element: <Navigate to="/organization" replace /> },
+      { path: 'user-roles',  element: <Navigate to="/organization?tab=users" replace /> },
       {
         path: 'audit-log',
         element: <ProtectedRoute roles={['super_admin', 'city_admin', 'dept_officer']}><AuditLog /></ProtectedRoute>,

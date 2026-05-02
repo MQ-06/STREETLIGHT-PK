@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Bell, Bot, User, GitBranch, FileText, CheckCircle, X } from 'lucide-react'
 import { getCurrentUser, getRole, authFetch } from '../utils/auth'
+import { useAdminSearch } from '../context/AdminSearchContext'
 import { ROLE_LABEL } from '../utils/theme'
 
 const LAST_SEEN_KEY = 'admin_notif_last_seen'
@@ -27,7 +28,7 @@ export default function Topbar() {
   const navigate    = useNavigate()
   const user        = getCurrentUser()
   const role        = getRole()
-  const [search,    setSearch]    = useState('')
+  const { draft: search, setDraft: setSearch } = useAdminSearch()
   const [open,      setOpen]      = useState(false)
   const [notifs,    setNotifs]    = useState([])
   const [unread,    setUnread]    = useState(0)
@@ -38,6 +39,7 @@ export default function Topbar() {
     setLoading(true)
     try {
       const res  = await authFetch('/admin/notifications?limit=20')
+      if (!res.ok) return
       const data = await res.json()
       const items = data.notifications || []
       setNotifs(items)
@@ -96,8 +98,8 @@ export default function Topbar() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && search.trim()) navigate('/complaint-management?search=' + encodeURIComponent(search.trim())) }}
-          placeholder="Search complaint ID, location, department…"
+          onKeyDown={e => { if (e.key === 'Escape') setSearch('') }}
+          placeholder="Search complaints — List, Board, Map & dashboards…"
           className="flex-1 text-sm text-gray-600 placeholder-gray-400 outline-none bg-transparent"
         />
       </div>
