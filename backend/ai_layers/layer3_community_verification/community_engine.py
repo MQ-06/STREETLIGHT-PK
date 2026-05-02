@@ -106,7 +106,7 @@ class CommunityVerificationEngine:
         self.db.commit()
         self.db.refresh(request)
 
-        # Find nearby users (informational — push notifications handled below)
+        # Nearby users: in-app notification + best-effort FCM (utils.push.send_push_to_user)
         nearby = self._find_nearby_users(lat, lng, DEFAULT_RADIUS_M, exclude_user_id=author_id)
         logger.info(
             f"   ✅ VerificationRequest ID={request.id} created | "
@@ -133,56 +133,22 @@ class CommunityVerificationEngine:
                         data={"request_id": request.id, "report_id": report_id, "distance_m": round(dist_m, 1)},
                         dedupe_key=f"VERIFY_REQUEST:{uid}:{request.id}",
                     )
-                    # Phase 2: best-effort push (if FCM is configured)
                     send_push_to_user(
                         self.db,
                         user_id=uid,
                         title=title,
                         body=body,
-                        data={"route": "/verification", "request_id": request.id, "report_id": report_id},
+                        data={
+                            "type": "VERIFY_REQUEST",
+                            "route": "/verification",
+                            "request_id": str(request.id),
+                            "report_id": str(report_id),
+                            "distance_m": str(round(dist_m, 1)),
+                        },
                     )
         except Exception as notify_exc:
             logger.warning(f"⚠️ Failed to create in-app notifications for request={request.id}: {notify_exc}")
 
-        # ── TODO: Send push notifications to nearby users ──────────────────
-        # For each (user_id, distance_m) pair in `nearby`, retrieve the user's
-        # FCM token from UserProfile and send a Firebase push alert.
-        #
-        # Prerequisites (not yet configured):
-        #   1.  pip install firebase-admin
-        #   2.  Set GOOGLE_APPLICATION_CREDENTIALS env var to service-account JSON
-        #   3.  Call firebase_admin.initialize_app() once at startup in main.py
-        #
-        # Implementation sketch:
-        #
-        #   from firebase_admin import messaging
-        #
-        #   for uid, dist_m in nearby:
-        #       profile = self.db.query(UserProfile).filter(
-        #           UserProfile.user_id == uid
-        #       ).first()
-        #       if profile is None or not profile.fcm_token:
-        #           continue                            # no token → skip
-        #
-        #       category_label = report.category.value if report else "Issue"
-        #       msg = messaging.Message(
-        #           notification=messaging.Notification(
-        #               title="Verification Needed Nearby",
-        #               body=(
-        #                   f"A {category_label} was reported "
-        #                   f"{dist_m:.0f} m from your location. "
-        #                   "Can you verify it?"
-        #               ),
-        #           ),
-        #           data={"request_id": str(request.id), "report_id": str(request.report_id)},
-        #           token=profile.fcm_token,
-        #       )
-        #       try:
-        #           messaging.send(msg)
-        #           logger.info(f"   🔔 Push sent to user ID={uid} ({dist_m:.0f} m)")
-        #       except Exception as push_exc:
-        #           logger.warning(f"   ⚠️  Push failed for user ID={uid}: {push_exc}")
-        # ──────────────────────────────────────────────────────────────────────
 
         return request
 

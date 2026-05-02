@@ -10,6 +10,7 @@ import 'screens/main_shell.dart';
 import 'screens/report_issue_screen.dart';
 import 'screens/verification_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/resolution_confirm_screen.dart';
 import 'screens/forget-password.dart';    // ✅ fixed: was forget-passsword.dart (3 s's + hyphen)
 import 'screens/reset-password.dart';     // ✅ fixed: was reset-password.dart (hyphen)
 import 'theme/app_colors.dart';
@@ -23,9 +24,21 @@ Future<void> main() async {
     onNavigate: (route, data) async {
       final nav = _navKey.currentState;
       if (nav == null) return;
-      if (route == '/verification') {
+      final type = data['type']?.toString();
+      if (route == '/verification' || type == 'VERIFY_REQUEST') {
         nav.pushNamed('/verification');
-      } else if (route == '/notifications') {
+        return;
+      }
+      if (route == '/resolution_confirm' ||
+          type == 'RESOLUTION_CONFIRM' ||
+          type == 'CONFIRM_OR_REJECT') {
+        final rid = int.tryParse('${data['report_id'] ?? ''}');
+        if (rid != null && rid > 0) {
+          nav.pushNamed('/resolution_confirm', arguments: {'report_id': rid});
+        }
+        return;
+      }
+      if (route == '/notifications') {
         nav.pushNamed('/notifications');
       } else {
         nav.pushNamed(route);
@@ -82,6 +95,15 @@ class StreetlightApp extends StatelessWidget {
         '/reset-password': (context) => const ResetPasswordScreen(),     // ✅ NEW
         '/verification': (context) => const VerificationScreen(),
         '/notifications': (context) => const NotificationsScreen(),
+        '/resolution_confirm': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          var rid = 0;
+          if (args is Map && args['report_id'] != null) {
+            final v = args['report_id'];
+            rid = v is int ? v : (int.tryParse('$v') ?? 0);
+          }
+          return ResolutionConfirmScreen(reportId: rid);
+        },
       },
     );
   }
