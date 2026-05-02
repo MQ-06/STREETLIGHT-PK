@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, ChevronDown, SlidersHorizontal, Shield, Pencil, UserPlus, X, ShieldCheck, Building2, User } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import { authFetch } from '../../utils/auth'
+import { authFetch, authFetchJson } from '../../utils/auth'
 
 const ROLE_BADGE = {
   super_admin:  { bg: '#FEF2F2', color: '#E05555', label: 'Super Admin'   },
@@ -20,7 +20,7 @@ const EMPTY_FORM = {
   notification_email: '',
 }
 
-export default function UserRoles() {
+export default function UserRoles({ embedded = false } = {}) {
   const [users,      setUsers]      = useState([])
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
@@ -38,8 +38,7 @@ export default function UserRoles() {
 
   function loadUsers() {
     setLoading(true)
-    authFetch('/admin/users')
-      .then(r => r.json())
+    authFetchJson('/admin/users')
       .then(d => { setUsers(Array.isArray(d) ? d : (d.users || [])); setLoading(false) })
       .catch(() => setLoading(false))
   }
@@ -148,8 +147,10 @@ export default function UserRoles() {
 
   const depts = CITY_DEPTS[form.city] || []
 
+  const shell = embedded ? 'flex flex-col gap-6' : 'p-6 flex flex-col gap-6'
+
   return (
-    <div className="p-6 flex flex-col gap-6">
+    <div className={shell}>
       <PageHeader title="User & Role Management" subtitle="Control access levels and manage municipal officer accounts.">
         <button
           onClick={() => { setShowModal(true); setFormError('') }}

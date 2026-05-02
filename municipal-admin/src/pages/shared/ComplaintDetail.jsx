@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { MapPin, ZoomIn, ExternalLink, FileText, ClipboardList, Target, Pencil, Layers, AlertTriangle, Bot, User, Send } from 'lucide-react'
+import { MapPin, ZoomIn, ExternalLink, FileText, ClipboardList, Target, Pencil, Layers, AlertTriangle, Bot, User, Send, Camera } from 'lucide-react'
 import { authFetch } from '../../utils/auth'
 import StageBadge from '../../components/StageBadge'
 
@@ -15,12 +15,25 @@ export default function ComplaintDetail() {
   const [note,        setNote]        = useState('')
   const [noteLoading, setNoteLoading] = useState(false)
   const [noteError,   setNoteError]   = useState('')
+  const [afterLoading, setAfterLoading] = useState(false)
+  const [afterMsg, setAfterMsg] = useState('')
 
   function loadReport() {
     if (!id) { setLoading(false); return }
+    setLoading(true)
+    setError(null)
     authFetch('/admin/reports/' + id)
-      .then(r => r.json())
-      .then(d => { setReport(d); setLoading(false) })
+      .then(async r => {
+        if (!r.ok) {
+          setError(r.status === 404 ? 'Report not found.' : 'Failed to load report.')
+          setReport(null)
+          setLoading(false)
+          return
+        }
+        const d = await r.json()
+        setReport(d)
+        setLoading(false)
+      })
       .catch(() => { setError('Failed to load report.'); setLoading(false) })
   }
 
@@ -48,6 +61,38 @@ export default function ComplaintDetail() {
       setNoteError('Network error.')
     }
     setNoteLoading(false)
+  }
+
+  async function handleAfterImageUpload(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !id || !report) return
+    const stage = report.kanban_stage
+    if (stage !== 'IN_PROGRESS' && stage !== 'VERIFIED') {
+      setAfterMsg('Set stage to In Progress or Verified before uploading an after photo.')
+      return
+    }
+    setAfterLoading(true)
+    setAfterMsg('')
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await authFetch('/admin/reports/' + id + '/after-image', {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setAfterMsg(typeof data.detail === 'string' ? data.detail : 'Upload failed.')
+        setAfterLoading(false)
+        return
+      }
+      setAfterMsg(data.message || 'After photo uploaded. Citizen may receive a push to confirm.')
+      loadReport()
+    } catch {
+      setAfterMsg('Network error.')
+    }
+    setAfterLoading(false)
   }
 
   if (loading) return <div className="p-6 text-center text-sm text-gray-400">Loading report…</div>
@@ -92,6 +137,37 @@ export default function ComplaintDetail() {
               </a>
             </div>
           )}
+
+          {/* After repair (triggers citizen confirmation flow) */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border">
+            <div className="flex items-center gap-2 mb-3">
+              <Camera size={16} className="text-gray-500" />
+              <span className="font-bold text-gray-800">After repair photo</span>
+            </div>
+            {report.after_image_url ? (
+              <div className="relative rounded-xl overflow-hidden mb-3" style={{ height: 200 }}>
+                <img src={report.after_image_url} alt="After repair" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mb-3">No after photo yet.</p>
+            )}
+            <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold cursor-pointer hover:bg-primary-dark disabled:opacity-50">
+              <Camera size={14} />
+              {afterLoading ? 'Uploading…' : 'Upload after photo'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={afterLoading}
+                onChange={handleAfterImageUpload}
+              />
+            </label>
+            <p className="text-xs text-gray-400 mt-2">
+              Allowed when stage is <strong>In Progress</strong> or <strong>Verified</strong>. Moves the report to{' '}
+              <strong>Awaiting Feedback</strong> and notifies the citizen.
+            </p>
+            {afterMsg && <p className="text-xs mt-2 text-primary font-medium">{afterMsg}</p>}
+          </div>
 
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-warm-border">
             <div className="flex items-center gap-2 mb-3">
@@ -222,6 +298,11 @@ export default function ComplaintDetail() {
                 <AlertTriangle size={13} className="text-red-500" />
                 <p className="text-xs text-red-500 font-semibold">Flagged for spam review</p>
               </div>
+            )}
+            {report.citizen_response && (
+              <p className="text-xs text-gray-600 mt-2">
+                Citizen: <span className="font-semibold">{report.citizen_response}</span>
+              </p>
             )}
           </div>
 

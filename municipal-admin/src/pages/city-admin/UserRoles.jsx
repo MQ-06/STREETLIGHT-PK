@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, UserPlus, X, Pencil, User } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import { authFetch, getCurrentUser } from '../../utils/auth'
+import { authFetch, authFetchJson, getCurrentUser } from '../../utils/auth'
 
 const CITY_DEPTS = {
   lahore:     ['lmc', 'lwmc'],
@@ -13,7 +13,7 @@ const EMPTY_FORM = {
   role: 'dept_officer', department: 'lmc', notification_email: '',
 }
 
-export default function CityAdminUserRoles() {
+export default function CityAdminUserRoles({ embedded = false } = {}) {
   const currentUser = getCurrentUser()
   const city        = currentUser?.city || 'lahore'
   const cityLabel   = city.charAt(0).toUpperCase() + city.slice(1)
@@ -34,8 +34,7 @@ export default function CityAdminUserRoles() {
 
   function loadUsers() {
     setLoading(true)
-    authFetch('/admin/users')
-      .then(r => r.json())
+    authFetchJson('/admin/users')
       .then(d => { setUsers(Array.isArray(d) ? d : (d.users || [])); setLoading(false) })
       .catch(() => setLoading(false))
   }
@@ -108,8 +107,10 @@ export default function CityAdminUserRoles() {
     setEditSaving(false)
   }
 
+  const shell = embedded ? 'flex flex-col gap-6' : 'p-6 flex flex-col gap-6'
+
   return (
-    <div className="p-6 flex flex-col gap-6">
+    <div className={shell}>
       <PageHeader title={cityLabel + ' Officers'} subtitle={`Manage dept. officers for ${cityLabel}.`}>
         <button
           onClick={() => { setShowModal(true); setFormError('') }}

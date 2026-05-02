@@ -4,6 +4,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { RefreshCw, ExternalLink, MapPin } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import { authFetch } from '../../utils/auth'
+import { useAdminSearch } from '../../context/AdminSearchContext'
 import { STAGE_MAP } from '../../utils/theme'
 
 const STAGES = [
@@ -13,6 +14,7 @@ const STAGES = [
   { key: 'IN_PROGRESS',         label: 'In Progress',         color: '#F59E0B' },
   { key: 'AWAITING_FEEDBACK',    label: 'Awaiting Feedback',   color: '#8B5CF6' },
   { key: 'RESOLVED',             label: 'Resolved',            color: '#22C55E' },
+  { key: 'CLOSED',               label: 'Closed',              color: '#64748B' },
 ]
 
 const SEV_STYLE = {
@@ -70,7 +72,11 @@ function KanbanCard({ card, index, navigate }) {
               </span>
             )}
             <button
-              onClick={() => navigate('/complaint-detail/' + card.id)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate('/complaint-detail/' + card.id)
+              }}
               className="text-primary hover:underline text-xs font-bold flex items-center gap-1"
             >
               View <ExternalLink size={10} />
@@ -84,7 +90,10 @@ function KanbanCard({ card, index, navigate }) {
 
 export default function ResolutionBoard() {
   const navigate = useNavigate()
-  const [columns, setColumns]   = useState(() => Object.fromEntries(STAGES.map(s => [s.key, []])))
+  const { query: searchQuery } = useAdminSearch()
+  const [columns, setColumns]   = useState(() =>
+    Object.fromEntries(STAGES.map(s => [s.key, []]))
+  )
   const [loading, setLoading]   = useState(true)
   const [error,   setError]     = useState(null)
   const [moving,  setMoving]    = useState(null)  // report id being moved
@@ -93,7 +102,11 @@ export default function ResolutionBoard() {
     setLoading(true)
     setError(null)
     try {
-      const res  = await authFetch('/admin/reports/kanban')
+      const params = new URLSearchParams()
+      if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      const qs = params.toString()
+      const res  = await authFetch('/admin/reports/kanban' + (qs ? `?${qs}` : ''))
+      if (!res.ok) throw new Error('kanban ' + res.status)
       const data = await res.json()
       const map  = {}
       for (const col of data.columns || []) map[col.stage] = col.cards
@@ -103,7 +116,7 @@ export default function ResolutionBoard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [searchQuery])
 
   useEffect(() => { load() }, [load])
 
@@ -126,12 +139,16 @@ export default function ResolutionBoard() {
 
     setMoving(reportId)
     try {
-      await authFetch('/admin/reports/' + reportId + '/stage', {
+      const res = await authFetch('/admin/reports/' + reportId + '/stage', {
         method: 'PATCH',
         body: JSON.stringify({ stage: dstKey }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.warn('Stage update failed:', err.detail || res.status)
+        load()
+      }
     } catch {
-      // Revert on failure
       load()
     } finally {
       setMoving(null)
@@ -142,7 +159,14 @@ export default function ResolutionBoard() {
 
   return (
     <div className="p-6 flex flex-col gap-5 h-full">
-      <PageHeader title="Resolution Board" subtitle="Drag complaints across stages to update their status.">
+      <PageHeader
+        title="Resolution Board"
+        subtitle={
+          searchQuery.trim()
+            ? `Filtered by search · ${totalCards} matching cards`
+            : 'Drag complaints across stages to update their status.'
+        }
+      >
         <span className="text-sm text-gray-500">{totalCards} total</span>
         <button
           onClick={load}

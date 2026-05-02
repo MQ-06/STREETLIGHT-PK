@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ClipboardList, CheckCircle, CalendarDays, Building2, Activity } from 'lucide-react'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 import PageHeader from '../../components/PageHeader'
 
 const CITY_META = {
@@ -11,10 +11,12 @@ const CITY_META = {
 const STAGE_LABELS = {
   NEW: 'New', PENDING_VERIFICATION: 'Pending', VERIFIED: 'Verified',
   IN_PROGRESS: 'In Progress', AWAITING_FEEDBACK: 'Awaiting', RESOLVED: 'Resolved',
+  CLOSED: 'Closed',
 }
 const STAGE_COLORS = {
   NEW: '#6B7280', PENDING_VERIFICATION: '#3B82F6', VERIFIED: '#F97316',
   IN_PROGRESS: '#F59E0B', AWAITING_FEEDBACK: '#8B5CF6', RESOLVED: '#22C55E',
+  CLOSED: '#15803D',
 }
 
 function StatCard({ icon, label, value, sub, color }) {
@@ -38,8 +40,8 @@ export default function Transparency() {
 
   useEffect(() => {
     Promise.all([
-      authFetch('/admin/dashboard/analytics?days=30').then(r => r.json()),
-      authFetch('/admin/dashboard/analytics?days=365').then(r => r.json()),
+      authFetchJson('/admin/dashboard/analytics?days=30'),
+      authFetchJson('/admin/dashboard/analytics?days=365'),
     ]).then(([d30, d365]) => {
       setData30(d30)
       setDataAll(d365)

@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Filter, Search, ChevronDown, Eye, Timer, Smile, Download } from 'lucide-react'
-import { authFetch } from '../../utils/auth'
+import { authFetch, authFetchJson } from '../../utils/auth'
 import { useReports } from '../../hooks/useReports'
+import { useAdminSearch } from '../../context/AdminSearchContext'
 import PageHeader from '../../components/PageHeader'
 import StageBadge from '../../components/StageBadge'
 
@@ -13,21 +14,34 @@ const STAGE_OPTIONS = [
   { label: 'In Progress',          value: 'IN_PROGRESS' },
   { label: 'Awaiting Feedback',    value: 'AWAITING_FEEDBACK' },
   { label: 'Resolved',             value: 'RESOLVED' },
+  { label: 'Closed',               value: 'CLOSED' },
 ]
 
 export default function ComplaintManagement() {
   const navigate = useNavigate()
-  const [searchVal,   setSearchVal]   = useState('')
+  const { draft: searchDraft, setDraft: setSearchDraft, clearSearch, query: searchQuery } = useAdminSearch()
   const [stageFilter, setStageFilter] = useState('')
   const [dateRange,   setDateRange]   = useState('')
   const [page,        setPage]        = useState(1)
   const [exporting,   setExporting]   = useState(false)
+  const [dashSnap,    setDashSnap]    = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    authFetchJson('/admin/dashboard/analytics?days=30')
+      .then((d) => {
+        if (!cancelled) setDashSnap(d)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const LIMIT = 20
   const { reports, total, loading, error } = useReports({
     page,
     stage:     stageFilter,
-    search:    searchVal,
     limit:     LIMIT,
     date_from: dateRange,
   })
@@ -37,10 +51,15 @@ export default function ComplaintManagement() {
     setExporting(true)
     try {
       const params = new URLSearchParams({ skip: 0, limit: 1000 })
-      if (stageFilter)      params.set('stage',     stageFilter)
-      if (searchVal.trim()) params.set('search',    searchVal.trim())
+      if (stageFilter)       params.set('stage',     stageFilter)
+      if (searchQuery.trim()) params.set('search',    searchQuery.trim())
       if (dateRange.trim()) params.set('date_from', dateRange.trim())
       const res  = await authFetch(`/admin/reports?${params}`)
+      if (!res.ok) {
+        alert('Export failed.')
+        setExporting(false)
+        return
+      }
       const data = await res.json()
       const rows = data.reports || []
 
@@ -99,8 +118,8 @@ export default function ComplaintManagement() {
               <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5">
                 <Search size={13} className="text-gray-400 shrink-0" />
                 <input
-                  type="text" placeholder="ID or type"
-                  value={searchVal} onChange={e => { setSearchVal(e.target.value); setPage(1) }}
+                  type="text" placeholder="ID, location, department…"
+                  value={searchDraft} onChange={e => { setSearchDraft(e.target.value); setPage(1) }}
                   className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
                 />
               </div>
@@ -121,7 +140,7 @@ export default function ComplaintManagement() {
               <input type="date" value={dateRange} onChange={e => { setDateRange(e.target.value); setPage(1) }}
                 className="w-full bg-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-500 outline-none" />
             </div>
-            <button onClick={() => { setSearchVal(''); setStageFilter(''); setDateRange(''); setPage(1) }}
+            <button onClick={() => { clearSearch(); setStageFilter(''); setDateRange(''); setPage(1) }}
               className="w-full py-2.5 rounded-xl text-sm font-semibold border border-warm-border hover:bg-gray-50 text-primary">
               Reset Filters
             </button>
@@ -195,29 +214,57 @@ export default function ComplaintManagement() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center justify-between cursor-pointer" onClick={() => navigate('/analytics')}>
-              <div>
-                <p className="text-sm font-bold text-gray-800">Resolution Speed</p>
-                <p className="text-xs text-gray-400 mb-2">Avg time to close a ticket</p>
+            <div
+              className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center justify-between cursor-pointer hover:border-primary/30 transition-colors"
+              onClick={() => navigate('/analytics')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/analytics') }}
+            >
+              <div className="min-w-0 pr-3">
+                <p className="text-sm font-bold text-gray-800">Resolution speed</p>
+                <p className="text-xs text-gray-400 mb-2 leading-snug">
+                  Mean hours from report to closure (resolved &amp; closed), last 30d · your scope
+                </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-3xl font-black text-gray-900">42.5 hrs</span>
-                  <span className="text-xs font-bold text-green-500 mb-1">↓ 4%</span>
+                  <span className="text-3xl font-black text-gray-900 tabular-nums">
+                    {dashSnap?.avg_resolution_hours != null ? `${dashSnap.avg_resolution_hours}` : '—'}
+                  </span>
+                  {dashSnap?.avg_resolution_hours != null && (
+                    <span className="text-sm font-semibold text-gray-500 mb-1">hrs</span>
+                  )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF7ED' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FFF7ED' }}>
                 <Timer size={20} style={{ color: '#B85C2E' }} />
               </div>
             </div>
-            <div className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center justify-between cursor-pointer" onClick={() => navigate('/analytics')}>
-              <div>
-                <p className="text-sm font-bold text-gray-800">Citizen Satisfaction</p>
-                <p className="text-xs text-gray-400 mb-2">Based on resolution feedback</p>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-black text-gray-900">4.8/5.0</span>
-                  <span className="text-xs font-bold text-primary mb-1">Top City</span>
+            <div
+              className="bg-white rounded-3xl p-5 shadow-sm border border-warm-border flex items-center justify-between cursor-pointer hover:border-primary/30 transition-colors"
+              onClick={() => navigate('/analytics')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/analytics') }}
+            >
+              <div className="min-w-0 pr-3">
+                <p className="text-sm font-bold text-gray-800">Citizen confirmations</p>
+                <p className="text-xs text-gray-400 mb-2 leading-snug">
+                  {(dashSnap?.citizen_feedback_n ?? 0) > 0
+                    ? `Confirmed vs rejected · ${dashSnap.citizen_feedback_n} responses`
+                    : 'Share of citizens who confirmed vs rejected after resolution'}
+                </p>
+                <div className="flex items-end gap-2 flex-wrap">
+                  <span className="text-3xl font-black text-gray-900 tabular-nums">
+                    {(dashSnap?.citizen_feedback_n ?? 0) > 0 && dashSnap?.citizen_confirmation_rate_pct != null
+                      ? `${dashSnap.citizen_confirmation_rate_pct}%`
+                      : '—'}
+                  </span>
+                  {(dashSnap?.citizen_feedback_n ?? 0) === 0 && dashSnap != null && (
+                    <span className="text-xs font-medium text-gray-400 mb-1">No feedback yet</span>
+                  )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF7ED' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FFF7ED' }}>
                 <Smile size={20} style={{ color: '#B85C2E' }} />
               </div>
             </div>

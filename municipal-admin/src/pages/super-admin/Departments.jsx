@@ -2,16 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Users, CheckCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 
-export default function SuperAdminDepartments() {
+export default function SuperAdminDepartments({ embedded = false } = {}) {
   const navigate = useNavigate()
   const [rows,    setRows]    = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    authFetch('/admin/routing')
-      .then(r => r.json())
+    authFetchJson('/admin/routing')
       .then(d => { setRows(d.routing || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
@@ -20,16 +19,20 @@ export default function SuperAdminDepartments() {
   const cities       = [...new Set(rows.map(r => r.city))].length
   const officersSet  = new Set(rows.filter(r => r.is_active && r.officer_id).map(r => r.officer_id))
 
+  const shell = embedded ? 'flex flex-col gap-6' : 'p-6 flex flex-col gap-6'
+
   return (
-    <div className="p-6 flex flex-col gap-6">
+    <div className={shell}>
       <PageHeader title="Department Management" subtitle="City-department routing and officer assignments.">
-        <button
-          onClick={() => navigate('/user-roles')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600"
-        >
-          <Users size={14} />
-          User Roles
-        </button>
+        {!embedded && (
+          <button
+            onClick={() => navigate('/organization?tab=users')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600"
+          >
+            <Users size={14} />
+            User Roles
+          </button>
+        )}
       </PageHeader>
 
       <div className="grid grid-cols-3 gap-4">
