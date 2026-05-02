@@ -5,6 +5,7 @@ from model.report import Report, ReportStatus  # ✅ import enum
 from agents.agent_rules import decide_action
 from agents.agent_tools import execute_action
 from agents.agent_lock import acquire_lock, release_lock
+from agents.resolution_agent import check_auto_close
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ def run_agent_cycle():
             finally:
                 release_lock(report.id)
 
+        check_auto_close(db)  
+        
         db.commit()
         logger.info("✅ Agent cycle completed")
 
