@@ -6,6 +6,8 @@ from agents.agent_llm import ask_llm
 from datetime import datetime, timezone
 import logging
 
+from utils.reporter_notifications import notify_reporter_agent_action
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +20,9 @@ def execute_action(db, report: Report, action: dict):
         report.status = ReportStatus.VERIFIED          # ✅ enum
         report.kanban_stage = KanbanStage.VERIFIED     # ✅ enum
         log(db, report, prev, ReportStatus.VERIFIED, "Agent auto-verified: high confidence score")
+        notify_reporter_agent_action(
+            report_id=report.id, reporter_user_id=report.user_id, action=act,
+        )
 
     # ── REJECT ──────────────────────────
     elif act == "REJECT":
@@ -28,6 +33,9 @@ def execute_action(db, report: Report, action: dict):
         report.verification_status = "REJECTED"        # this column is a plain String ✅
         report.kanban_stage = KanbanStage.PENDING_VERIFICATION
         log(db, report, prev, ReportStatus.REVIEW_NEEDED, "Agent rejected: low confidence score")
+        notify_reporter_agent_action(
+            report_id=report.id, reporter_user_id=report.user_id, action=act,
+        )
 
     # ── MOVE TO REVIEW ───────────────────
     elif act == "MOVE_REVIEW":
@@ -35,6 +43,9 @@ def execute_action(db, report: Report, action: dict):
         report.status = ReportStatus.REVIEW_NEEDED     # ✅ enum
         report.kanban_stage = KanbanStage.PENDING_VERIFICATION
         log(db, report, prev, ReportStatus.REVIEW_NEEDED, "Agent flagged: needs officer review")
+        notify_reporter_agent_action(
+            report_id=report.id, reporter_user_id=report.user_id, action=act,
+        )
 
     # ── VERIFY AND ASSIGN (community trigger) ───
     elif act == "VERIFY_AND_ASSIGN":
@@ -42,6 +53,9 @@ def execute_action(db, report: Report, action: dict):
         report.status = ReportStatus.VERIFIED          # ✅
         report.kanban_stage = KanbanStage.VERIFIED
         log(db, report, prev, ReportStatus.VERIFIED, "Agent verified: community votes threshold reached")
+        notify_reporter_agent_action(
+            report_id=report.id, reporter_user_id=report.user_id, action=act,
+        )
 
     # ── LLM FALLBACK (handles escalation) ───────
     elif act == "NEEDS_LLM":
@@ -49,6 +63,9 @@ def execute_action(db, report: Report, action: dict):
         prev = report.status
         report.status = ReportStatus.IN_PROGRESS       # stays IN_PROGRESS but gets a note
         log(db, report, prev, ReportStatus.IN_PROGRESS, f"Agent escalated (LLM): {note}")
+        notify_reporter_agent_action(
+            report_id=report.id, reporter_user_id=report.user_id, action=act,
+        )
 
     # ── NO ACTION ───────────────────────
     elif act == "NO_OP":
