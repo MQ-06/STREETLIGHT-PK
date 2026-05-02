@@ -26,7 +26,7 @@ class InputValidator:
     """
     
     # Validation thresholds
-    MIN_BLUR_SCORE = 38.0  # Laplacian variance floor — tolerate mild motion blur / compression
+    MIN_BLUR_SCORE = 100.0
     MIN_BRIGHTNESS = 30.0
     MAX_BRIGHTNESS = 230.0
     MIN_WIDTH = 300
@@ -132,7 +132,7 @@ class InputValidator:
         # Collect errors and warnings
         for check in checks:
             if not check['passed']:
-                if check['name'] in ['File Validity', 'Resolution', 'Blur Detection', 'Brightness', 'GPS Validation', 'Screenshot Detection']:
+                if check['name'] in ['File Validity', 'Resolution', 'Blur Detection', 'Brightness', 'GPS Validation']:
                     errors.append(check['message'])
                 else:
                     warnings.append(check['message'])
@@ -778,24 +778,14 @@ class InputValidator:
             # Check if EXIF data is missing or minimal
             has_minimal_exif = exif_data is None or len(exif_data) < 5
             
-            # BLOCK 1: Screenshot ratio + minimal EXIF (typical screenshot)
+            # Warn if both conditions are met
             if is_screenshot_ratio and has_minimal_exif:
-                logger.warning(f"🚫 Screenshot detected and BLOCKED: {aspect_ratio:.2f} ratio, minimal EXIF")
+                logger.warning(f"⚠ Possible screenshot detected: {aspect_ratio:.2f} ratio, minimal EXIF")
                 return {
                     'name': 'Screenshot Detection',
-                    'passed': False,
-                    'score': 0.0,
-                    'message': 'Screenshots are not allowed. Please take an original photo with your camera at the location.'
-                }
-            
-            # BLOCK 2: No camera EXIF at all (downloaded/copied images, cropped screenshots)
-            if exif_data is None or len(exif_data) < 3:
-                logger.warning(f"🚫 No camera metadata — BLOCKED (likely downloaded/fake image)")
-                return {
-                    'name': 'Screenshot Detection',
-                    'passed': False,
-                    'score': 0.0,
-                    'message': 'Photo must be taken with your device camera. Downloaded images and screenshots are not allowed.'
+                    'passed': True,
+                    'score': 60.0,
+                    'message': f'Warning: Image appears to be a screenshot (aspect ratio {aspect_ratio:.2f}, no camera EXIF). Please submit original photos.'
                 }
             
             logger.info(f"✓ Screenshot detection passed: likely original photo")
@@ -875,6 +865,32 @@ class InputValidator:
                 'score': 0.0,
                 'message': f'Content validation failed: {str(e)}'
             }
+    
+    # def _calculate_image_hash(self, image_path: str) -> str:
+    #     """
+    #     Calculate SHA-256 hash of image file for duplicate detection.
+    #     
+    #     Args:
+    #         image_path: Path to the image file
+    #         
+    #     Returns:
+    #         SHA-256 hash string (hex)
+    #     """
+    #     try:
+    #         sha256_hash = hashlib.sha256()
+    #         
+    #         with open(image_path, "rb") as f:
+    #             # Read file in chunks to handle large files
+    #             for byte_block in iter(lambda: f.read(4096), b""):
+    #                 sha256_hash.update(byte_block)
+    #         
+    #         hash_value = sha256_hash.hexdigest()
+    #         logger.info(f"Image hash calculated: {hash_value[:16]}...")
+    #         return hash_value
+    #         
+    #     except Exception as e:
+    #         logger.error(f"Failed to calculate image hash: {str(e)}")
+    #         return "hash_calculation_failed"
     
     def _calculate_quality(self, checks: List[Dict[str, Any]]) -> float:
         """

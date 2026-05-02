@@ -2,6 +2,7 @@
 Layer Orchestrator - Coordinates validation and AI processing
 This is the core integration component that manages the multi-layer AI agent
 """
+import copy
 import logging
 from pathlib import Path
 from typing import Dict, Optional
@@ -73,7 +74,7 @@ class LayerOrchestrator:
 
         if model_path is not None:
             try:
-                self.ai_engine = AIEngine(model_path, confidence_threshold=0.85)
+                self.ai_engine = AIEngine(model_path, confidence_threshold=0.68)
                 self.layer1_available = True
                 logger.info("✓ Layer 1 (AI Engine) initialized successfully")
             except Exception as e:
@@ -161,7 +162,8 @@ class LayerOrchestrator:
                 'layer1': None,
                 'final_score': 0.0,
                 'agent_decision': 'REJECTED',
-                'agent_reason': 'Image quality validation failed'
+                'agent_reason': 'Image quality validation failed',
+                'error_code': 'VALIDATION_FAILED',
             }
 
         logger.info("✓ Layer 0 passed — image quality acceptable")
@@ -201,7 +203,8 @@ class LayerOrchestrator:
                 },
                 'final_score': 50.0,          # Score 50 → goes to REVIEW queue
                 'agent_decision': 'REVIEW',
-                'agent_reason': 'AI model unavailable — officer review required'
+                'agent_reason': 'AI model unavailable — officer review required',
+                'error_code': None,
             }
 
         logger.info("🧠 Layer 1: Running AI classification & GPS verification...")
@@ -218,25 +221,63 @@ class LayerOrchestrator:
         logger.info(f"  - Severity   : {ai_result['severity']}")
         logger.info(f"  - Final Score: {ai_result['final_score']:.2f}/100")
 
-        # Check if it's a valid civic issue
+        # Valid civic classification failed — try soft accept for ambiguous "other"
         if not ai_result['is_valid_issue']:
-            logger.warning("❌ AI AGENT DECISION: REJECT — Not a valid civic issue")
-            logger.info("=" * 60)
+            probs = ai_result.get('all_probabilities') or {}
+            civic_sum = probs.get('pothole', 0) + probs.get('garbage', 0)
+            ambiguous_eligible = (
+                ai_result['predicted_class'] == 'other'
+                and validation_result['overall_quality'] >= 48.0
+                and civic_sum >= 8.0
+            )
+            if ambiguous_eligible:
+                logger.warning(
+                    "⚠️ AI AGENT: Ambiguous classification (other) — accepting for OFFICER REVIEW"
+                )
+                ai_accept = copy.deepcopy(ai_result)
+                picked = (
+                    'pothole' if probs.get('pothole', 0) >= probs.get('garbage', 0) else 'garbage'
+                )
+                runner_conf = max(probs.get('pothole', 0), probs.get('garbage', 0))
+                ai_accept['predicted_class'] = picked
+                ai_accept['is_valid_issue'] = True
+                ai_accept['ambiguous_classification'] = True
+                ai_accept['confidence'] = round(runner_conf, 2)
+                ai_accept['severity'] = 'medium'
+                ai_score = runner_conf
+                score_adjustment = ai_accept['gps_verification'].get('score_adjustment', 0)
+                severity_bonus = 0
+                merged = max(0, min(100, ai_score + score_adjustment + severity_bonus))
+                ai_accept['final_score'] = round(max(merged, 62.0), 2)
+                ai_accept['message'] = (
+                    'Submitted for staff review — the photo did not clearly match pothole or litter '
+                    'automatically. City staff will confirm the issue type.'
+                )
+                ai_result = ai_accept
+            else:
+                logger.warning("❌ AI AGENT DECISION: REJECT — Not a valid civic issue")
+                logger.info("=" * 60)
 
-            return {
-                'passed': False,
-                'errors': [
-                    f"AI could not identify a valid civic issue. "
-                    f"Detected: {ai_result['predicted_class']} "
-                    f"with {ai_result['confidence']:.1f}% confidence."
-                ],
-                'warnings': validation_result['warnings'],
-                'layer0': validation_result,
-                'layer1': ai_result,
-                'final_score': ai_result['final_score'],
-                'agent_decision': 'REJECTED',
-                'agent_reason': 'AI confidence too low or not a civic issue'
-            }
+                err_code = (
+                    'UNKNOWN_ISSUE_TYPE'
+                    if ai_result['predicted_class'] == 'other'
+                    else 'LOW_AI_CONFIDENCE'
+                )
+                return {
+                    'passed': False,
+                    'errors': [
+                        f"AI could not identify a valid civic issue. "
+                        f"Detected: {ai_result['predicted_class']} "
+                        f"with {ai_result['confidence']:.1f}% confidence."
+                    ],
+                    'warnings': validation_result['warnings'],
+                    'layer0': validation_result,
+                    'layer1': ai_result,
+                    'final_score': ai_result['final_score'],
+                    'agent_decision': 'REJECTED',
+                    'agent_reason': 'AI confidence too low or not a civic issue',
+                    'error_code': err_code,
+                }
 
         # Enforce minimum final score threshold (hard reject below 60/100)
         if ai_result['final_score'] < 60.0:
@@ -257,26 +298,38 @@ class LayerOrchestrator:
                 'layer1': ai_result,
                 'final_score': ai_result['final_score'],
                 'agent_decision': 'REJECTED',
-                'agent_reason': 'AI final score below acceptance threshold (60/100)'
+                'agent_reason': 'AI final score below acceptance threshold (60/100)',
+                'error_code': 'LOW_AI_SCORE',
             }
 
         # ==========================================
-        # COMBINE RESULTS — ACCEPT
+        # COMBINE RESULTS — ACCEPT (or REVIEW if ambiguous category)
         # ==========================================
-        logger.info("✅ AI AGENT DECISION: ACCEPT")
+        if ai_result.get('ambiguous_classification'):
+            logger.info("✅ AI AGENT DECISION: ACCEPT — QUEUED FOR REVIEW (ambiguous type)")
+        else:
+            logger.info("✅ AI AGENT DECISION: ACCEPT")
         logger.info(f"   Final Score : {ai_result['final_score']:.2f}/100")
         logger.info(f"   Message     : {ai_result['message']}")
         logger.info("=" * 60)
 
+        agent_decision = 'REVIEW' if ai_result.get('ambiguous_classification') else 'ACCEPTED'
+        warnings_out = list(validation_result['warnings'])
+        if ai_result.get('ambiguous_classification'):
+            warnings_out.append(
+                'Automatic category unclear — classified from weaker signals; officer review.'
+            )
+
         return {
             'passed': True,
             'errors': [],
-            'warnings': validation_result['warnings'],
+            'warnings': warnings_out,
             'layer0': validation_result,
             'layer1': ai_result,
             'final_score': ai_result['final_score'],
-            'agent_decision': 'ACCEPTED',
-            'agent_reason': ai_result['message']
+            'agent_decision': agent_decision,
+            'agent_reason': ai_result['message'],
+            'error_code': None,
         }
 
     def get_health_status(self) -> Dict:

@@ -378,12 +378,14 @@ class ApiService {
       if (response.statusCode == 400) {
         // Check if detailed error structure from AI Agent
         if (data['detail'] is Map) {
+          final d = data['detail'] as Map<String, dynamic>;
           return {
             'success': false,
-            'error': data['detail']['message'] ?? 'Validation failed',
-            'errors': data['detail']['errors'] ?? [],
+            'error': d['message'] ?? 'Validation failed',
+            'errors': d['errors'] ?? [],
             'validation_failed': true,
-            'agent_reason': data['detail']['agent_reason']
+            'agent_reason': d['agent_reason'],
+            'error_code': d['error_code'],
           };
         } else if (data['detail'] is String) {
           return {'success': false, 'error': data['detail']};
