@@ -35,7 +35,7 @@ export default function CityAdminDashboard() {
   const totalCount = data?.total ?? 0
   const pending = (kc.NEW || 0) + (kc.PENDING_VERIFICATION || 0) + (kc.VERIFIED || 0)
   const inProgress = kc.IN_PROGRESS || 0
-  const resolved = kc.RESOLVED || 0
+  const resolved = (kc.RESOLVED || 0) + (kc.CLOSED || 0)
   const resolvePct  = totalCount ? Math.min(100, Math.round((resolved   / totalCount) * 100)) : 0
   const pendingPct  = totalCount ? Math.min(100, Math.round((pending    / totalCount) * 100)) : 0
   const progressPct = totalCount ? Math.min(100, Math.round((inProgress / totalCount) * 100)) : 0
@@ -51,7 +51,7 @@ export default function CityAdminDashboard() {
         <StatCard label="Total Complaints" value={loading ? '—' : String(totalCount)} badge={resolved ? resolvePct + '% resolved' : undefined} badgeColor="#22C55E" badgeBg="#F0FDF4" icon={<ClipboardList size={18} />} iconBg="#F3F4F6" iconColor="#6B7280" barWidth={resolvePct + '%'} loading={loading} onClick={() => navigate('/complaint-management')} />
         <StatCard label="Pending" value={loading ? '—' : String(pending)} badge="Review" badgeColor="#F97316" badgeBg="#FFF7ED" icon={<AlertCircle size={18} />} iconBg="#FFF7ED" iconColor="#F97316" barWidth={pendingPct + '%'} barColor="#F97316" loading={loading} />
         <StatCard label="In Progress" value={loading ? '—' : String(inProgress)} badge="Active" badgeColor="#3B82F6" badgeBg="#EFF6FF" icon={<Clock size={18} />} iconBg="#EFF6FF" iconColor="#3B82F6" barWidth={progressPct + '%'} barColor="#3B82F6" loading={loading} />
-        <StatCard label="Resolved" value={loading ? '—' : String(resolved)} badge="Closed" badgeColor="#fff" badgeBg="rgba(255,255,255,0.2)" icon={<CheckCircle size={18} />} iconBg="rgba(255,255,255,0.2)" iconColor="#fff" dark barWidth={resolvePct + '%'} loading={loading} onClick={() => navigate('/complaint-management')} />
+        <StatCard label="Resolved" value={loading ? '—' : String(resolved)} badge="Incl. closed" badgeColor="#fff" badgeBg="rgba(255,255,255,0.2)" icon={<CheckCircle size={18} />} iconBg="rgba(255,255,255,0.2)" iconColor="#fff" dark barWidth={resolvePct + '%'} loading={loading} onClick={() => navigate('/complaint-management')} />
       </div>
 
       <div className="flex gap-5">

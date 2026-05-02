@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Download, MapPin, TrendingUp, TrendingDown, ClipboardList, CheckCircle, Inbox, RefreshCw } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 
 const CATEGORY_META = {
   STREETLIGHT:      { label: 'Streetlights',     color: '#B85C2E' },
@@ -71,8 +71,7 @@ export default function Analytics() {
 
   useEffect(() => {
     setLoading(true)
-    authFetch('/admin/dashboard/analytics?days=' + days)
-      .then(r => r.json())
+    authFetchJson('/admin/dashboard/analytics?days=' + days)
       .then(d => { setAnalytics(d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [days])
@@ -217,7 +216,7 @@ export default function Analytics() {
                 const color = DEPT_COLORS[dept.toLowerCase()] || '#B85C2E'
                 const pct   = Math.round((count / deptMax) * 100)
                 return (
-                  <div key={dept} className="cursor-pointer hover:opacity-70" onClick={() => navigate('/departments')}>
+                  <div key={dept} className="cursor-pointer hover:opacity-70" onClick={() => navigate('/organization')}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-semibold text-gray-700 uppercase">{dept}</span>
                       <span className="text-sm font-bold text-gray-800">{count} reports</span>

@@ -33,7 +33,7 @@ export default function SuperAdminDashboard() {
   const totalCount = data?.total ?? 0
   const pending    = (kc.NEW || 0) + (kc.PENDING_VERIFICATION || 0) + (kc.VERIFIED || 0)
   const inProgress = kc.IN_PROGRESS || 0
-  const resolved   = kc.RESOLVED || 0
+  const resolved   = (kc.RESOLVED || 0) + (kc.CLOSED || 0)
 
   const resolvePct  = totalCount ? Math.min(100, Math.round((resolved   / totalCount) * 100)) : 0
   const pendingPct  = totalCount ? Math.min(100, Math.round((pending    / totalCount) * 100)) : 0
@@ -46,7 +46,7 @@ export default function SuperAdminDashboard() {
     <div className="p-6 flex flex-col gap-6">
       <PageHeader title="Pakistan Overview" subtitle="System-wide complaint performance across all cities">
         <button
-          onClick={() => navigate('/departments')}
+          onClick={() => navigate('/organization')}
           className="px-4 py-2 rounded-xl bg-white border border-warm-border text-sm font-semibold text-gray-600"
         >
           Departments
@@ -94,7 +94,7 @@ export default function SuperAdminDashboard() {
         <StatCard
           label="Resolved"
           value={loading ? '—' : String(resolved)}
-          badge="Closed"
+          badge="Incl. closed"
           badgeColor="#fff" badgeBg="rgba(255,255,255,0.2)"
           icon={<CheckCircle size={18} />}
           iconBg="rgba(255,255,255,0.2)" iconColor="#fff"
@@ -161,7 +161,7 @@ export default function SuperAdminDashboard() {
             )
           })}
           <button
-            onClick={() => navigate('/departments')}
+            onClick={() => navigate('/organization')}
             className="mt-4 w-full py-2 rounded-xl text-xs font-bold text-primary border border-warm-border hover:bg-gray-50"
           >
             Manage Departments
