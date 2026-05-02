@@ -5,6 +5,8 @@ import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
 import 'report_issue_screen.dart';
+import '../services/api_service.dart';
+import '../services/push_notifications.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,13 +20,14 @@ class _MainShellState extends State<MainShell> {
 
   late final List<Widget> _pages;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final ValueNotifier<int> _homeUnreadBadge = ValueNotifier<int>(0);
 
   @override
   void initState() {
     super.initState();
     // Create once so state inside each tab is preserved via IndexedStack
     _pages = [
-      HomeScreen(key: _homeKey),
+      HomeScreen(key: _homeKey, unreadBadgeNotifier: _homeUnreadBadge),
       ExploreScreen(),
       ReportIssueScreen(
         fromTab: true,
@@ -41,6 +44,18 @@ class _MainShellState extends State<MainShell> {
       ),
       ProfileScreen(),
     ];
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final t = await ApiService.getToken();
+      if (t != null && t.isNotEmpty) {
+        await PushNotifications.syncTokenAfterAuth();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _homeUnreadBadge.dispose();
+    super.dispose();
   }
 
   void _onTabTapped(int index) {
@@ -95,16 +110,41 @@ class _MainShellState extends State<MainShell> {
     final Color activeColor = const Color(0xFFC85A3A);
     final Color inactiveColor = const Color(0xFF666666);
 
+    Widget iconWidget = Icon(
+      icon,
+      color: isActive ? activeColor : inactiveColor,
+      size: 24,
+    );
+
+    if (index == 0) {
+      iconWidget = ValueListenableBuilder<int>(
+        valueListenable: _homeUnreadBadge,
+        builder: (context, count, child) {
+          return Badge(
+            backgroundColor: activeColor,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            isLabelVisible: count > 0,
+            label: Text(
+              count > 99 ? '99+' : '$count',
+              style: GoogleFonts.roboto(
+                fontSize: 9,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            child: child,
+          );
+        },
+        child: iconWidget,
+      );
+    }
+
     return GestureDetector(
       onTap: () => _onTabTapped(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: isActive ? activeColor : inactiveColor,
-            size: 24,
-          ),
+          iconWidget,
           const SizedBox(height: 4),
           Text(
             label,
