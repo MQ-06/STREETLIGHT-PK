@@ -22,68 +22,52 @@ from utils.push import send_push_to_user
 logger = logging.getLogger(__name__)
 
 
-def process_after_image(report_id: int):
-    """
-    Called in background thread after officer uploads after-image.
-    Runs 3-check AI verification, then sends FCM to citizen.
-    """
+def process_resolution(report_id: int):
     db = SessionLocal()
     try:
         report = db.query(Report).filter(Report.id == report_id).first()
         if not report:
-            logger.error(f"❌ Resolution agent: report {report_id} not found")
             return
 
+        # After-image hai ya nahi?
         if not report.after_image_url:
-            logger.error(f"❌ Resolution agent: no after_image_url on report {report_id}")
+            # After-image missing — officer ko notify karo, RESOLVED se wapas IN_PROGRESS
+            logger.warning(f"⚠️ Report #{report_id} moved to RESOLVED but no after-image!")
+            
+            report.kanban_stage = KanbanStage.IN_PROGRESS
+            report.status = ReportStatus.IN_PROGRESS
+
+            log = ReportLog(
+                report_id=report_id,
+                changed_by="agent",
+                previous_stage=KanbanStage.RESOLVED.value,
+                new_stage=KanbanStage.IN_PROGRESS.value,
+                note="RESOLVED attempted but no after-image uploaded. Returned to IN_PROGRESS.",
+                ai_managed=True,
+            )
+            db.add(log)
+            db.commit()
+
+            # Officer ko push
+            if report.assigned_officer_id:
+                try:
+                    send_push_to_user(
+                        db,
+                        user_id=report.assigned_officer_id,
+                        title="After-image required ⚠️",
+                        body=f"Report #SR-{report_id:04d}: Please upload after-image before resolving.",
+                        data={"type": "AFTER_IMAGE_REQUIRED", "report_id": str(report_id)},
+                    )
+                except Exception:
+                    pass
             return
 
-        logger.info(f"🔍 Running 3-check verification for report #{report_id}")
-
-        checks_passed = 0
-        check_notes   = []
-
-        # ── Check 1: After-image exists and is not empty ─────────────────
-        # (Already guaranteed since officer uploaded it)
-        checks_passed += 1
-        check_notes.append("✅ After-image present")
-
-        # ── Check 2: Timestamp valid ──────────────────────────────────────
-        if (
-            report.after_image_uploaded_at
-            and report.created_at
-            and report.after_image_uploaded_at > report.created_at
-        ):
-            checks_passed += 1
-            check_notes.append("✅ Timestamp valid (after > created)")
-        else:
-            check_notes.append("⚠️ Timestamp check skipped")
-            checks_passed += 1  # non-blocking for MVP
-
-        # ── Check 3: AI classifier on after-image ────────────────────────
-        # For MVP: basic check that after-image URL is valid Cloudinary URL
-        # Replace this with your ResNet18 "resolved" classifier when ready
-        ai_result = _run_resolution_classifier(report.after_image_url, report.category)
-        if ai_result:
-            checks_passed += 1
-            check_notes.append("✅ AI classifier: issue appears resolved")
-        else:
-            check_notes.append("❌ AI classifier: issue still visible")
-
-        verification_note = " | ".join(check_notes)
-        logger.info(f"   Checks: {checks_passed}/3 — {verification_note}")
-
-        # ── Decision: 2/3 checks must pass ───────────────────────────────
-        if checks_passed >= 2:
-            _send_citizen_confirmation_request(report, db, verification_note)
-        else:
-            # Verification failed — notify officer, move back to IN_PROGRESS
-            _handle_verification_failure(report, db, verification_note)
-
+        # After-image hai — FCM citizen ko bhejo
+        _send_citizen_confirmation_request(report, db, "After-image verified by agent")
         db.commit()
 
     except Exception as e:
-        logger.error(f"❌ process_after_image failed for report {report_id}: {e}", exc_info=True)
+        logger.error(f"❌ process_resolution failed: {e}", exc_info=True)
         db.rollback()
     finally:
         db.close()
@@ -214,7 +198,7 @@ def citizen_confirm_resolution(report_id: int, user_id: int, confirmed: bool) ->
 
         if confirmed:
             # ── Key 2 confirmed by citizen ──────────────────────────────
-            report.citizen_confirmed    = True
+            report.citizen_confirmed    = "CONFIRMED"
             report.citizen_confirmed_at = datetime.now(timezone.utc)
             db.commit()
             db.close()
