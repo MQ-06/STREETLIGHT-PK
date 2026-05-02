@@ -1,60 +1,50 @@
 // Module 4 — Predictive Alerts Feed (5 rule-based types)
 import { useState, useEffect } from 'react'
-import { authFetch } from '../../utils/auth'
+import { authFetchJson } from '../../utils/auth'
 
-/**
- * Visual config for each alert type — matches the spec exactly:
- *   area_warning     → red
- *   resource_suggest → blue
- *   seasonal         → amber
- *   dept_nudge       → orange
- *   anomaly          → red bold
- *   ok               → green
- */
+/** Labels in plain English — messages themselves cite real counts from the API. */
+const PREDICTIVE_STYLE = {
+  dot: '#6366F1',
+  bg: '#EEF2FF',
+  badge: 'From your data',
+  badgeBg: '#E0E7FF',
+  badgeText: '#3730A3',
+  bold: true,
+}
+
 const TYPE_CONFIG = {
+  predictive: PREDICTIVE_STYLE,
   area_warning: {
     dot:        '#EF4444',
     bg:         '#FEF2F2',
-    badge:      'Area Warning',
+    badge:      'Repeat reports',
     badgeBg:    '#FEE2E2',
     badgeText:  '#DC2626',
-    icon:       '🚨',
     bold:       false,
   },
   resource_suggest: {
     dot:        '#3B82F6',
     bg:         '#EFF6FF',
-    badge:      'Resource Suggestion',
+    badge:      'Workload rising',
     badgeBg:    '#DBEAFE',
     badgeText:  '#1D4ED8',
-    icon:       '👥',
     bold:       false,
   },
-  seasonal: {
-    dot:        '#F59E0B',
-    bg:         '#FFFBEB',
-    badge:      'Seasonal Prediction',
-    badgeBg:    '#FEF3C7',
-    badgeText:  '#B45309',
-    icon:       '🌧️',
-    bold:       false,
-  },
+  seasonal: PREDICTIVE_STYLE,
   dept_nudge: {
     dot:        '#F97316',
     bg:         '#FFF7ED',
-    badge:      'Department Nudge',
+    badge:      'Slow to close',
     badgeBg:    '#FFEDD5',
     badgeText:  '#C2410C',
-    icon:       '🎯',
     bold:       false,
   },
   anomaly: {
     dot:        '#DC2626',
     bg:         '#FEF2F2',
-    badge:      'Anomaly Alert',
+    badge:      'Busy day',
     badgeBg:    '#FEE2E2',
     badgeText:  '#991B1B',
-    icon:       '⚡',
     bold:       true,
   },
   ok: {
@@ -63,13 +53,15 @@ const TYPE_CONFIG = {
     badge:      'All Clear',
     badgeBg:    '#DCFCE7',
     badgeText:  '#15803D',
-    icon:       '✅',
     bold:       false,
   },
 }
 
 function AlertItem({ alert }) {
-  const cfg = TYPE_CONFIG[alert.type] ?? TYPE_CONFIG.ok
+  const cfg =
+    TYPE_CONFIG[alert.type] ??
+    (alert.type === 'smart_city' ? PREDICTIVE_STYLE : null) ??
+    TYPE_CONFIG.ok
 
   return (
     <div
@@ -82,9 +74,7 @@ function AlertItem({ alert }) {
         style={{ backgroundColor: cfg.dot }}
       />
 
-      {/* Icon + message */}
       <div className="flex-1 min-w-0">
-        <span className="mr-1.5 text-sm">{cfg.icon}</span>
         <span
           className="text-sm text-gray-700"
           style={{ fontWeight: cfg.bold ? 700 : 400 }}
@@ -127,8 +117,7 @@ export default function AlertsFeed({ scope, scopeId, days }) {
     setLoading(true)
 
     const params = new URLSearchParams({ scope, scope_id: scopeId || '', days })
-    authFetch(`/admin/analytics/alerts?${params}`)
-      .then(r => r.json())
+    authFetchJson(`/admin/analytics/alerts?${params}`)
       .then(d => { if (!cancelled) { setAlerts(d.alerts ?? []); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 
@@ -138,7 +127,12 @@ export default function AlertsFeed({ scope, scopeId, days }) {
   return (
     <div className="bg-white rounded-2xl border border-warm-border p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-700">Predictive Alerts</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700">Predictive alerts</h3>
+          <p className="text-xs text-gray-400 mt-0.5 max-w-xl">
+            Plain reading of complaints you already collected — counts and dates drive each line below.
+          </p>
+        </div>
         {!loading && (
           <span className="text-xs text-gray-400">
             {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
