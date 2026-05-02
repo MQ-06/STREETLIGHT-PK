@@ -1,13 +1,4 @@
 # backend/routers/admin/reports.py
-"""
-Admin reports endpoints — role-filtered CRUD.
-
-Role visibility rules:
-  super_admin  → all reports, all cities, all departments
-  city_admin   → reports where assigned_city = token.city
-  dept_officer → reports where assigned_city = token.city
-                            AND assigned_department = token.department
-"""
 import logging
 from datetime import datetime, timezone
 from typing import Optional

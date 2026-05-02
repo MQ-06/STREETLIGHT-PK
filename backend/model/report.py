@@ -1,13 +1,18 @@
-#backend/model/report.py
+# backend/model/report.py
+
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean,
     ForeignKey, Text, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
 from db.database import Base
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import enum
 
+
+# =========================
+# ENUMS
+# =========================
 
 class ReportStatus(str, enum.Enum):
     PENDING = "PENDING"
@@ -16,26 +21,31 @@ class ReportStatus(str, enum.Enum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
 
 
 class KanbanStage(str, enum.Enum):
-    """Admin-side lifecycle stage — separate from citizen-facing ReportStatus."""
-    NEW                 = "NEW"
+    NEW = "NEW"
     PENDING_VERIFICATION = "PENDING_VERIFICATION"
-    VERIFIED            = "VERIFIED"
-    IN_PROGRESS         = "IN_PROGRESS"
-    AWAITING_FEEDBACK   = "AWAITING_FEEDBACK"
-    RESOLVED            = "RESOLVED"
+    VERIFIED = "VERIFIED"
+    IN_PROGRESS = "IN_PROGRESS"
+    AWAITING_FEEDBACK = "AWAITING_FEEDBACK"
+    RESOLVED = "RESOLVED"
 
 
 class IssueCategory(str, enum.Enum):
     POTHOLE = "POTHOLE"
     TRASH = "TRASH"
 
+
 class InteractionType(str, enum.Enum):
     SUPPORT = "SUPPORT"
     VERIFY = "VERIFY"
 
+
+# =========================
+# MAIN MODEL
+# =========================
 
 class Report(Base):
     __tablename__ = "reports"
@@ -53,133 +63,168 @@ class Report(Base):
     location_lat = Column(Float, nullable=True)
     location_lng = Column(Float, nullable=True)
 
-    # Image stored as Cloudinary URL
+    # Image
     image_url = Column(String, nullable=True)
 
-    status = Column(SAEnum(ReportStatus), default=ReportStatus.PENDING)
+    status = Column(
+        SAEnum(ReportStatus),
+        default=ReportStatus.PENDING,
+        nullable=False
+    )
 
     support_count = Column(Integer, default=0)
     verify_count = Column(Integer, default=0)
     views = Column(Integer, default=0)
 
-    # Community confirmation contributions (other users' photos)
     confirmation_count = Column(Integer, default=0)
     best_image_url = Column(String, nullable=True)
 
-    # ==========================================
-    # AI AGENT RESULTS (NEW)
-    # ==========================================
-    
-    # Layer 0: Validation Results
-    validation_score = Column(Float, nullable=True, comment="Image quality score (0-100)")
-    validation_status = Column(String(20), nullable=True, comment="passed or failed")
-    validation_warnings = Column(Text, nullable=True, comment="JSON array of warnings")
-    
-    # Layer 1: AI Classification Results
-    ai_confidence = Column(Float, nullable=True, comment="AI confidence score (0-100)")
-    ai_predicted_class = Column(String(50), nullable=True, comment="pothole or garbage")
-    ai_severity = Column(String(20), nullable=True, comment="small, medium, or large")
-    final_score = Column(Float, nullable=True, comment="Combined AI + GPS score (0-100)")
-    image_hash = Column(String(128), nullable=True, comment="SHA-256 hash of the uploaded image")
-    
-    # GPS Verification Results
-    gps_verified = Column(Boolean, default=False, comment="Location verified with landmarks")
-    gps_has_photo_location = Column(Boolean, default=False, comment="Photo contained GPS in EXIF")
-    gps_distance_km = Column(Float, nullable=True, comment="Distance between photo & submitted GPS")
-    gps_spoofing_detected = Column(Boolean, default=False, comment="Large GPS mismatch detected")
+    # =========================
+    # AI RESULTS
+    # =========================
 
-    # ==========================================
-    # LAYER 2: FRAUD DETECTION RESULTS (NEW)
-    # ==========================================
+    validation_score = Column(Float, nullable=True)
+    validation_status = Column(String(20), nullable=True)
+    validation_warnings = Column(Text, nullable=True)
 
-    # Check 3: Spam pattern — soft flag; report is saved but queued for admin review
-    is_flagged_for_spam = Column(
-        Boolean,
-        default=False,
-        nullable=False,
-        comment="User exceeded submission rate limit; flagged for admin review"
-    )
+    ai_confidence = Column(Float, nullable=True)
+    ai_predicted_class = Column(String(50), nullable=True)
+    ai_severity = Column(String(20), nullable=True)
+    final_score = Column(Float, nullable=True)
+    image_hash = Column(String(128), nullable=True)
 
-    # Duplicate linkage — normally duplicates are blocked, but this FK is available
-    # if a near-duplicate ever needs to be saved and linked to its original
+    gps_verified = Column(Boolean, default=False)
+    gps_has_photo_location = Column(Boolean, default=False)
+    gps_distance_km = Column(Float, nullable=True)
+    gps_spoofing_detected = Column(Boolean, default=False)
+
+    # =========================
+    # FRAUD
+    # =========================
+
+    is_flagged_for_spam = Column(Boolean, default=False, nullable=False)
+
     duplicate_of_id = Column(
         Integer,
         ForeignKey("reports.id"),
-        nullable=True,
-        comment="Self-referential FK pointing to the original report (duplicates are usually blocked)"
+        nullable=True
     )
 
-    # ==========================================
-    # LAYER 3: COMMUNITY VERIFICATION RESULTS
-    # ==========================================
+    # =========================
+    # COMMUNITY + TRUST
+    # =========================
 
-    community_score = Column(Float, nullable=True, comment="Community verification score (0-100)")
+    community_score = Column(Float, nullable=True)
+    trust_score = Column(Float, nullable=True)
 
-    # ==========================================
-    # LAYER 4: TRUST HISTORY RESULTS
-    # ==========================================
+    combined_score = Column(Float, nullable=True)
+    verification_status = Column(String(20), default="PENDING")
 
-    trust_score = Column(Float, nullable=True, comment="Engine D trust score at time of report")
+    # =========================
+    # ADMIN ROUTING
+    # =========================
 
-    # ==========================================
-    # STEP 5: FINAL CONFIDENCE SCORE
-    # ==========================================
+    assigned_city = Column(String(50), nullable=True)
+    assigned_department = Column(String(50), nullable=True)
 
-    combined_score = Column(Float, nullable=True, comment="Weighted combination of AI, community, and trust scores")
-    verification_status = Column(String(20), nullable=True, default="PENDING", comment="AUTO_VERIFIED | REVIEW_NEEDED | REJECTED | PENDING")
+    assigned_officer_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
 
-    # ==========================================
-    # ADMIN ROUTING (Phase 1)
-    # ==========================================
-    assigned_city        = Column(String(50),  nullable=True, comment="Detected city: lahore | faisalabad")
-    assigned_department  = Column(String(50),  nullable=True, comment="Mapped dept: lmc | lwmc | fmc | fwmc")
-    assigned_officer_id  = Column(Integer, ForeignKey("users.id"), nullable=True, comment="FK to the Department Officer assigned")
-    assigned_at          = Column(DateTime(timezone=True), nullable=True, comment="Timestamp when auto-routing completed")
-    kanban_stage         = Column(
+    assigned_at = Column(DateTime(timezone=True), nullable=True)
+
+    kanban_stage = Column(
         SAEnum(KanbanStage),
-        nullable=True,
         default=KanbanStage.NEW,
-        comment="Admin Kanban pipeline stage"
+        nullable=True
     )
+
+    # =========================
+    # RESOLUTION FLOW
+    # =========================
+
+    after_image_url = Column(String, nullable=True)
+    after_image_uploaded_at = Column(DateTime(timezone=True), nullable=True)
+    after_image_uploaded_by = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    # Citizen response
+    citizen_response = Column(String(20), nullable=True)  # CONFIRMED | REJECTED | PENDING
+    citizen_confirmed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Notification tracking
+    resolution_notified_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Auto resolve timer (7 days)
+    auto_resolve_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Blockchain
+    blockchain_resolve_tx = Column(String(100), nullable=True)
+    blockchain_status = Column(String(20), nullable=True)  # PENDING | SUCCESS | FAILED
+
+    # Final closure
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # =========================
+    # TIMESTAMPS
+    # =========================
 
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
+
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
 
-    # Relationships
+    # =========================
+    # RELATIONSHIPS
+    # =========================
+
     reporter = relationship("User", foreign_keys=[user_id], backref="reports")
-    assigned_officer = relationship("User", foreign_keys=[assigned_officer_id])
+
+    assigned_officer = relationship(
+        "User",
+        foreign_keys=[assigned_officer_id]
+    )
+
     interactions = relationship(
         "ReportInteraction",
         back_populates="report",
         cascade="all, delete"
     )
-    # Self-referential: the original report this one was flagged as a duplicate of
+
     duplicate_of = relationship(
         "Report",
         remote_side="Report.id",
-        foreign_keys="[Report.duplicate_of_id]",
+        foreign_keys=[duplicate_of_id]
     )
-    # Layer 3: one-to-one link to the community verification request
+
     verification_request = relationship(
         "VerificationRequest",
         back_populates="report",
-        uselist=False,
+        uselist=False
     )
-    # Comments
+
     comments = relationship(
         "Comment",
         back_populates="report",
         cascade="all, delete",
-        order_by="Comment.created_at",
+        order_by="Comment.created_at"
     )
 
+
+# =========================
+# INTERACTIONS
+# =========================
 
 class ReportInteraction(Base):
     __tablename__ = "report_interactions"
@@ -187,7 +232,11 @@ class ReportInteraction(Base):
     id = Column(Integer, primary_key=True, index=True)
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    interaction_type = Column(SAEnum(InteractionType), nullable=False)
+
+    interaction_type = Column(
+        SAEnum(InteractionType),
+        nullable=False
+    )
 
     created_at = Column(
         DateTime(timezone=True),
@@ -197,12 +246,17 @@ class ReportInteraction(Base):
     report = relationship("Report", back_populates="interactions")
 
 
+# =========================
+# COMMENTS
+# =========================
+
 class Comment(Base):
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     text = Column(Text, nullable=False)
 
     created_at = Column(
@@ -214,6 +268,10 @@ class Comment(Base):
     user = relationship("User")
 
 
+# =========================
+# CONTRIBUTIONS
+# =========================
+
 class ReportContribution(Base):
     __tablename__ = "report_contributions"
 
@@ -221,18 +279,15 @@ class ReportContribution(Base):
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    # Cloudinary URL of the contributor's photo
     image_url = Column(String, nullable=False)
 
-    # Snapshot of AI results for this contribution
     ai_confidence = Column(Float, nullable=True)
     ai_severity = Column(String(20), nullable=True)
 
-    # Location where this confirming photo was taken
     location_lat = Column(Float, nullable=True)
     location_lng = Column(Float, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc)
     )
