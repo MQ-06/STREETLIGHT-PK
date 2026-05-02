@@ -6,7 +6,8 @@ Orchestrates the full auto-routing pipeline for a newly created report:
   Step 2 — Map dept      (city + issue_type → department slug)
   Step 3 — Look up officer (query routing_table)
   Step 4 — Update report  (assigned_city, assigned_department,
-                            assigned_officer_id, assigned_at, kanban_stage=NEW)
+                            assigned_officer_id, assigned_at,
+                            kanban_stage=VERIFIED when officer assigned)
   Step 5 — Write audit log (report_logs, ai_managed=True)
 
 Always non-blocking — all exceptions are caught and logged.
@@ -21,12 +22,13 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from model.report import Report, KanbanStage
+from model.report import Report, KanbanStage, ReportStatus
 from model.routing_table import RoutingTable
 from model.report_logs import ReportLog
 from services.routing.city_detector import detect_city, get_city_display_name
 from services.routing.dept_mapper import map_issue_to_department, get_department_display_name
 from utils.email_service import send_new_report_notification
+from utils.reporter_notifications import notify_reporter_routed_to_municipal
 
 logger = logging.getLogger(__name__)
 
@@ -152,12 +154,13 @@ def route_report(
         report.assigned_department = dept
         report.assigned_officer_id = officer_id
         report.assigned_at         = now
-        report.kanban_stage        = KanbanStage.NEW
+        report.kanban_stage        = KanbanStage.VERIFIED
+        report.status              = ReportStatus.VERIFIED
 
         # ── Step 5: Write audit log ────────────────────────────────────
         note = (
             f"Auto-routed to {officer_name} ({dept_display}, {city_display}). "
-            f"Kanban stage set to NEW."
+            f"Kanban set to VERIFIED (ready for municipal action)."
         )
         _write_log(
             db, report,
@@ -166,9 +169,9 @@ def route_report(
             assigned_department=dept,
             assigned_officer_id=officer_id,
             previous_stage=None,
-            new_stage=KanbanStage.NEW.value,
+            new_stage=KanbanStage.VERIFIED.value,
             previous_status=None,
-            new_status=report.status.value if report.status else None,
+            new_status=ReportStatus.VERIFIED.value,
         )
 
         db.flush()  # persist within caller's transaction (caller commits)
@@ -180,6 +183,20 @@ def route_report(
             f"✅ routing: report ID={report.id} → "
             f"city={city}, dept={dept}, officer='{officer_name}' (id={officer_id})"
         )
+
+        try:
+            notify_reporter_routed_to_municipal(
+                report_id=report.id,
+                reporter_user_id=report.user_id,
+                city=city,
+                department=dept,
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                "⚠️ Reporter routed notify failed report=%s: %s",
+                report.id,
+                notify_exc,
+            )
 
         # ── Step 6: Email notification (non-blocking) ─────────────��────
         notif_email = getattr(officer, "notification_email", None)

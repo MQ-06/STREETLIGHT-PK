@@ -14,6 +14,7 @@ from model.report import Report, KanbanStage, ReportStatus
 from model.report_logs import ReportLog
 from model.users import User
 from utils.rbac import require_roles
+from utils.reporter_notifications import notify_reporter_kanban_stage_change
 
 import cloudinary
 import cloudinary.uploader
@@ -355,10 +356,20 @@ async def upload_after_image(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    if report.kanban_stage not in [KanbanStage.IN_PROGRESS, KanbanStage.VERIFIED]:
+    stage_ok = report.kanban_stage in (
+        KanbanStage.IN_PROGRESS,
+        KanbanStage.VERIFIED,
+    ) or (
+        report.kanban_stage == KanbanStage.RESOLVED and not report.after_image_url
+    )
+    if not stage_ok:
         raise HTTPException(
             status_code=400,
-            detail=f"After-image can only be uploaded when report is IN_PROGRESS or VERIFIED. Current: {report.kanban_stage}",
+            detail=(
+                "After-image allowed when stage is In Progress or Verified, "
+                "or Resolved only if no after photo yet. Current: "
+                f"{report.kanban_stage}"
+            ),
         )
 
     try:
@@ -465,5 +476,16 @@ def update_stage(
             target=process_resolution, args=(report.id,), daemon=True
         ).start()
         logger.info(f"🤖 Resolution agent triggered for report #{report_id}")
+
+    try:
+        notify_reporter_kanban_stage_change(
+            report_id=report.id,
+            reporter_user_id=report.user_id,
+            previous_stage=prev_stage,
+            new_stage=new_stage.value,
+            status_value=report.status.value if report.status else None,
+        )
+    except Exception as exc:
+        logger.warning("Reporter stage notify skipped: %s", exc)
 
     return {"success": True, "stage": new_stage.value, "note": note}
