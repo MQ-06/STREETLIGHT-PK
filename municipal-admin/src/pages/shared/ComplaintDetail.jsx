@@ -68,8 +68,14 @@ export default function ComplaintDetail() {
     e.target.value = ''
     if (!file || !id || !report) return
     const stage = report.kanban_stage
-    if (stage !== 'IN_PROGRESS' && stage !== 'VERIFIED') {
-      setAfterMsg('Set stage to In Progress or Verified before uploading an after photo.')
+    const canUpload =
+      stage === 'IN_PROGRESS' ||
+      stage === 'VERIFIED' ||
+      (stage === 'RESOLVED' && !report.after_image_url)
+    if (!canUpload) {
+      setAfterMsg(
+        'Upload needs In Progress or Verified, or Resolved only when no after photo exists yet.',
+      )
       return
     }
     setAfterLoading(true)
@@ -163,8 +169,9 @@ export default function ComplaintDetail() {
               />
             </label>
             <p className="text-xs text-gray-400 mt-2">
-              Allowed when stage is <strong>In Progress</strong> or <strong>Verified</strong>. Moves the report to{' '}
-              <strong>Awaiting Feedback</strong> and notifies the citizen.
+              Allowed when <strong>In Progress</strong> or <strong>Verified</strong>, or{' '}
+              <strong>Resolved</strong> if there is still no after photo. Moves to{' '}
+              <strong>Awaiting Feedback</strong> and notifies the citizen (in-app + push when FCM is set up).
             </p>
             {afterMsg && <p className="text-xs mt-2 text-primary font-medium">{afterMsg}</p>}
           </div>
