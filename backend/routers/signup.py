@@ -63,6 +63,9 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
             "user_id": new_user.id
         }
 
+    except HTTPException as e:
+        raise e
+
     except SQLAlchemyError as e:
         db.rollback()  # rollback in case of DB error
         logger.error(f"Database error during signup: {e}")
