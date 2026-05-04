@@ -667,8 +667,11 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onTap: () => _showCommentsBottomSheet(index),
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Padding(
@@ -764,8 +767,9 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAvatar(ReportModel report) {
     // Color list to pick from based on name length
@@ -1337,8 +1341,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           },
         );
       },
-    );
-    commentController.dispose();
+    ).then((_) => commentController.dispose());
   }
 
   Widget _buildCommentTile(CommentModel comment, VoidCallback onDeleted) {
