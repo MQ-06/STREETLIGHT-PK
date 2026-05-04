@@ -92,7 +92,21 @@ def process_resolution(report_id: int):
                     pass
             return
 
-        # After-image hai — FCM citizen ko bhejo
+        # After-image hai — move to AWAITING_FEEDBACK and notify citizen
+        prev_stage = report.kanban_stage.value if report.kanban_stage else "RESOLVED"
+        report.kanban_stage = KanbanStage.AWAITING_FEEDBACK
+        report.status = ReportStatus.IN_PROGRESS
+        
+        log = ReportLog(
+            report_id=report_id,
+            changed_by="agent",
+            previous_stage=prev_stage,
+            new_stage=KanbanStage.AWAITING_FEEDBACK.value,
+            note="RESOLVED attempted by officer. Moved to AWAITING_FEEDBACK for citizen confirmation.",
+            ai_managed=True,
+        )
+        db.add(log)
+        
         _send_citizen_confirmation_request(report, db, "After-image verified by agent")
         db.commit()
 
@@ -276,8 +290,8 @@ def citizen_confirm_resolution(report_id: int, user_id: int, confirmed: bool) ->
         if report.reporter and report.reporter.id != user_id:
             return {"success": False, "error": "Not your report"}
 
-        if report.kanban_stage != KanbanStage.AWAITING_FEEDBACK:
-            return {"success": False, "error": f"Report not awaiting feedback. Current: {report.kanban_stage}"}
+        if report.kanban_stage not in (KanbanStage.AWAITING_FEEDBACK, KanbanStage.RESOLVED):
+            return {"success": False, "error": f"Report not awaiting feedback or resolution. Current: {report.kanban_stage}"}
 
         if confirmed:
             report.citizen_response = "CONFIRMED"

@@ -828,7 +828,7 @@ def get_resolution_detail_for_reporter(
             "after_image_url": report.after_image_url or "",
             "kanban_stage": stage_val,
             "status": report.status.value if report.status else None,
-            "can_confirm": stage_val == "AWAITING_FEEDBACK" and bool(report.after_image_url),
+            "can_confirm": stage_val in ("AWAITING_FEEDBACK", "RESOLVED") and bool(report.after_image_url),
         },
     }
 
