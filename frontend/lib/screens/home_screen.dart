@@ -1271,48 +1271,69 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       final text =
                                           commentController.text.trim();
                                       if (text.isEmpty) return;
+                                      
                                       setSheetState(() => submitting = true);
 
-                                      final result =
-                                          await ApiService.createComment(
-                                              report.id, text);
+                                      final result = await ApiService.createComment(
+                                          report.id, text);
+                                      
                                       if (!mounted) return;
 
-                                      if (result['success'] == true) {
-                                        final newComment =
-                                            CommentModel.fromJson(result['data']
-                                                ['comment'] as Map<String, dynamic>);
-                                        commentController.clear();
-                                        setSheetState(() {
-                                          comments.add(newComment);
-                                          submitting = false;
-                                        });
-                                        // Update card count
-                                        final idx = _reports.indexWhere(
-                                            (r) => r.id == report.id);
-                                        if (idx != -1) {
-                                          setState(() {
-                                            final r = _reports[idx];
-                                            _reports[idx] = ReportModel(
-                                              id: r.id,
-                                              reporterId: r.reporterId,
-                                              reporterName: r.reporterName,
-                                              reporterInitials:
-                                                  r.reporterInitials,
-                                              reporterAvatarUrl:
-                                                  r.reporterAvatarUrl,
-                                              timestamp: r.timestamp,
-                                              location: r.location,
-                                              locationCity: r.locationCity,
-                                              issueCategory: r.issueCategory,
-                                              title: r.title,
-                                              description: r.description,
-                                              imageUrl: r.imageUrl,
-                                              views: r.views,
-                                              supportCount: r.supportCount,
-                                              verifyCount: r.verifyCount,
-                                              commentCount: r.commentCount + 1,
-                                              status: r.status,
+                                      try {
+                                        if (result['success'] == true) {
+                                          final newComment = CommentModel.fromJson(
+                                              result['data']['comment']
+                                                  as Map<String, dynamic>);
+                                          
+                                          commentController.clear();
+                                          
+                                          setSheetState(() {
+                                            comments.add(newComment);
+                                            submitting = false;
+                                          });
+
+                                          final idx = _reports.indexWhere(
+                                              (r) => r.id == report.id);
+                                          if (idx != -1) {
+                                            setState(() {
+                                              final r = _reports[idx];
+                                              _reports[idx] = ReportModel(
+                                                id: r.id,
+                                                reporterId: r.reporterId,
+                                                reporterName: r.reporterName,
+                                                reporterInitials: r.reporterInitials,
+                                                reporterAvatarUrl: r.reporterAvatarUrl,
+                                                timestamp: r.timestamp,
+                                                location: r.location,
+                                                locationCity: r.locationCity,
+                                                issueCategory: r.issueCategory,
+                                                title: r.title,
+                                                description: r.description,
+                                                imageUrl: r.imageUrl,
+                                                views: r.views,
+                                                supportCount: r.supportCount,
+                                                verifyCount: r.verifyCount,
+                                                commentCount: r.commentCount + 1,
+                                                status: r.status,
+                                                kanbanStage: r.kanbanStage,
+                                                combinedScore: r.combinedScore,
+                                                verificationStatus:
+                                                    r.verificationStatus,
+                                                locationLat: r.locationLat,
+                                                locationLng: r.locationLng,
+                                                hasSupported: r.hasSupported,
+                                                hasVerified: r.hasVerified,
+                                              );
+                                            });
+                                          }
+                                        } else {
+                                          setSheetState(() => submitting = false);
+                                        }
+                                      } catch (e) {
+                                        // Sheet probably closed, ignore gracefully
+                                      }
+                                    },
+us: r.status,
                                               kanbanStage: r.kanbanStage,
                                               combinedScore: r.combinedScore,
                                               verificationStatus: r.verificationStatus,
