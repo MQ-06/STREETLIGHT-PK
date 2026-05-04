@@ -110,6 +110,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               verificationCount: r['verify_count'] ?? 0,
               supportCount: r['support_count'] ?? 0,
               verifications: [],
+              statusOverride: r['status'] as String?,
+              referenceId: '#SR-${r['id']}',
             ),
           )
           .toList();

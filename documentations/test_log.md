@@ -96,9 +96,15 @@ Each test entry follows this format:
 
 | Test ID | Date | Tester | Component | Action Taken | Expected Result | Actual Result | Status |
 |---------|------|--------|-----------|--------------|-----------------|---------------|--------|
-| 5.1 | 2026-05-04 14:40 | Antigravity | Flutter / Backend | Open Verification Screen | Nearby pending requests visible | Verified — Screen loads reports | ✅ PASS |
-| 5.2 | 2026-05-04 14:41 | Antigravity | Flutter / Backend | Cast "YES" vote | Vote saved, card removed, impact score + | Verified — Vote ID 4 recorded, Impact 20.0 | ✅ PASS |
-| 5.3 | 2026-05-04 12:47 | Antigravity | Flutter / Backend | Auto-navigation home | Navigator goes to Home when list is empty | | |
+| 5.1 | 2026-05-04 14:40 | Antigravity | Flutter / Backend | Open Verification Screen | Nearby pending requests visible | Screen loads reports within radius | ✅ PASS |
+| 5.2 | 2026-05-04 14:41 | Antigravity | Flutter / Backend | Cast "YES" vote | Vote saved, card removed, impact score + | Vote ID 4 recorded, Impact Score → 20.0 | ✅ PASS |
+| 5.3 | 2026-05-04 15:10 | Antigravity | Backend | Notification auto-dismissed after vote | VERIFY_REQUEST notification marked read | Notification auto-read after vote | ✅ PASS |
+| 5.4 | 2026-05-04 15:12 | Antigravity | Backend | Already-voted reports excluded from feed | Voted reports do not reappear | Feed correctly filters voted requests | ✅ PASS |
+| 5.5 | | | Flutter | Auto-navigation home when list empty | Navigator goes to Home | | |
+
+**Notes:**
+- GPS hardcoded to Lahore (31.5204, 74.3587) for testing; feed radius expanded to 10km.
+- Report #228 was tagged TRASH by AI but image appeared as pothole — AI fallback mode artifact.
 
 ---
 
