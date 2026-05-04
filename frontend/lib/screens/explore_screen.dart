@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/civic_complaint.dart';
 import '../models/report_model.dart';
@@ -521,8 +522,43 @@ class _ExploreScreenState extends State<ExploreScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.streetlight.app',
             ),
-            MarkerLayer(
-              markers: _buildMapMarkers(),
+            // Layer 1: Heatmap (Hot Pins) - simple circles with glow
+            CircleLayer(
+              circles: _buildHeatmapCircles(),
+            ),
+            // Layer 2: Clustered Markers
+            MarkerClusterLayerWidget(
+              options: MarkerClusterLayerOptions(
+                maxClusterRadius: 45,
+                size: const Size(40, 40),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(50),
+                markers: _buildMapMarkers(),
+                builder: (context, markers) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: ExploreColors.primaryOrange,
+                      boxShadow: [
+                        BoxShadow(
+                          color: ExploreColors.primaryOrange.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        markers.length.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -701,6 +737,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ],
     );
+  }
+
+  List<CircleMarker> _buildHeatmapCircles() {
+    return _filteredComplaints.where((c) => c.status == 'CRITICAL').map((complaint) {
+      return CircleMarker(
+        point: LatLng(complaint.latitude, complaint.longitude),
+        color: ExploreColors.primaryOrange.withOpacity(0.15),
+        borderStrokeWidth: 0,
+        useRadiusInMeter: true,
+        radius: 400, // 400 meters "glow" radius
+      );
+    }).toList();
   }
 
   List<Marker> _buildMapMarkers() {
