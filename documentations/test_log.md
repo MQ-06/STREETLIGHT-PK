@@ -110,13 +110,21 @@ Each test entry follows this format:
 
 ## Phase 6 — Admin Dashboard UI/UX
 
-> _Tests will be logged here as they are executed_
+| Test ID | Date | Tester | Component | Action Taken | Expected Result | Actual Result | Status |
+|---------|------|--------|-----------|--------------|-----------------|---------------|--------|
+| 6.1 | 2026-05-04 20:50 | User/Anti | Dashboard | Login as Super Admin | Overview page loads | Success, KPI cards visible | ✅ PASS |
+| 6.2 | 2026-05-04 20:52 | User/Anti | Dashboard | Open Resolution Board | Kanban columns load | 7 columns with card counts | ✅ PASS |
+| 6.3 | 2026-05-04 20:54 | User | Dashboard | Drag card across columns | Card moves + API PATCH | Card moved, DB log entry 68 created | ✅ PASS |
+| 6.4 | 2026-05-04 20:54 | User | Dashboard | View Hotspot Map | Map renders with pins | Pins visible over Lahore/Faisalabad | ✅ PASS |
+| 6.5 | 2026-05-04 20:55 | Anti | Dashboard | Verify Stats Logic | Resolved count calculation | Includes CLOSED reports | ✅ PASS |
 
 ---
 
 ## Phase 7 — Status Mirroring Across All Components
 
-> _Tests will be logged here as they are executed_
+| Test ID | Date | Tester | Component | Action Taken | Expected Result | Actual Result | Status |
+|---------|------|--------|-----------|--------------|-----------------|---------------|--------|
+| 7.1 | 2026-05-04 20:54 | Anti | Backend | Verify Report 224 status | `Report.status` follows Kanban | `PENDING_VERIFICATION` -> `PENDING` | ✅ PASS |
 
 ---
 
@@ -135,12 +143,17 @@ Each test entry follows this format:
 | 9.3 | User gets review notification | Citizen alerted to confirm | Logged (FCM skipped) | ✅ PASS |
 | 9.4 | Status mirroring (Map) | Pin turns GREEN | Verified on App Map | ✅ PASS |
 | 9.5 | Impact score rewards | Reporter gets points | Points awarded in DB | ✅ PASS |
+| 9.6 | Citizen Confirmation Fix | Button enabled in RESOLVED stage | Logic relaxed in mobile_auth.py | ✅ PASS |
+| 9.7 | Final Closure Flow | Status/Stage moves to CLOSED | Verified in DB for #230 | ✅ PASS |
 
 ---
 
 ## Phase 10 — Blockchain Integration
 
-> _Tests will be logged here as they are executed_
+| 10.1 | Blockchain Service Init | Contract loaded & connected | `BlockchainService fully initialized` | ✅ PASS |
+| 10.2 | Register Complaint (On-Chain) | Complaint #230 recorded | Verified in Hardhat logs | ✅ PASS |
+| 10.3 | Mark Resolved (On-Chain) | Resolution TX written | TX `0x1b81...2d5986` confirmed | ✅ PASS |
+| 10.4 | Database Enum Sync | CLOSED added to reportstatus | SQL ALTER TYPE executed | ✅ PASS |
 
 ---
 
@@ -179,9 +192,9 @@ Each test entry follows this format:
 | 6. Dashboard UI/UX | 20 | | | | |
 | 7. Status Mirroring | 24 | | | | |
 | 8. Notification Pipeline | 8 | | | | |
-| 9. Resolution Lifecycle | 12 | 5 | 0 | 0 | 0 |
-| 10. Blockchain | 8 | | | | |
+| 9. Resolution Lifecycle | 12 | 7 | 0 | 0 | 1 |
+| 10. Blockchain | 8 | 4 | 0 | 0 | 1 |
 | 11. Agent Scheduler | 6 | | | | |
-| 12. UI/UX Fixes | 25 | | | | |
+| 12. UI/UX Fixes | 25 | 4 | 0 | 0 | 4 |
 | 13. Edge Cases | 12 | | | | |
-| **TOTAL** | **148** | | | | |
+| **TOTAL** | **148** | **52** | **0** | **0** | **12** |
