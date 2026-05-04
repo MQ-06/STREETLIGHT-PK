@@ -87,8 +87,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Load authoritative impact_score from backend profile
       final profileResult = await ApiService.getUserProfile();
-      if (profileResult['success'] == true) {
-        _impactScore = (profileResult['data']['impact_score'] as num).toInt();
+      if (profileResult['success'] == true && profileResult['data'] != null) {
+        final score = profileResult['data']['impact_score'];
+        _impactScore = score != null ? (score as num).toInt() : 0;
       }
 
       // Real reports from backend
@@ -174,7 +175,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       } on TimeoutException {
         setState(() {
-          _userLocation = 'Timed out. Try outdoors or near a window.';
           _isLoadingLocation = false;
         });
         return;
@@ -283,10 +283,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     switch (_selectedTab) {
       case ReportFilterTab.MY_REPORTS:
-        filtered = filtered.where((r) => r.status != 'RESOLVED').toList();
+        // Show all reports in the main tab
         break;
       case ReportFilterTab.RESOLVED:
-        filtered = filtered.where((r) => r.status == 'RESOLVED').toList();
+        filtered = filtered.where((r) => r.status == 'RESOLVED' || r.status == 'CLOSED').toList();
         break;
       case ReportFilterTab.IMPACT:
         // Impact tab shows stats, not reports
@@ -307,19 +307,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profileResult = await ApiService.getUserProfile();
     final myReports = await ApiService.getMyReports();
 
-    setState(() {
-      if (profileResult['success'] == true) {
-        _impactScore = (profileResult['data']['impact_score'] as num).toInt();
-      }
-      if (myReports['success'] == true) {
-        final reports = myReports['data']['reports'] as List<dynamic>;
+    if (myReports['success'] == true) {
+      final reports = myReports['data']['reports'] as List<dynamic>;
+      setState(() {
         _totalReported = reports.length;
-        _totalResolved = reports.where((r) => r['status'] == 'RESOLVED').length;
+        _totalResolved = reports
+            .where((r) => r['status'] == 'RESOLVED' || r['status'] == 'CLOSED')
+            .length;
         _impactPercentage = _totalReported > 0
             ? (_totalResolved / _totalReported) * 100
             : 0.0;
-      }
-    });
+
+        if (profileResult['success'] == true && profileResult['data'] != null) {
+          final score = profileResult['data']['impact_score'];
+          _impactScore = score != null ? (score as num).toInt() : 0;
+        }
+
+        userReports = reports
+            .map(
+              (r) => CivicReport(
+                id: r['id'].toString(),
+                reporterId: r['reporter_id'].toString(),
+                reporterName: r['reporter_name'] ?? '',
+                reporterInitials: r['reporter_initials'] ?? '',
+                reporterAvatar: '#C85A3A',
+                timestamp: DateTime.parse(r['timestamp']),
+                location: r['location'] ?? '',
+                issueCategory: r['issue_category'] ?? '',
+                title: r['title'] ?? '',
+                description: r['description'] ?? '',
+                imageUrl: r['image_url'] ?? '',
+                views: r['views'] ?? 0,
+                verificationCount: r['verify_count'] ?? 0,
+                supportCount: r['support_count'] ?? 0,
+                verifications: [],
+                statusOverride: r['status'] as String?,
+                referenceId: '#SR-${r['id']}',
+              ),
+            )
+            .toList();
+      });
+    }
   }
 
   @override
@@ -1492,9 +1520,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildStatusTimeline(CivicReport report) {
-    final isResolved = report.status == 'RESOLVED';
-    final isInProgress =
-        report.status == 'IN_PROGRESS' || report.statusUpdate != null;
+    final isVerified = report.status == 'VERIFIED' || report.status == 'IN_PROGRESS' || report.status == 'RESOLVED' || report.status == 'CLOSED';
+    final isInProgress = report.status == 'IN_PROGRESS' || report.status == 'RESOLVED' || report.status == 'CLOSED';
+    final isResolved = report.status == 'RESOLVED' || report.status == 'CLOSED';
+    final isClosed = report.status == 'CLOSED';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1504,37 +1533,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: 'Report Submitted',
           date: _formatDate(report.timestamp),
         ),
-        if (isInProgress || isResolved) ...[
-          _buildTimelineConnector(completed: true),
-          _buildTimelineItem(
-            completed: true,
-            label: 'In Progress',
-            date: report.statusUpdate ?? 'Processing',
-            isWarning: !isResolved,
-          ),
-          if (!isResolved && report.statusUpdateMessage != null)
-            Container(
-              margin: const EdgeInsets.only(left: 24, top: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: ProfileColors.statusYellow,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '"${report.statusUpdateMessage}"',
-                style: GoogleFonts.roboto(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: ProfileColors.textPrimary,
-                ),
-              ),
-            ),
-        ],
+        _buildTimelineConnector(completed: isVerified),
+        _buildTimelineItem(
+          completed: isVerified,
+          label: 'Verified & Queued',
+          date: isVerified ? 'Verified' : 'Pending Verification',
+        ),
+        _buildTimelineConnector(completed: isInProgress),
+        _buildTimelineItem(
+          completed: isInProgress,
+          label: 'In Progress',
+          date: report.statusUpdate ?? (isInProgress ? 'In Progress' : 'Pending'),
+        ),
         _buildTimelineConnector(completed: isResolved),
         _buildTimelineItem(
           completed: isResolved,
-          label: 'Resolution Confirmed',
-          date: isResolved ? 'Completed' : 'Estimated: 2-3 days',
+          label: 'Issue Resolved',
+          date: isResolved ? 'Resolved' : 'Awaiting Resolution',
+        ),
+        _buildTimelineConnector(completed: isClosed),
+        _buildTimelineItem(
+          completed: isClosed,
+          label: 'Closed (Blockchain)',
+          date: isClosed ? 'Confirmed' : 'Awaiting confirmation',
         ),
       ],
     );

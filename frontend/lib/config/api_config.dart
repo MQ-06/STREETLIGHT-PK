@@ -8,7 +8,7 @@
 class ApiConfig {
   /// Your computer's IP on the local network. Update this when your IP changes.
   /// Run `ipconfig` to find your WiFi adapter's IPv4 (e.g. 192.168.1.7).
-  static const String serverIp = '192.168.100.12';
+  static const String serverIp = '10.65.110.43';
   static const int serverPort = 8000;
 
   static String get mobileUrl => 'http://$serverIp:$serverPort';
