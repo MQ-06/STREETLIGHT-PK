@@ -70,11 +70,10 @@ def category_to_enum(category: str) -> int:
 
 
 def verification_type_to_enum(verification_status: str) -> int:
-
-    if verification_status == "AUTO_VERIFIED":
+    if verification_status in ("AUTO_VERIFIED", "VERIFIED"): 
         return 0
     elif verification_status in ("OFFICER_APPROVED", "REVIEW_NEEDED"):
         return 1
     else:
-        logger.warning(f"Unknown verification_status '{verification_status}' — defaulting to OFFICER")
-        return 1
+        logger.warning(f"Unknown verification_status '{verification_status}' — defaulting to AUTO")
+        return 0
