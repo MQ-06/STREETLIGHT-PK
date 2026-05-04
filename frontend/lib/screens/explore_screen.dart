@@ -335,6 +335,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ? '${report.location} • ${report.locationCity}'
         : report.location;
 
+    final double lat = report.locationLat ?? (cityCenter.latitude + latOffset);
+    final double lng = report.locationLng ?? (cityCenter.longitude + lngOffset);
+
     return CivicComplaint(
       id: report.id.toString(),
       referenceId: '#RPT-${report.id.toString().padLeft(4, '0')}',
@@ -344,8 +347,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       priority: mappedStatus,
       location: area,
       address: address,
-      latitude: cityCenter.latitude + latOffset,
-      longitude: cityCenter.longitude + lngOffset,
+      latitude: lat,
+      longitude: lng,
       reportedDate: report.timestamp,
       status: mappedStatus,
       timeAgo: report.timeAgo,
