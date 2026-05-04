@@ -18,7 +18,7 @@ from ai_layers.layer3_community_verification.community_engine import CommunityVe
 logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
-FEED_RADIUS_KM: float = 2.0   # Show pending requests within 2 km of the user
+FEED_RADIUS_KM: float = 10.0   # Expanded for testing (standard 2.0 km)
 
 router = APIRouter(prefix="/verification", tags=["Verification"])
 
