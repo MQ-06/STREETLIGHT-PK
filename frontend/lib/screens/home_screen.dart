@@ -1171,7 +1171,21 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   )
                                 : ListView.separated(
                                     controller: scrollController,
-                                                                               _reports[idx] = ReportModel(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 8),
+                                    itemCount: comments.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 12),
+                                    itemBuilder: (_, i) =>
+                                        _buildCommentTile(comments[i], () {
+                                      setSheetState(() => comments.removeAt(i));
+                                      // Update card count
+                                      final idx = _reports
+                                          .indexWhere((r) => r.id == report.id);
+                                      if (idx != -1) {
+                                        setState(() {
+                                          final r = _reports[idx];
+                                          _reports[idx] = ReportModel(
                                             id: r.id,
                                             reporterId: r.reporterId,
                                             reporterName: r.reporterName,
@@ -1195,20 +1209,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             verificationStatus: r.verificationStatus,
                                             locationLat: r.locationLat,
                                             locationLng: r.locationLng,
-                                            hasSupported: r.hasSupported,
-                                            hasVerified: r.hasVerified,
-                                          );
-gory: r.issueCategory,
-                                            title: r.title,
-                                            description: r.description,
-                                            imageUrl: r.imageUrl,
-                                            views: r.views,
-                                            supportCount: r.supportCount,
-                                            verifyCount: r.verifyCount,
-                                            commentCount:
-                                                (r.commentCount - 1).clamp(0, 9999),
-                                            status: r.status,
-                                            kanbanStage: r.kanbanStage,
                                             hasSupported: r.hasSupported,
                                             hasVerified: r.hasVerified,
                                           );
