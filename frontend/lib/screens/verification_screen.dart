@@ -123,6 +123,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
             _pageController.jumpToPage(targetPage);
           } else {
             _currentPage = 0;
+            // Auto-navigate home when all done
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (mounted && _requests.isEmpty) {
+                Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+              }
+            });
           }
         });
       } else {
@@ -213,7 +219,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         children: [
           // Back arrow
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false),
             child: Container(
               width: 40,
               height: 40,

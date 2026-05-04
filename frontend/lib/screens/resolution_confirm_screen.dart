@@ -94,7 +94,8 @@ class _ResolutionConfirmScreenState extends State<ResolutionConfirmScreen> {
             : 'Thanks — we asked the team to follow up.',
         isError: false,
       );
-      Navigator.pop(context, true);
+      // Navigate back to home/feed instead of just popping to modal
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } else {
       showAppToast(
         context,
@@ -271,10 +272,10 @@ class _ResolutionConfirmScreenState extends State<ResolutionConfirmScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.amber.withValues(alpha: 0.15),
+                              color: Colors.amber.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.amber.withValues(alpha: 0.4),
+                                color: Colors.amber.withOpacity(0.4),
                               ),
                             ),
                             child: Text(
