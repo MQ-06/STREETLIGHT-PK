@@ -68,6 +68,9 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         logger.error(f"Database error during signup: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
     
+    except HTTPException as e:
+        raise e
+    
     except Exception as e:
         logger.error(f"Unexpected error during signup: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
