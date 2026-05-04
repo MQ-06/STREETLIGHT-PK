@@ -20,6 +20,8 @@ class ReportModel {
   final String status;
   /// Kanban workflow stage from API (e.g. AWAITING_FEEDBACK) — complements [status].
   final String? kanbanStage;
+  final double? combinedScore;
+  final String? verificationStatus;
   final double? locationLat;
   final double? locationLng;
   bool hasSupported;
@@ -44,6 +46,8 @@ class ReportModel {
     required this.commentCount,
     required this.status,
     this.kanbanStage,
+    this.combinedScore,
+    this.verificationStatus,
     this.locationLat,
     this.locationLng,
     required this.hasSupported,

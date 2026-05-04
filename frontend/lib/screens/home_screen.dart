@@ -203,6 +203,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         commentCount: report.commentCount,
         status: report.status,
         kanbanStage: report.kanbanStage,
+        combinedScore: report.combinedScore,
+        verificationStatus: report.verificationStatus,
+        locationLat: report.locationLat,
+        locationLng: report.locationLng,
         hasSupported: !wasSupported,
         hasVerified: report.hasVerified,
       );
@@ -237,6 +241,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             commentCount: r.commentCount,
             status: r.status,
             kanbanStage: r.kanbanStage,
+            combinedScore: r.combinedScore,
+            verificationStatus: r.verificationStatus,
+            locationLat: r.locationLat,
+            locationLng: r.locationLng,
             hasSupported: data['has_supported'] as bool,
             hasVerified: r.hasVerified,
           );
@@ -267,6 +275,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             commentCount: r.commentCount,
             status: r.status,
             kanbanStage: r.kanbanStage,
+            combinedScore: r.combinedScore,
+            verificationStatus: r.verificationStatus,
+            locationLat: r.locationLat,
+            locationLng: r.locationLng,
             hasSupported: wasSupported,
             hasVerified: r.hasVerified,
           );
@@ -301,6 +313,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         commentCount: report.commentCount,
         status: report.status,
         kanbanStage: report.kanbanStage,
+        combinedScore: report.combinedScore,
+        verificationStatus: report.verificationStatus,
+        locationLat: report.locationLat,
+        locationLng: report.locationLng,
         hasSupported: report.hasSupported,
         hasVerified: !wasVerified,
       );
@@ -334,6 +350,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             commentCount: r.commentCount,
             status: r.status,
             kanbanStage: r.kanbanStage,
+            combinedScore: r.combinedScore,
+            verificationStatus: r.verificationStatus,
+            locationLat: r.locationLat,
+            locationLng: r.locationLng,
             hasSupported: r.hasSupported,
             hasVerified: data['has_verified'] as bool,
           );
@@ -364,6 +384,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             commentCount: r.commentCount,
             status: r.status,
             kanbanStage: r.kanbanStage,
+            combinedScore: r.combinedScore,
+            verificationStatus: r.verificationStatus,
+            locationLat: r.locationLat,
+            locationLng: r.locationLng,
             hasSupported: r.hasSupported,
             hasVerified: wasVerified,
           );
@@ -1147,21 +1171,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   )
                                 : ListView.separated(
                                     controller: scrollController,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    itemCount: comments.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(height: 12),
-                                    itemBuilder: (_, i) =>
-                                        _buildCommentTile(comments[i], () {
-                                      setSheetState(() => comments.removeAt(i));
-                                      // Update card count
-                                      final idx = _reports
-                                          .indexWhere((r) => r.id == report.id);
-                                      if (idx != -1) {
-                                        setState(() {
-                                          final r = _reports[idx];
-                                          _reports[idx] = ReportModel(
+                                                                               _reports[idx] = ReportModel(
                                             id: r.id,
                                             reporterId: r.reporterId,
                                             reporterName: r.reporterName,
@@ -1171,6 +1181,24 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             location: r.location,
                                             locationCity: r.locationCity,
                                             issueCategory: r.issueCategory,
+                                            title: r.title,
+                                            description: r.description,
+                                            imageUrl: r.imageUrl,
+                                            views: r.views,
+                                            supportCount: r.supportCount,
+                                            verifyCount: r.verifyCount,
+                                            commentCount:
+                                                (r.commentCount - 1).clamp(0, 9999),
+                                            status: r.status,
+                                            kanbanStage: r.kanbanStage,
+                                            combinedScore: r.combinedScore,
+                                            verificationStatus: r.verificationStatus,
+                                            locationLat: r.locationLat,
+                                            locationLng: r.locationLng,
+                                            hasSupported: r.hasSupported,
+                                            hasVerified: r.hasVerified,
+                                          );
+gory: r.issueCategory,
                                             title: r.title,
                                             description: r.description,
                                             imageUrl: r.imageUrl,
@@ -1282,6 +1310,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                               commentCount: r.commentCount + 1,
                                               status: r.status,
                                               kanbanStage: r.kanbanStage,
+                                              combinedScore: r.combinedScore,
+                                              verificationStatus: r.verificationStatus,
+                                              locationLat: r.locationLat,
+                                              locationLng: r.locationLng,
                                               hasSupported: r.hasSupported,
                                               hasVerified: r.hasVerified,
                                             );
