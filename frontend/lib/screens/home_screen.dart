@@ -58,9 +58,23 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _loadFeed(refresh: true);
     _loadUnreadNotificationCount();
+    
+    // Add scroll listener for infinite scroll
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        if (!_isLoading && _hasMore) {
+          _pageIndex++;
+          _loadFeed(refresh: false);
+        }
+      }
+    });
+
     _feedPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
-      _loadFeed(refresh: false);
+      // Background poll only refreshes the first page
+      if (_scrollController.position.pixels < 100) {
+        _loadFeed(refresh: true);
+      }
     });
   }
 
@@ -100,15 +114,14 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadFeed({bool refresh = false}) async {
     final requestId = ++_feedRequestId;
     if (refresh) {
-      setState(() {
-        _isLoading = true;
-        _hasMore = true;
-        _errorMessage = null;
-        // keep existing _reports so UI doesn't go blank on transient errors
-      });
-      // Refresh unread count in parallel with the feed.
-      _loadUnreadNotificationCount();
+      _pageIndex = 1;
+      _hasMore = true;
     }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     final skip = (_pageIndex - 1) * _pageSize;
     final result = await ApiService.getReportsFeed(
@@ -123,8 +136,11 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final raw = result['data']['reports'] as List<dynamic>;
       final newReports = raw.map((r) => ReportModel.fromJson(r)).toList();
       setState(() {
-        // Pagination: always replace current page content.
-        _reports = newReports;
+        if (refresh) {
+          _reports = newReports;
+        } else {
+          _reports.addAll(newReports);
+        }
         _hasMore = newReports.length == _pageSize;
         _isLoading = false;
       });
@@ -149,14 +165,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _goToPage(int pageIndex) async {
-    if (pageIndex < 1) return;
-    if (pageIndex == _pageIndex) return;
-    if (pageIndex == _pageIndex + 1 && !_hasMore) return;
-
-    setState(() => _pageIndex = pageIndex);
-    await _loadFeed(refresh: true);
-  }
 
   /// Used by [MainShell] when the report form is submitted from the tab.
   Future<void> reloadFeed() async {
@@ -377,7 +385,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           children: [
             _buildAppHeader(),
             _buildSearchBar(),
-            _buildPaginationControls(),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -399,74 +406,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildPaginationControls() {
-    if (_searchQuery.isNotEmpty) return const SizedBox.shrink();
-
-    final int current = _pageIndex;
-    final bool canPrev = current > 1;
-    final bool canNext = _hasMore;
-
-    final List<int> pages;
-    if (current == 1) {
-      pages = const [1, 2, 3];
-    } else {
-      pages = [current - 1, current, current + 1].where((p) => p >= 1).toList();
-    }
-
-    Widget pageButton(int p) {
-      final bool isActive = p == current;
-      final bool disabled = (p == current + 1 && !canNext) || (p == 0);
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: disabled ? null : () => _goToPage(p),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isActive ? HomeColors.statusOrange : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActive
-                    ? HomeColors.statusOrange
-                    : HomeColors.statusOrange.withOpacity(0.35),
-              ),
-            ),
-            child: Text(
-              '$p',
-              style: GoogleFonts.roboto(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-                color: isActive ? Colors.white : HomeColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: canPrev ? () => _goToPage(current - 1) : null,
-            icon: const Icon(Icons.chevron_left),
-            color: HomeColors.statusOrange,
-            constraints: const BoxConstraints(),
-          ),
-          for (final p in pages) pageButton(p),
-          IconButton(
-            onPressed: canNext ? () => _goToPage(current + 1) : null,
-            icon: const Icon(Icons.chevron_right),
-            color: HomeColors.statusOrange,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBody() {
     // Apply search filtering
@@ -550,8 +489,18 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: visibleReports.length,
-        itemBuilder: (context, index) => _buildReportCard(index),
+        itemCount: visibleReports.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == visibleReports.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: CircularProgressIndicator(color: HomeColors.statusOrange),
+              ),
+            );
+          }
+          return _buildReportCard(visibleReports, index);
+        },
       ),
     );
   }
@@ -679,8 +628,8 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // REPORT CARD
   // ─────────────────────────────────────────────
 
-  Widget _buildReportCard(int index) {
-    final report = _reports[index];
+  Widget _buildReportCard(List<ReportModel> visibleReports, int index) {
+    final report = visibleReports[index];
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
