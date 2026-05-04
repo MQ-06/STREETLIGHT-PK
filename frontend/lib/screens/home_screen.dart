@@ -1333,21 +1333,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                         // Sheet probably closed, ignore gracefully
                                       }
                                     },
-us: r.status,
-                                              kanbanStage: r.kanbanStage,
-                                              combinedScore: r.combinedScore,
-                                              verificationStatus: r.verificationStatus,
-                                              locationLat: r.locationLat,
-                                              locationLng: r.locationLng,
-                                              hasSupported: r.hasSupported,
-                                              hasVerified: r.hasVerified,
-                                            );
-                                          });
-                                        }
-                                      } else {
-                                        setSheetState(() => submitting = false);
-                                      }
-                                    },
                                     icon: const Icon(Icons.send_rounded,
                                         color: HomeColors.statusOrange),
                                   ),
