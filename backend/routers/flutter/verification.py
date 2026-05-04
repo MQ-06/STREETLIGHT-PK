@@ -11,6 +11,7 @@ from model.users import User
 from model.user_profile import UserProfile
 from model.report import Report
 from model.verification import VerificationRequest, VerificationStatus, VoteChoice
+from model.notification import Notification
 from utils.auth_utils import get_current_user, get_db
 from utils.impact_score import ImpactScoreManager, POINTS_VOTE_CAST
 from ai_layers.layer3_community_verification.community_engine import CommunityVerificationEngine
@@ -196,6 +197,26 @@ def submit_vote(
             f"   ✅ Vote accepted: request={request_id} | "
             f"finalised={vote_result['score_finalised']}"
         )
+
+        # Auto-dismiss the VERIFY_REQUEST notification for this user
+        try:
+            notif = (
+                db.query(Notification)
+                .filter(
+                    Notification.user_id == current_user.id,
+                    Notification.type == "VERIFY_REQUEST",
+                    Notification.entity_type == "verification_request",
+                    Notification.entity_id == request_id,
+                    Notification.read_at.is_(None),
+                )
+                .first()
+            )
+            if notif:
+                notif.mark_read()
+                db.commit()
+                logger.info(f"   🔕 Auto-dismissed notification ID={notif.id} for user={current_user.id}")
+        except Exception as notif_exc:
+            logger.warning(f"   ⚠️ Failed to auto-dismiss notification: {notif_exc}")
 
         return {
             "success": True,
