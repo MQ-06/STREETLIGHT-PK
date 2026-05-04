@@ -97,6 +97,15 @@ def get_pending_verifications(
             .all()
         )
 
+        # IDs of requests this user has already voted on — exclude from feed
+        from model.verification import VerificationVote
+        voted_ids = set(
+            row[0] for row in
+            db.query(VerificationVote.request_id)
+            .filter(VerificationVote.user_id == current_user.id)
+            .all()
+        )
+
         # Distance filter + serialisation
         result_items = []
         for req in pending:
@@ -106,6 +115,10 @@ def get_pending_verifications(
 
             # Skip reports submitted by the current user — they should not verify their own
             if report.user_id == current_user.id:
+                continue
+
+            # Skip requests this user has already voted on
+            if req.id in voted_ids:
                 continue
 
             dist_km = _haversine_km(lat, lng, report.location_lat, report.location_lng)
