@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -15,12 +16,13 @@ class ExploreColors {
   static const primaryOrange = Color(0xFFC85A3A);
   static const textPrimary = Color(0xFF000000);
   static const textSecondary = Color(0xFF666666);
-  static const criticalRed = Color(0xFFE53935);
+  static const criticalRed = Color(0xFFE74C3C);
+  static const inProgressOrange = Color(0xFFE8A020);
+  static const resolvedGreen = Color(0xFF2ECC71);
+  static const newBlue = Color(0xFF3498DB);
   static const pendingGray = Color(0xFF888888);
-  static const resolvedGreen = Color(0xFF4CAF50);
-  static const potholeOrange = Color(0xFFC85A3A);
-  static const garbageGray = Color(0xFF888888);
   static const borderLight = Color(0xFFEEEEEE);
+  static const clusterNavy = Color(0xFF1E272E);
 }
 
 class ExploreScreen extends StatefulWidget {
@@ -308,6 +310,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     // Approximate location coordinates using city name; fallback to Lahore center
     final LatLng cityCenter = _cityToLatLng(report.locationCity);
 
+    // Add random offset so pins don't all stack on the same pixel
+    final random = Random(report.id);
+    final latOffset = (random.nextDouble() - 0.5) * 0.08; // ~4km spread
+    final lngOffset = (random.nextDouble() - 0.5) * 0.08;
+
     final statusUpper = report.status.toUpperCase();
     String mappedStatus;
     if (statusUpper == 'RESOLVED') {
@@ -337,8 +344,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       priority: mappedStatus,
       location: area,
       address: address,
-      latitude: cityCenter.latitude,
-      longitude: cityCenter.longitude,
+      latitude: cityCenter.latitude + latOffset,
+      longitude: cityCenter.longitude + lngOffset,
       reportedDate: report.timestamp,
       status: mappedStatus,
       timeAgo: report.timeAgo,
@@ -522,43 +529,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.streetlight.app',
             ),
-            // Layer 1: Heatmap (Hot Pins) - simple circles with glow
-            CircleLayer(
-              circles: _buildHeatmapCircles(),
-            ),
-            // Layer 2: Clustered Markers
-            MarkerClusterLayerWidget(
-              options: MarkerClusterLayerOptions(
-                maxClusterRadius: 45,
-                size: const Size(40, 40),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(50),
-                markers: _buildMapMarkers(),
-                builder: (context, markers) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: ExploreColors.primaryOrange,
-                      boxShadow: [
-                        BoxShadow(
-                          color: ExploreColors.primaryOrange.withOpacity(0.5),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        markers.length.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            MarkerLayer(
+              markers: _buildMapMarkers(),
             ),
           ],
         ),
@@ -739,66 +711,52 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  List<CircleMarker> _buildHeatmapCircles() {
+  List<CircleMarker> _buildHeatmapGlows() {
     return _filteredComplaints.where((c) => c.status == 'CRITICAL').map((complaint) {
       return CircleMarker(
         point: LatLng(complaint.latitude, complaint.longitude),
-        color: ExploreColors.primaryOrange.withOpacity(0.15),
+        color: ExploreColors.primaryOrange.withOpacity(0.08),
         borderStrokeWidth: 0,
         useRadiusInMeter: true,
-        radius: 400, // 400 meters "glow" radius
+        radius: 600, // Large soft Gaussian-like glow
       );
     }).toList();
   }
 
   List<Marker> _buildMapMarkers() {
     return _filteredComplaints.map((complaint) {
-      final isPothole = complaint.category == 'POTHOLE';
-      final isCritical = complaint.status == 'CRITICAL';
+      final status = complaint.status.toUpperCase();
+      
+      Color pinColor;
+      
+      if (status == 'CRITICAL') {
+        pinColor = ExploreColors.criticalRed;
+      } else if (status == 'IN PROGRESS') {
+        pinColor = ExploreColors.inProgressOrange;
+      } else if (status == 'RESOLVED') {
+        pinColor = ExploreColors.resolvedGreen;
+      } else {
+        pinColor = ExploreColors.newBlue;
+      }
       
       return Marker(
+        key: ValueKey('${complaint.id}_$status'),
         point: LatLng(complaint.latitude, complaint.longitude),
-        width: 50,
-        height: 50,
+        width: 40,
+        height: 40,
+        alignment: Alignment.topCenter,
         child: GestureDetector(
           onTap: () => _showComplaintDetail(complaint),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isPothole ? ExploreColors.potholeOrange : ExploreColors.garbageGray,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  isPothole ? Icons.warning_amber_rounded : Icons.delete_outline,
-                  color: Colors.white,
-                  size: 22,
-                ),
+          child: Icon(
+            Icons.location_on,
+            color: pinColor,
+            size: 40,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-              if (isCritical)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: ExploreColors.criticalRed,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -1007,13 +965,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
               height: 48,
               decoration: BoxDecoration(
                 color: isPothole 
-                    ? ExploreColors.potholeOrange.withOpacity(0.1) 
-                    : ExploreColors.garbageGray.withOpacity(0.1),
+                    ? ExploreColors.primaryOrange.withOpacity(0.1) 
+                    : ExploreColors.pendingGray.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 isPothole ? Icons.warning_amber_rounded : Icons.delete_outline,
-                color: isPothole ? ExploreColors.potholeOrange : ExploreColors.garbageGray,
+                color: isPothole ? ExploreColors.primaryOrange : ExploreColors.pendingGray,
                 size: 24,
               ),
             ),
