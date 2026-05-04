@@ -39,15 +39,53 @@ void showNotificationsModal(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
-                  Text(
-                    'Notifications',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Notifications',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Community alerts',
+                        style: GoogleFonts.roboto(
+                          fontSize: 10,
+                          color: Colors.white54,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                   const Spacer(),
+                  // Always show Verification Feed button in header
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.pushNamed(context, '/verification');
+                    },
+                    icon: const Icon(Icons.check_circle_outline, size: 14, color: AppColors.goldSecondary),
+                    label: Text(
+                      'VERIFY',
+                      style: GoogleFonts.rajdhani(
+                        color: AppColors.goldSecondary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      backgroundColor: Colors.white.withOpacity(0.05),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white70),
                     onPressed: () {
@@ -200,17 +238,36 @@ class _NotificationsModalContentState extends State<NotificationsModalContent> {
     }
     if (_items.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.notifications_off_outlined,
-                size: 52, color: Colors.white.withOpacity(0.5)),
-            const SizedBox(height: 10),
-            Text(
-              "You're all caught up!",
-              style: GoogleFonts.roboto(color: Colors.white70, fontSize: 14),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.notifications_off_outlined,
+                  size: 52, color: Colors.white.withOpacity(0.5)),
+              const SizedBox(height: 16),
+              Text(
+                "You're all caught up!",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "No new notifications for you right now.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.roboto(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

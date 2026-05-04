@@ -94,7 +94,11 @@ Each test entry follows this format:
 
 ## Phase 5 — Community Verification
 
-> _Tests will be logged here as they are executed_
+| Test ID | Date | Tester | Component | Action Taken | Expected Result | Actual Result | Status |
+|---------|------|--------|-----------|--------------|-----------------|---------------|--------|
+| 5.1 | 2026-05-04 14:40 | Antigravity | Flutter / Backend | Open Verification Screen | Nearby pending requests visible | Verified — Screen loads reports | ✅ PASS |
+| 5.2 | 2026-05-04 14:41 | Antigravity | Flutter / Backend | Cast "YES" vote | Vote saved, card removed, impact score + | Verified — Vote ID 4 recorded, Impact 20.0 | ✅ PASS |
+| 5.3 | 2026-05-04 12:47 | Antigravity | Flutter / Backend | Auto-navigation home | Navigator goes to Home when list is empty | | |
 
 ---
 

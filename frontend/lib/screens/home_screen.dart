@@ -559,6 +559,28 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 letterSpacing: 1.2),
           ),
           const Spacer(),
+          // Verification Feed Shortcut
+          TextButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/verification'),
+            icon: const Icon(Icons.check_circle_outline, size: 16, color: HomeColors.statusOrange),
+            label: Text(
+              'VERIFY',
+              style: GoogleFonts.rajdhani(
+                color: HomeColors.statusOrange,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                letterSpacing: 1.0,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              backgroundColor: HomeColors.statusOrange.withOpacity(0.1),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           Builder(
             builder: (context) => Badge(
               backgroundColor: HomeColors.statusOrange,

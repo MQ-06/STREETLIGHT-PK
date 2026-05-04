@@ -72,9 +72,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // ─── Data ────────────────────────────────────────────────────────────────
 
   Future<void> _loadVerifications() async {
-    // Lahore city centre fallback if GPS is unavailable
-    final lat = _userLat ?? 31.5204;
-    final lng = _userLng ?? 74.3587;
+    // FOR TESTING: Use Lahore coordinates to see the 6 pending reports
+    const lat = 31.5204;
+    const lng = 74.3587;
 
     final result = await ApiService.getPendingVerifications(lat, lng);
     if (!mounted) return;
