@@ -8,6 +8,7 @@ import torch.nn as nn
 from pathlib import Path
 from typing import Dict, Optional
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,8 @@ class ModelLoader:
         self.model_path = Path(model_path)
 
         if not self.model_path.exists():
-            raise FileNotFoundError(f"Model not found: {self.model_path}")
+            logger.info("Model file not found locally — downloading from Hugging Face Hub...")
+            self._download_from_hub()
 
         if device is None:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -40,6 +42,27 @@ class ModelLoader:
 
         logger.info(f"Model loaded: {self.model_name}")
         logger.info(f"Classes: {list(self.class_to_idx.keys())}")
+
+    def _download_from_hub(self):
+        try:
+            from huggingface_hub import hf_hub_download
+        except ImportError:
+            raise ImportError("huggingface_hub is required. Run: pip install huggingface_hub")
+
+        repo_id = os.getenv("HF_REPO_ID")
+        if not repo_id:
+            raise EnvironmentError("HF_REPO_ID env var not set (e.g. 'your-username/streetlight-model')")
+
+        token = os.getenv("HF_TOKEN", None)
+        self.model_path.parent.mkdir(parents=True, exist_ok=True)
+
+        hf_hub_download(
+            repo_id=repo_id,
+            filename="best_model.pth",
+            token=token,
+            local_dir=str(self.model_path.parent),
+        )
+        logger.info(f"Model downloaded to {self.model_path}")
 
     def _create_model(self) -> nn.Module:
         try:
