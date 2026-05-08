@@ -2,7 +2,7 @@ const TOKEN_KEY = 'admin_access_token'
 const USER_KEY  = 'admin_user'
 
 export function getApiBaseUrl() {
-  return import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+  return import.meta.env.VITE_API_BASE_URL || 'https://streetlight-pk.onrender.com'
 }
 
 export function setAuthData(accessToken, user) {
