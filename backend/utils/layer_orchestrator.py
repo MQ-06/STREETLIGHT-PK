@@ -72,19 +72,22 @@ class LayerOrchestrator:
             if model_path is not None:
                 break
 
-        if model_path is not None:
-            try:
-                self.ai_engine = AIEngine(model_path, confidence_threshold=0.68)
-                self.layer1_available = True
-                logger.info("✓ Layer 1 (AI Engine) initialized successfully")
-            except Exception as e:
-                logger.warning(f"⚠️  Layer 1 failed to load model: {e}")
-                logger.warning("⚠️  Running in FALLBACK mode — AI scoring disabled")
-        else:
-            logger.warning(f"⚠️  No model file found in: model/ or models/")
-            logger.warning("⚠️  Searched for: " + ", ".join(possible_model_names))
+        if model_path is None:
+            # No local model found; use default path so ModelLoader can fetch from HF Hub.
+            model_path = layer1_root / "models" / "best_model.pth"
+            logger.info(
+                "No local model file found in model/ or models/. "
+                "Attempting Hugging Face download to models/best_model.pth..."
+            )
+            logger.info("Searched for: " + ", ".join(possible_model_names))
+
+        try:
+            self.ai_engine = AIEngine(model_path, confidence_threshold=0.68)
+            self.layer1_available = True
+            logger.info("✓ Layer 1 (AI Engine) initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️  Layer 1 failed to load model: {e}")
             logger.warning("⚠️  Layer 1 DISABLED — server running in fallback mode")
-            logger.warning("⚠️  ACTION NEEDED: Get model file from your teammate!")
 
         logger.info("=" * 60)
         logger.info("✅ AI Agent Ready — Layer 1: {}".format(
