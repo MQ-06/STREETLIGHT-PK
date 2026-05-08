@@ -26,12 +26,13 @@ logger = logging.getLogger(__name__)
 IMPOSSIBLE_TRAVEL_KM: float = 100.0    # Distance that is physically impossible in < 2 min
 IMPOSSIBLE_TRAVEL_MIN: float = 2.0     # Time window (minutes) for travel check
 
-DUPLICATE_RADIUS_M: float = 100.0      # Radius (metres) for duplicate detection
+EXACT_DUPLICATE_RADIUS_M = 10.0   # same physical spot
+RELATED_ISSUE_RADIUS_M = 30.0     # same street area but NOT duplicate
 DUPLICATE_WINDOW_DAYS: int = 14        # Look-back window (days) for duplicate search
-BOUNDING_BOX_DEG: float = 0.001        # ±0.001° ≈ ±111 m — coarse SQL pre-filter
+BOUNDING_BOX_DEG: float = 0.0002
 
 SPAM_WINDOW_HOURS: int = 1             # Rolling window for spam count
-SPAM_THRESHOLD: int = 20               # Max reports per window before soft-flagging
+SPAM_THRESHOLD: int = 20              # Max reports per window before soft-flagging
 
 
 # ── Haversine helper ────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ class FraudDetector:
         result   = detector.run_all_checks(user_id, category, lat, lng, submitted_at)
     """
 
+    STRICT_RADIUS_M: float = 10.0   # true duplicate only — triggers merge
+    BLOCK_RADIUS_M: float  = 30.0   # same area cluster (NOT duplicate) — related issue
+
     def __init__(self, db: Session) -> None:
         self.db = db
         logger.info("🛡️ FraudDetector ready")
@@ -101,8 +105,8 @@ class FraudDetector:
         Returns:
             {
                 'is_spoofed':       bool           — Check 1 result (HARD BLOCK if True)
-                'duplicate_of_id':  Optional[int]  — Check 2: ID of original report
-                'duplicate_report': Optional[dict] — Check 2: serialised original report
+                'duplicate_of_id':  Optional[int]  — Check 2: ID of original report (None if related-only)
+                'duplicate_report': Optional[dict] — Check 2: serialised original OR related report info
                 'is_spam':          bool           — Check 3 result (SOFT FLAG if True)
                 'hourly_count':     int            — Reports submitted by user in last hour
             }
@@ -233,27 +237,23 @@ class FraudDetector:
         submitted_at: datetime,
     ) -> Tuple[Optional[int], Optional[Dict]]:
         """
-        Detect whether an identical civic issue already exists nearby.
+        Detect whether an identical or nearby civic issue already exists.
 
-        Strategy — two-phase for efficiency:
-          Phase 1: Coarse SQL bounding-box filter (fast index scan, ±BOUNDING_BOX_DEG)
-          Phase 2: Precise Haversine check in Python on the small candidate set
-
-        A report is a duplicate if:
-          • Same IssueCategory
-          • Submitted within the last DUPLICATE_WINDOW_DAYS days
-          • Located within DUPLICATE_RADIUS_M metres of the new submission
+        Distance buckets:
+          0 – STRICT_RADIUS_M  (10 m)  → DUPLICATE  → triggers merge (hard block)
+          STRICT_RADIUS_M – BLOCK_RADIUS_M (30 m) → RELATED  → new report allowed,
+                                                                 caller gets relation info
+          > BLOCK_RADIUS_M             → no match
 
         Returns:
-            (id, serialised_dict) of the original report if a duplicate is found.
-            (None, None) otherwise.
+            (id, dict)   if DUPLICATE  — duplicate_of_id is set, triggers merge path
+            (None, dict) if RELATED    — duplicate_of_id is None, relation info surfaced
+            (None, None) if no match
         """
-        logger.info("🔍 Check 2 — Duplicate Report Detection...")
+        logger.info("🔍 Check 2 — Duplicate Report Detection (STRICT MODE)...")
 
         window_start = submitted_at - timedelta(days=DUPLICATE_WINDOW_DAYS)
-        radius_km = DUPLICATE_RADIUS_M / 1_000.0
 
-        # Phase 1: coarse bounding-box SQL filter
         candidates = (
             self.db.query(Report)
             .filter(
@@ -261,44 +261,51 @@ class FraudDetector:
                 Report.created_at >= window_start,
                 Report.location_lat.isnot(None),
                 Report.location_lng.isnot(None),
-                Report.location_lat.between(lat - BOUNDING_BOX_DEG, lat + BOUNDING_BOX_DEG),
-                Report.location_lng.between(lng - BOUNDING_BOX_DEG, lng + BOUNDING_BOX_DEG),
             )
-            .order_by(Report.created_at.asc())   # oldest first → prefer the true original
             .all()
         )
 
-        logger.info(
-            f"   Bounding-box candidates ({BOUNDING_BOX_DEG}°, last {DUPLICATE_WINDOW_DAYS}d): "
-            f"{len(candidates)} report(s)"
-        )
+        logger.info(f"   Candidates found: {len(candidates)}")
 
-        # Phase 2: precise Haversine filter
         for report in candidates:
             dist_km = _haversine_km(
-                report.location_lat, report.location_lng, lat, lng
+                report.location_lat,
+                report.location_lng,
+                lat,
+                lng,
             )
             dist_m = dist_km * 1_000.0
-            if dist_km <= radius_km:
+
+            # ✅ CASE 1: EXACT SAME SPOT → DUPLICATE (merge path)
+            if dist_m <= self.STRICT_RADIUS_M:
                 logger.warning(
-                    f"   📋 Duplicate hit: Report ID={report.id} | "
-                    f"Distance: {dist_m:.1f} m | Category: {category.value}"
+                    f"📋 DUPLICATE MATCH (STRICT): ID={report.id} | {dist_m:.1f}m"
                 )
-                dup_dict = {
+                return report.id, {
                     "id": report.id,
                     "title": report.title,
                     "location_address": report.location_address,
                     "status": report.status.value,
-                    "created_at": report.created_at.isoformat(),
+                    "distance_m": round(dist_m, 1),
+                    "relation_type": "DUPLICATE",
+                }
+
+            # ⚠️ CASE 2: SAME AREA BUT NOT DUPLICATE → related issue, new report allowed
+            elif dist_m <= self.BLOCK_RADIUS_M:
+                logger.info(
+                    f"🟡 NEARBY ISSUE (NOT DUPLICATE): ID={report.id} | {dist_m:.1f}m"
+                )
+                return None, {
+                    "related_report_id": report.id,
+                    "relation_type": "NEARBY_SIMILAR",
                     "distance_m": round(dist_m, 1),
                 }
-                return report.id, dup_dict
 
-            logger.info(
-                f"   Candidate ID={report.id} at {dist_m:.1f} m — outside {DUPLICATE_RADIUS_M} m radius"
-            )
+            # Beyond block radius — not relevant
+            else:
+                continue
 
-        logger.info(f"   ✓ No duplicate found within {DUPLICATE_RADIUS_M} m — check passed")
+        logger.info("   ✓ No duplicate found — safe to create new report")
         return None, None
 
     # ── Check 3: Spam Pattern ──────────────────────────────────────────────
