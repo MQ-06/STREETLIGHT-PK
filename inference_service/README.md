@@ -1,17 +1,11 @@
----
-title: StreetLight Classifier
-emoji: 🛣️
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
----
-
 # StreetLight inference (remote Layer 1)
+
+**Hugging Face Space (monorepo):** HF reads **`README.md` and `Dockerfile` at the repository root** — see the project root `README.md` (YAML + docker) and root `Dockerfile`.
+
+This folder holds the Python app copied into the image: `app.py`, `model_core.py`, `model_loader.py`, `requirements.txt`.
 
 API: `GET /health`, `POST /predict` (multipart field **`file`**).
 
-Set **Space secrets**: `HF_REPO_ID` (and `HF_TOKEN` if the model repo is private).  
-Optional: `INFERENCE_API_TOKEN` — if set, clients must send `Authorization: Bearer <token>`.
+**Space secrets:** `HF_REPO_ID` (and `HF_TOKEN` if the model repo is private). Optional `INFERENCE_API_TOKEN` for `Authorization: Bearer …` on `/predict`.
 
-See repository docs for wiring `AI_INFERENCE_URL` on Render.
+**Standalone deploy:** use `Dockerfile.slim` with build context = this directory only (no monorepo).
