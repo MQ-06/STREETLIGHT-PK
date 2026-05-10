@@ -16,9 +16,13 @@ class ApiService {
   static const Duration _authTimeout = Duration(seconds: 25);
 
   static String get baseURL {
-    if (kIsWeb) return ApiConfig.webUrl;
-    if (_useEmulator) return ApiConfig.emulatorUrl;
-    return ApiConfig.mobileUrl;
+    // Debug only → local/dev servers. Profile + release APK → Render ([ApiConfig.productionUrl]).
+    if (kDebugMode) {
+      if (kIsWeb) return ApiConfig.webUrl;
+      if (_useEmulator) return ApiConfig.emulatorUrl;
+      return ApiConfig.mobileUrl;
+    }
+    return ApiConfig.productionUrl;
   }
 
   /// Build full URL for images (backend returns relative paths like "reports/2026/02/27/uuid.jpg")
