@@ -198,8 +198,11 @@ def route_report(
                 notify_exc,
             )
 
-        # ── Step 6: Email notification (non-blocking) ─────────────��────
-        notif_email = getattr(officer, "notification_email", None)
+        # ── Step 6: Email notification (non-blocking) ─────────────────
+        # Match admin routing API: prefer notification_email, else login email.
+        notif_email = (getattr(officer, "notification_email", None) or "").strip() or (
+            getattr(officer, "email", None) or ""
+        ).strip()
         if notif_email:
             try:
                 send_new_report_notification(
@@ -217,6 +220,13 @@ def route_report(
                 )
             except Exception as email_exc:
                 logger.warning(f"⚠️ Email notification failed (non-blocking): {email_exc}")
+        else:
+            logger.warning(
+                "⚠️ New-report email skipped: no notification_email or login email "
+                "for officer_id=%s (report=%s)",
+                officer_id,
+                report.id,
+            )
 
     except Exception as exc:
         result["note"] = f"Routing failed (non-blocking): {exc}"
