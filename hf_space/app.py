@@ -50,6 +50,7 @@ async def startup():
 
 @app.get("/")
 def root():
+    """HF and browsers often request `/`; avoid confusing 404."""
     return {
         "service": "streetlight-inference",
         "docs": "GET /health — POST /predict (multipart field file)",
