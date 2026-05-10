@@ -45,7 +45,7 @@ class BlockchainService:
     def _initialize(self):
         """Connect to blockchain and load contract."""
         try:
-            rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8545")
+            rpc_url = os.getenv("SEPOLIA_RPC_URL", "http://127.0.0.1:8545")
             private_key = os.getenv("DEPLOYER_PRIVATE_KEY", "")
             contract_address = os.getenv("CONTRACT_ADDRESS", "")
 
