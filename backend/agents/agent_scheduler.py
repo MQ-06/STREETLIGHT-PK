@@ -1,7 +1,10 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from agents.complaint_agent import run_agent_cycle
 import logging
-import threading
+import os
+
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from agents.complaint_agent import run_agent_cycle
+from utils.render_keepalive import run_keepalive_ping
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,24 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1
     )
+
+    ping_base = (os.getenv("SELF_PING_BASE_URL") or "").strip()
+    if ping_base:
+        interval = int(os.getenv("SELF_PING_INTERVAL_MINUTES", "12"))
+        scheduler.add_job(
+            run_keepalive_ping,
+            "interval",
+            minutes=max(5, interval),
+            id="render_keepalive_ping",
+            replace_existing=True,
+            max_instances=1,
+            jitter=90,
+        )
+        logger.info(
+            "Keepalive self-ping enabled every ~%s min (base=%s)",
+            max(5, interval),
+            ping_base.rstrip("/"),
+        )
 
     scheduler.start()
     job_started = True
