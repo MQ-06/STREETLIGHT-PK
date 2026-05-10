@@ -1,0 +1,44 @@
+================================================================================
+Push this folder to Hugging Face Space (NO GitHub needed)
+Space: https://huggingface.co/spaces/MQ-06/streetlight-inference
+================================================================================
+
+1) Create a Hugging Face token with WRITE access:
+   https://huggingface.co/settings/tokens
+
+2) Open PowerShell:
+
+   cd D:\FYP\STREETLIGHT\hf_space
+
+3) Clone YOUR space (password = paste the token):
+
+   git clone https://huggingface.co/spaces/MQ-06/streetlight-inference hf-push
+   cd hf-push
+
+4) Copy all app files from hf_space into hf-push (overwrite everything):
+
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\Dockerfile" .
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\requirements.txt" .
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\app.py" .
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\model_core.py" .
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\model_loader.py" .
+   Copy-Item -Force "D:\FYP\STREETLIGHT\hf_space\README.md" .
+
+5) Commit and push:
+
+   git add Dockerfile requirements.txt app.py model_core.py model_loader.py README.md
+   git status
+   git commit -m "Add StreetLight inference Docker app"
+   git push
+
+   (If the repo already has other files, you can remove them: delete + git add -A)
+
+6) On the Space page: Settings → Secrets → add HF_REPO_ID = MQ-06/streetlight-model
+
+7) Wait for build in Logs. Test: https://YOUR-SPACE-URL/health
+
+================================================================================
+ALTERNATIVE: use the "Files" tab on the Space website
+================================================================================
+Add/replace the same 6 files manually in the browser, then Commit to main.
+GitHub is never required for Spaces.
