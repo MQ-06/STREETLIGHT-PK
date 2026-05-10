@@ -17,15 +17,30 @@ from blockchain.utils import (
 
 logger = logging.getLogger(__name__)
 
-# ── ABI path ──────────────────────────────────────────────────────────────────
-_ABI_PATH = (
-    Path(__file__).resolve().parent.parent.parent
+# ── ABI path (first match wins) ───────────────────────────────────────────────
+# 1) BLOCKCHAIN_ABI_PATH env
+# 2) backend/blockchain/abi/StreetLight.json — commit this file for Render deploy
+# 3) blockchain-layer Hardhat output (local dev; often gitignored)
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_BLOCKCHAIN_DIR = Path(__file__).resolve().parent
+_PACKAGED_ABI = _BLOCKCHAIN_DIR / "abi" / "StreetLight.json"
+_HARDHAT_ABI = (
+    _REPO_ROOT
     / "blockchain-layer"
     / "artifacts"
     / "contracts"
     / "streetLight.sol"
     / "StreetLight.json"
 )
+
+
+def _abi_path() -> Path:
+    override = (os.getenv("BLOCKCHAIN_ABI_PATH") or "").strip()
+    if override:
+        return Path(override)
+    if _PACKAGED_ABI.is_file():
+        return _PACKAGED_ABI
+    return _HARDHAT_ABI
 
 
 class BlockchainService:
@@ -45,8 +60,14 @@ class BlockchainService:
     def _initialize(self):
         """Connect to blockchain and load contract."""
         try:
-            rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8545")
-            private_key = os.getenv("DEPLOYER_PRIVATE_KEY", "")
+            rpc_url = (
+                os.getenv("BLOCKCHAIN_RPC_URL")
+                or os.getenv("SEPOLIA_RPC_URL")
+                or "http://127.0.0.1:8545"
+            )
+            private_key = (os.getenv("DEPLOYER_PRIVATE_KEY") or "").strip()
+            if private_key.startswith("0x"):
+                private_key = private_key[2:]
             contract_address = os.getenv("CONTRACT_ADDRESS", "")
 
             if not private_key:
@@ -66,13 +87,15 @@ class BlockchainService:
             self.account = self.w3.eth.account.from_key(private_key)
             logger.info(f"   Deployer address: {self.account.address}")
 
-            if not _ABI_PATH.exists():
+            abi_file = _abi_path()
+            if not abi_file.is_file():
                 raise FileNotFoundError(
-                    f"ABI not found at {_ABI_PATH}. "
-                    f"Run 'npx hardhat compile' in blockchain-layer/"
+                    f"ABI not found at {abi_file}. "
+                    f"Run 'npx hardhat compile' in blockchain-layer/ and commit artifacts, "
+                    f"or set BLOCKCHAIN_ABI_PATH to the StreetLight.json file."
                 )
 
-            with open(_ABI_PATH) as f:
+            with open(abi_file, encoding="utf-8") as f:
                 artifact = json.load(f)
             abi = artifact["abi"]
 
