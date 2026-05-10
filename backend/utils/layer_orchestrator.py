@@ -47,15 +47,28 @@ class LayerOrchestrator:
 
         self.ai_engine = None
         self.layer1_available = False
+        self._use_remote_ai = False
+        self._remote_inference_url = (os.getenv("AI_INFERENCE_URL") or "").strip().rstrip(
+            "/"
+        )
+        self._remote_inference_token = (os.getenv("AI_INFERENCE_TOKEN") or "").strip()
 
         skip_layer1 = os.getenv("SKIP_LAYER1_MODEL", "").lower() in (
             "1", "true", "yes", "on",
         )
-        if skip_layer1:
+
+        if self._remote_inference_url and skip_layer1:
+            self._use_remote_ai = True
+            self.layer1_available = True
+            logger.info(
+                "Layer 1: using remote classifier at %s (no local PyTorch)",
+                self._remote_inference_url,
+            )
+        elif skip_layer1:
             logger.warning(
                 "SKIP_LAYER1_MODEL is set — PyTorch / Layer 1 not loaded "
                 "(required on Render free ~512MB). "
-                "Layer 1 runs in fallback / manual review mode."
+                "Set AI_INFERENCE_URL for remote AI, else fallback / manual review."
             )
         else:
             # Supported model filenames — add more if teammate uses different name
@@ -226,11 +239,29 @@ class LayerOrchestrator:
 
         logger.info("🧠 Layer 1: Running AI classification & GPS verification...")
 
-        ai_result = self.ai_engine.predict(
-            image_path=image_path,
-            submitted_lat=latitude,
-            submitted_lon=longitude
-        )
+        if self._use_remote_ai:
+            from utils.remote_ai_client import fetch_remote_classification
+            from utils.layer1_result_builder import build_layer1_from_remote_json
+
+            remote = fetch_remote_classification(
+                self._remote_inference_url,
+                image_path,
+                token=self._remote_inference_token or None,
+            )
+            threshold = float(os.getenv("LAYER1_CONFIDENCE_THRESHOLD", "0.68"))
+            ai_result = build_layer1_from_remote_json(
+                image_path,
+                latitude,
+                longitude,
+                remote,
+                confidence_threshold=threshold,
+            )
+        else:
+            ai_result = self.ai_engine.predict(
+                image_path=image_path,
+                submitted_lat=latitude,
+                submitted_lon=longitude,
+            )
 
         logger.info("Layer 1 Result:")
         logger.info(f"  - Class      : {ai_result['predicted_class']}")
@@ -356,6 +387,15 @@ class LayerOrchestrator:
         Returns:
             Health status of all AI components
         """
+        if self._use_remote_ai:
+            return {
+                'status': 'healthy',
+                'layer0_status': 'operational',
+                'layer1_status': 'operational (remote)',
+                'message': f'Remote classifier: {self._remote_inference_url}',
+                'remote_url': self._remote_inference_url,
+            }
+
         if not self.layer1_available:
             return {
                 'status': 'degraded',
