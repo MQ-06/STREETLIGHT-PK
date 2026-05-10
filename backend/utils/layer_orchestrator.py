@@ -4,13 +4,16 @@ This is the core integration component that manages the multi-layer AI agent
 """
 import copy
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
 from ai_layers.layer0_validation.input_validator import InputValidator
-from ai_layers.layer1_ai_engine.ai_engine import AIEngine
 
 logger = logging.getLogger(__name__)
+
+# NOTE: Do not import AIEngine at module level — it pulls in PyTorch (~huge RAM).
+# On Render free (512MB), set SKIP_LAYER1_MODEL=true and PyTorch never loads.
 
 
 class LayerOrchestrator:
@@ -45,49 +48,60 @@ class LayerOrchestrator:
         self.ai_engine = None
         self.layer1_available = False
 
-        # Supported model filenames — add more if teammate uses different name
-        backend_root = Path(__file__).resolve().parent.parent
-        layer1_root = backend_root / "ai_layers" / "layer1_ai_engine"
-        # Check both "model" and "models" (common naming variations)
-        model_dirs = [layer1_root / "model", layer1_root / "models"]
-
-        possible_model_names = [
-            "best_model.pth",   # original expected name
-            "best.pth",         # teammate might use this
-            "model.pth",
-            "model_final.pth",
-            "streetlight.pth",
-        ]
-
-        model_path = None
-        for models_dir in model_dirs:
-            if not models_dir.exists():
-                continue
-            for name in possible_model_names:
-                candidate = models_dir / name
-                if candidate.exists():
-                    model_path = candidate
-                    logger.info(f"✓ Found model file: {name} in {models_dir.name}/")
-                    break
-            if model_path is not None:
-                break
-
-        if model_path is None:
-            # No local model found; use default path so ModelLoader can fetch from HF Hub.
-            model_path = layer1_root / "models" / "best_model.pth"
-            logger.info(
-                "No local model file found in model/ or models/. "
-                "Attempting Hugging Face download to models/best_model.pth..."
+        skip_layer1 = os.getenv("SKIP_LAYER1_MODEL", "").lower() in (
+            "1", "true", "yes", "on",
+        )
+        if skip_layer1:
+            logger.warning(
+                "SKIP_LAYER1_MODEL is set — PyTorch / Layer 1 not loaded "
+                "(required on Render free ~512MB). "
+                "Layer 1 runs in fallback / manual review mode."
             )
-            logger.info("Searched for: " + ", ".join(possible_model_names))
+        else:
+            # Supported model filenames — add more if teammate uses different name
+            backend_root = Path(__file__).resolve().parent.parent
+            layer1_root = backend_root / "ai_layers" / "layer1_ai_engine"
+            model_dirs = [layer1_root / "model", layer1_root / "models"]
 
-        try:
-            self.ai_engine = AIEngine(model_path, confidence_threshold=0.68)
-            self.layer1_available = True
-            logger.info("✓ Layer 1 (AI Engine) initialized successfully")
-        except Exception as e:
-            logger.warning(f"⚠️  Layer 1 failed to load model: {e}")
-            logger.warning("⚠️  Layer 1 DISABLED — server running in fallback mode")
+            possible_model_names = [
+                "best_model.pth",
+                "best.pth",
+                "model.pth",
+                "model_final.pth",
+                "streetlight.pth",
+            ]
+
+            model_path = None
+            for models_dir in model_dirs:
+                if not models_dir.exists():
+                    continue
+                for name in possible_model_names:
+                    candidate = models_dir / name
+                    if candidate.exists():
+                        model_path = candidate
+                        logger.info(f"✓ Found model file: {name} in {models_dir.name}/")
+                        break
+                if model_path is not None:
+                    break
+
+            if model_path is None:
+                model_path = layer1_root / "models" / "best_model.pth"
+                logger.info(
+                    "No local model file found in model/ or models/. "
+                    "Attempting Hugging Face download to models/best_model.pth..."
+                )
+                logger.info("Searched for: " + ", ".join(possible_model_names))
+
+            try:
+                # Lazy import keeps PyTorch off the heap when SKIP_LAYER1_MODEL=true
+                from ai_layers.layer1_ai_engine.ai_engine import AIEngine
+
+                self.ai_engine = AIEngine(model_path, confidence_threshold=0.68)
+                self.layer1_available = True
+                logger.info("✓ Layer 1 (AI Engine) initialized successfully")
+            except Exception as e:
+                logger.warning(f"⚠️  Layer 1 failed to load model: {e}")
+                logger.warning("⚠️  Layer 1 DISABLED — server running in fallback mode")
 
         logger.info("=" * 60)
         logger.info("✅ AI Agent Ready — Layer 1: {}".format(
