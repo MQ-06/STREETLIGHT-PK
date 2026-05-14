@@ -19,7 +19,9 @@
 
 <br/>
 
-> *PUCIT — BS Computer Science — Final Year Project 2025*
+[![Download App](https://img.shields.io/badge/🚀%20Download%20the%20App-Visit%20Our%20Site-00C853?style=for-the-badge)](https://streetlight-page.vercel.app/)
+
+> *PUCIT — BS Information Technology — Final Year Project 2026*
 
 </div>
 
@@ -37,11 +39,15 @@ Pakistan's cities lose billions annually to unresolved civic failures. Citizens 
 
 <div align="center">
 
+*Click the thumbnail to watch the full demo*
+
+[![StreetLight Demo](frontend/assets/images/logo.jpg)](streetlight_demo.mp4)
+
 [![Watch Demo](https://img.shields.io/badge/▶%20Watch%20Full%20Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](streetlight_demo.mp4)
+&nbsp;&nbsp;
+[![Download App](https://img.shields.io/badge/🚀%20Get%20the%20App-00C853?style=for-the-badge)](https://streetlight-page.vercel.app/)
 
 </div>
-
-<video src="streetlight_demo.mp4" width="100%" controls title="StreetLight PK Demo"></video>
 
 ---
 
@@ -311,14 +317,14 @@ npx hardhat ignition deploy ./ignition/modules/Lock.js --network sepolia
 | **Kinzul Eman** | bitf22m015@pucit.edu.pk |
 | **Shezonia Idrees** | bitf22m044@pucit.edu.pk |
 
-**PUCIT · BS Computer Science · FYP 2025**
-
 ---
 
 <div align="center">
 
-**StreetLight PK** — *Because every broken road deserves a receipt.*
+**StreetLight PK** — *Because no civic hazard should remain in the dark.*
 
-🇵🇰 Made in Pakistan · PUCIT 2025
+[![Download App](https://img.shields.io/badge/🚀%20Download%20the%20App-streetlight--page.vercel.app-00C853?style=flat-square)](https://streetlight-page.vercel.app/)
+
+🇵🇰 Made in Pakistan · PUCIT 2026
 
 </div>
