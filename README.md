@@ -1,11 +1,3 @@
----
-title: StreetLight Classifier (HF Space)
-emoji: 🛣️
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
----
 
 <div align="center">
   <img src="frontend/assets/images/logo.jpg" alt="StreetLight PK" width="180" />
@@ -224,25 +216,6 @@ Score  < 60 ──►  REJECTED      ──►  Citizen Notified
 
 ---
 
-## Repository Structure
-
-```
-STREETLIGHT/
-├── backend/                 ← FastAPI API + full AI pipeline
-│   ├── ai_layers/           ← L0 – L5 engine modules
-│   ├── agents/              ← Complaint + resolution agents + scheduler
-│   ├── routers/             ← flutter/ and admin/ route groups
-│   ├── blockchain/          ← Web3.py + contract ABI
-│   └── model/               ← SQLAlchemy ORM models
-│
-├── frontend/                ← Flutter mobile app
-├── municipal-admin/         ← React admin portal (Vite + Tailwind)
-├── blockchain-layer/        ← Hardhat + streetLight.sol
-├── inference_service/       ← EfficientNet-B3 microservice (Docker)
-└── documentations/          ← System docs, test reports, flow diagrams
-```
-
----
 
 ## Smart Contract
 
