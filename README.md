@@ -41,9 +41,9 @@ Pakistan's cities lose billions annually to unresolved civic failures. Citizens 
 
 *Click the thumbnail to watch the full demo*
 
-[![StreetLight Demo](frontend/assets/images/logo.jpg)](streetlight_demo.mp4)
+[![StreetLight Demo](https://drive.google.com/thumbnail?id=1x070kizgMQulYHP8RQCBdd3EdAOL-qJS&sz=w1280)](https://drive.google.com/file/d/1x070kizgMQulYHP8RQCBdd3EdAOL-qJS/view?usp=sharing)
 
-[![Watch Demo](https://img.shields.io/badge/▶%20Watch%20Full%20Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](streetlight_demo.mp4)
+[![Watch Demo](https://img.shields.io/badge/▶%20Watch%20Full%20Demo-FF0000?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1x070kizgMQulYHP8RQCBdd3EdAOL-qJS/view?usp=sharing)
 &nbsp;&nbsp;
 [![Download App](https://img.shields.io/badge/🚀%20Get%20the%20App-00C853?style=for-the-badge)](https://streetlight-page.vercel.app/)
 
