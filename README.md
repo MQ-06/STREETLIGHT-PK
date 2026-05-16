@@ -304,6 +304,24 @@ npx hardhat ignition deploy ./ignition/modules/Lock.js --network sepolia
 | Database | Supabase | Managed PostgreSQL |
 | Blockchain | Ethereum Sepolia | Hardhat Ignition (one-time) |
 
+## Screenshots
+
+### 📱 Mobile App
+
+| | | | | |
+|:---:|:---:|:---:|:---:|:---:|
+| ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot_20260513_073518.jpg.jpeg) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot_20260513_073702.jpg.jpeg) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot_20260513_073720.jpg.jpeg) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot_20260513_073732.jpg.jpeg) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot_20260513_073745.jpg.jpeg) |
+
+### 🖥️ Web Dashboard
+
+| | | |
+|:---:|:---:|:---:|
+| ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20222724.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224451.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224513.png) |
+| ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224541.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224703.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224802.png) |
+| ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224821.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/Screenshot%202026-05-16%20224851.png) | ![](https://raw.githubusercontent.com/MQ-06/STREETLIGHT-PK/main/screenshots/livemap.png) |
+
+---
+
 ---
 
 ## The Team
